@@ -9,3 +9,5 @@ scripts/*-tmp.mjs
 .env
 .env.*
 !.env.example
+__pycache__/
+*.pyc

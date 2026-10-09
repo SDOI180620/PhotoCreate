@@ -13,7 +13,9 @@ import { buildRemakePlans } from '../shared/remakes.js';
 import { resolveCameraSource } from '../shared/camera-source.js';
 import { cameraPreset, normalizeCameraAngle, cameraPrompt, REFINE_PROMPT } from '../shared/camera.js';
 import { CAMERA_WORKFLOW_PATH, validateCameraWorkflow, buildCameraPipeline, buildCameraStage } from './camera-workflow.js';
-import { DEFAULT_COMFY_OUTPUT_DIR, deleteOutputFiles } from './outputs.js';
+import { deleteOutputFiles } from './outputs.js';
+import { createEnvironmentManager,defaultComfyDirectory,validateComfyDirectory,pickComfyDirectory,comfyOutputDirectory,BUNDLED_WORKFLOW_PATH,BUNDLED_CAMERA_PATH } from './environment.js';
+import { normalizeComfyUrl,testComfyConnection,publicConnectionTest } from './connection.js';
 import { WORKFLOW_NAME, WORKFLOW_PATH, convertWorkflow, validateTemplate, buildComfyPrompt, referenceKinds, workflowSummary } from './workflow.js';
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -32,8 +34,11 @@ const assetFields = body => {
   return {name, description, tags: tags.map(tag => tag.trim()).filter(Boolean)};
 };
 
-export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fetch, comfyOutputDir = DEFAULT_COMFY_OUTPUT_DIR } = {}) {
+export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fetch, comfyOutputDir, environmentOptions = {}, directoryPicker = pickComfyDirectory } = {}) {
   const store = createStore(dataDir);
+  const environment = createEnvironmentManager({dataDir,fetchImpl,...environmentOptions});
+  const closeStore=store.close;store.close=()=>{environment.close();closeStore();};
+  const outputDir = () => comfyOutputDir || comfyOutputDirectory(store.read().settings);
   const app = express();
   app.disable('x-powered-by');
   app.use((req,res,next) => {
@@ -51,6 +56,17 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   let submitting = false;
   let syncing = false;
   let submission = null;
+  let pickingDirectory = false;
+  const assertEnvironmentIdle = () => {
+    if(environment.isActive() || submitting || store.read().jobs.some(job=>ACTIVE_STATUSES.includes(job.status))) throw fail('請先暫停環境安裝與拍攝，再切換環境。',409);
+  };
+  const rememberOutputLocations = state => {
+    const directory=outputDir();
+    for(const job of state.jobs) {
+      const url=job.comfyUrl || state.settings.comfyUrl;
+      if(!job.comfyOutputDir && url===state.settings.comfyUrl && ['127.0.0.1','localhost','[::1]'].includes(new URL(url).hostname)) job.comfyOutputDir=directory;
+    }
+  };
   const stopAttempts = new Map();
   const publicState = () => {
     const state = store.read();
@@ -63,7 +79,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   async function comfyAt(base,endpoint,options = {}) {
     let response;
     try { response = await fetchImpl(`${base}${endpoint}`,{...options,signal: AbortSignal.timeout(30000)}); }
-    catch (error) { throw fail(`無法連接 ComfyUI（${base}）：${error.message}`,502); }
+    catch (error) { throw Object.assign(fail(`無法連接 ComfyUI（${base}）：${error.message}`,502),{connectionUnavailable:['ECONNREFUSED','ENOTFOUND','EHOSTUNREACH'].includes(error.cause?.code || error.code)}); }
     if (!response.ok) {
       const text = await response.text();
       let message = text;
@@ -112,12 +128,90 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     res.json({ok:true});
   });
   app.put('/api/settings',(req,res) => {
-    let url;
-    try { url = new URL(req.body.comfyUrl); } catch { throw fail('請輸入完整的 ComfyUI 網址。'); }
-    if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw fail('請輸入 http 或 https 的 ComfyUI 主機網址。');
-    const comfyUrl = url.origin;
-    store.mutate(state => {state.settings.comfyUrl = comfyUrl;});
-    res.json({comfyUrl});
+    const comfyUrl = normalizeComfyUrl(req.body.comfyUrl);
+    if(environment.isActive() && (comfyUrl !== store.read().settings.comfyUrl || req.body.comfyDirectory !== undefined && req.body.comfyDirectory !== store.read().settings.comfyDirectory)) throw fail('請先暫停環境安裝，再變更目錄或連線。',409);
+    const directory = req.body.comfyDirectory === undefined ? undefined : req.body.comfyDirectory === '' ? '' : validateComfyDirectory(req.body.comfyDirectory);
+    if(comfyUrl!==store.read().settings.comfyUrl || directory!==undefined && directory!==store.read().settings.comfyDirectory) assertEnvironmentIdle();
+    store.mutate(state => {rememberOutputLocations(state);state.settings.comfyUrl = comfyUrl;if(directory !== undefined) {state.settings.comfyDirectory = directory;state.settings.connectionMode='directory';}});
+    res.json(store.read().settings);
+  });
+  app.get('/api/environment/install',(req,res) => res.json({job:environment.status()}));
+  const installationSettings = () => store.read().settings.environmentDraft || store.read().settings;
+  app.put('/api/environment/settings',(req,res) => {
+    const comfyUrl=normalizeComfyUrl(req.body.comfyUrl),comfyDirectory=validateComfyDirectory(req.body.comfyDirectory);
+    const previous=installationSettings();
+    if(previous.comfyUrl!==comfyUrl || previous.comfyDirectory!==comfyDirectory) assertEnvironmentIdle();
+    store.mutate(state=>{state.settings.environmentDraft={comfyUrl,comfyDirectory};});
+    res.json(store.read().settings);
+  });
+  app.post('/api/environment/directory/pick',async (req,res) => {
+    if(pickingDirectory) throw fail('目錄選擇視窗已開啟。',409);
+    pickingDirectory=true;
+    try {res.json({directory:await directoryPicker(defaultComfyDirectory(store.read().settings))});} finally {pickingDirectory=false;}
+  });
+  app.get('/api/environment/plan',async (req,res) => {
+    const directory=req.query.directory || defaultComfyDirectory(store.read().settings);
+    if(!directory) return res.json({directory:'',resources:[],missingCoreNodes:[],connectionError:'',message:'選擇 ComfyUI 目錄後，即可檢查環境。'});
+    const plan=environment.plan(directory),missingCoreNodes=[];let connectionError='',cameraReady=false;
+    const base=req.query.url ? normalizeComfyUrl(req.query.url) : installationSettings().comfyUrl;
+    try {
+      for(const type of ['TextEncodeQwenImage21','QwenImage21Cache','QwenMultiangleCameraNode']) {
+        const info=await comfyJson(`/object_info/${type}`,{},base);
+        if(!info[type]) {if(type!=='QwenMultiangleCameraNode') missingCoreNodes.push(type);}
+        else if(type==='QwenMultiangleCameraNode') {
+          const fields={...info[type].input?.required,...info[type].input?.optional};
+          cameraReady=fields.vertical_angle?.[1]?.min<=-90 && fields.zoom?.[1]?.max>=10;
+        }
+      }
+    } catch(error) {connectionError=error.message;}
+    res.json({...plan,missingCoreNodes,connectionError,cameraReady});
+  });
+  app.post('/api/environment/install',async (req,res) => {
+    if(store.read().jobs.some(job=>ACTIVE_STATUSES.includes(job.status))) throw fail('請先暫停拍攝製作，再安裝環境。',409);
+    const settings=installationSettings(),directory=validateComfyDirectory(req.body.directory || settings.comfyDirectory);
+    if(directory !== settings.comfyDirectory) throw fail('請先保存 ComfyUI 目錄設定。');
+    try {const queue=await comfyJson('/queue',{},settings.comfyUrl);if(queue.queue_running?.length || queue.queue_pending?.length) throw fail('ComfyUI 仍有製作中的任務，請等佇列完成後安裝。',409);} catch(error) {if(!error.connectionUnavailable) throw error;}
+    assertEnvironmentIdle();
+    if(directory!==installationSettings().comfyDirectory || settings.comfyUrl!==installationSettings().comfyUrl) throw fail('環境設定已變更，請重新檢查。',409);
+    res.status(202).json({job:environment.start(directory,{includeModels:req.body.includeModels ?? true})});
+  });
+  app.post('/api/environment/pause',(req,res) => res.json({job:environment.pause()}));
+  app.get('/api/environment/connection/workflows',async (req,res) => {
+    const url=normalizeComfyUrl(req.query.url);
+    const files=await comfyJson('/userdata?dir=workflows&recurse=true&split=false',{},url);
+    res.json(files.filter(file=>typeof file==='string' && file.endsWith('.json')));
+  });
+  const connectionOptions={bundleDir:environmentOptions.bundleDir};
+  app.post('/api/environment/connection/test',async (req,res) => res.json(publicConnectionTest(await testComfyConnection(req.body,comfyJson,connectionOptions))));
+  function bindEnvironment(result,mode,directory) {
+    assertEnvironmentIdle();
+    fs.writeFileSync(path.join(dataDir,'workflow-source.json'),JSON.stringify(result.base.ui,null,2));
+    fs.writeFileSync(path.join(dataDir,'camera-workflow-source.json'),JSON.stringify(result.angle.ui,null,2));
+    store.mutate(state=> {
+      rememberOutputLocations(state);
+      Object.assign(state.settings,{comfyUrl:result.comfyUrl,connectionMode:mode,workflowPath:result.workflowPath,cameraWorkflowPath:result.cameraWorkflowPath,connectionCheckedAt:result.checkedAt});
+      delete state.settings.environmentDraft;
+      if(mode==='directory') state.settings.comfyDirectory=directory;else delete state.settings.comfyDirectory;
+      state.workflow=result.base.graph;state.workflowName=result.workflowPath==='bundled' ? 'PhotoCreate 角色與服裝工作流' : result.workflowPath;
+      state.cameraWorkflow=result.angle.graph;state.cameraWorkflowName=result.cameraWorkflowPath==='bundled' ? 'PhotoCreate 3D 相機工作流' : result.cameraWorkflowPath;delete state.cameraWorkflowError;
+    });
+  }
+  app.post('/api/environment/connection/bind',async (req,res) => {
+    assertEnvironmentIdle();
+    const result=await testComfyConnection(req.body,comfyJson,connectionOptions);
+    if(!result.ready) return res.status(400).json({...publicConnectionTest(result),error:result.error || result.stages.flatMap(stage=>stage.errors).join(' · ')});
+    bindEnvironment(result,'url');
+    res.json(publicConnectionTest(result));
+  });
+  app.post('/api/environment/activate',async (req,res) => {
+    assertEnvironmentIdle();
+    const settings=installationSettings(),plan=environment.plan(settings.comfyDirectory);
+    if(!plan.modelsReady || !plan.filesReady) throw fail('仍有缺少或不同版本的環境檔案，請先完成安裝。');
+    const result=await testComfyConnection({comfyUrl:settings.comfyUrl,workflowPath:BUNDLED_WORKFLOW_PATH,cameraWorkflowPath:BUNDLED_CAMERA_PATH},comfyJson,connectionOptions);
+    if(!result.ready) return res.status(400).json({...publicConnectionTest(result),error:result.error || result.stages.flatMap(stage=>stage.errors).join(' · ')});
+    if(installationSettings().comfyDirectory!==plan.directory || installationSettings().comfyUrl!==settings.comfyUrl) throw fail('環境設定已變更，請重新檢查。',409);
+    bindEnvironment(result,'directory',plan.directory);
+    environment.activated();res.json({ready:true});
   });
   app.post('/api/assets/:kind',(req,res,next) => {
     if (!kinds.includes(req.params.kind)) return next(fail('圖庫類型無效。'));
@@ -281,7 +375,9 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     const imageKey = image => JSON.stringify([image.type || 'output',String(image.subfolder || '').replaceAll('\\','/'),image.filename]);
     const retained = new Set(state.jobs.filter(job => !selected.has(job.id)).flatMap(job => job.images || []).map(imageKey));
     const images = jobs.flatMap(job => job.images || []).filter(image => !retained.has(imageKey(image)));
-    const deletedFiles = deleteOutputFiles(comfyOutputDir,images);
+    const directories=[...new Set(jobs.map(job=>job.comfyOutputDir || outputDir()))];
+    if(directories.length!==1) throw fail('這些成果位於不同的 ComfyUI 目錄，請分開刪除。');
+    const deletedFiles = deleteOutputFiles(directories[0],images);
     const deletedAt = new Date().toISOString();
     store.mutate(current => {
       for(const source of jobs) {
@@ -434,6 +530,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     res.json({results,jobs:publicState().jobs});
   });
   app.post('/api/jobs/submit',async (req,res) => {
+    if(environment.isActive()) throw fail('環境安裝進行中，請完成或暫停安裝後再生成。',409);
     if (submitting) throw fail('正在送出另一批任務，請稍候。',409);
     if (!Array.isArray(req.body.ids) || !req.body.ids.length || req.body.ids.length > 100 || req.body.ids.some(id => typeof id !== 'string')) throw fail('請選擇 1–100 個草稿。');
     const snapshot = store.read();
@@ -444,6 +541,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
       if (!job || !RETRYABLE_STATUSES.includes(job.status)) throw fail('只能送出草稿、失敗或已停止的任務。');
       return job;
     });
+    store.mutate(state=>{for(const job of state.jobs) if(ids.includes(job.id)) job.comfyOutputDir=outputDir();});
     if(jobs.some(job => job.cameraMode === 'multiangle')) {
       if(jobs.some(job => job.cameraMode !== 'multiangle')) throw fail('請將原有拍攝與分階段拍攝分開送出。');
       submitting = true;
@@ -583,13 +681,13 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   store.mutate(state => {for (const job of state.jobs) if(job.status === 'submitting') {job.status = job.promptId ? 'uncertain' : 'failed';job.error = '工作檯曾中斷，請重新整理 ComfyUI 任務狀態。';}});
   // Unsubmitted drafts can adopt the corrected reference format; submitted records retain their actual prompt.
   store.mutate(state => {for (const job of state.jobs) if(job.status === 'draft' && !job.promptId && !job.apiPrompt) job.prompt = referenceOnlyPrompt(job);});
-  return {app,store,loadWorkflow,loadCameraWorkflow,stageRunner};
+  return {app,store,loadWorkflow,loadCameraWorkflow,stageRunner,environment};
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const {app,store,loadWorkflow,loadCameraWorkflow} = createApp({dataDir:process.env.PHOTOCREATE_DATA_DIR || undefined});
   const port = Number(process.env.PHOTOCREATE_PORT || 4310);
   app.listen(port,'127.0.0.1',() => console.log(`PhotoCreate: http://127.0.0.1:${port}`));
-  loadCameraWorkflow().catch(error => {store.mutate(state => {state.cameraWorkflowError = error.message;});console.log('相機工作流：' + error.message);});
-  if (!store.read().workflow) loadWorkflow().then(() => console.log('Qwen workflow loaded: 3 reference pictures')).catch(error => console.log(error.message));
+  if(store.read().settings.cameraWorkflowPath!=='bundled') loadCameraWorkflow(store.read().settings.cameraWorkflowPath || CAMERA_WORKFLOW_PATH).catch(error => {store.mutate(state => {state.cameraWorkflowError = error.message;});console.log('相機工作流：' + error.message);});
+  if (!store.read().workflow) loadWorkflow(store.read().settings.workflowPath || WORKFLOW_PATH).then(() => console.log('Qwen workflow loaded: character and clothing references')).catch(error => console.log(error.message));
 }

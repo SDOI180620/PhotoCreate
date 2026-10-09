@@ -1,0 +1,173 @@
+{
+  "version": 1,
+  "name": "PhotoCreate Qwen 寫真環境",
+  "nodeSource": "https://github.com/jtydhr88/ComfyUI-qwenmultiangle",
+  "enhancements": "俯仰 −90 / −60、Zoom 9 / 10；保留目前使用的 Python 與 3D 前端加強版。",
+  "resources": [
+    {
+      "id": "portrait-workflow",
+      "label": "角色與服裝工作流",
+      "kind": "workflow",
+      "source": "workflows/Qwen Image 2.1/02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖.json",
+      "target": "user/default/workflows/PhotoCreate/02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖.json",
+      "size": 15761,
+      "sha256": "b055cb238809c4d4448d3ea4d80b34d1321ab7363ab6fe2eb6ab9031097e9c91"
+    },
+    {
+      "id": "camera-workflow",
+      "label": "3D 相機工作流",
+      "kind": "workflow",
+      "source": "workflows/Qwen Multiangle/01 Qwen 2511 - 單圖 3D 相機換角度.json",
+      "target": "user/default/workflows/PhotoCreate/01 Qwen 2511 - 單圖 3D 相機換角度.json",
+      "size": 18038,
+      "sha256": "de1409e5d32e0b72a263f9e30a1e0ac43c297cb88d60a168e2e134da5e9247b8"
+    },
+    {
+      "id": "camera-node-__init__.py",
+      "label": "相機加強節點 · __init__.py",
+      "kind": "node",
+      "source": "custom_nodes/ComfyUI-qwenmultiangle/__init__.py",
+      "target": "custom_nodes/ComfyUI-qwenmultiangle/__init__.py",
+      "size": 427,
+      "sha256": "2beb3f6cdabbd63bd8d6d07d2f2438638aad453aa9bc4e7d30a1383de2f21efb"
+    },
+    {
+      "id": "camera-node-nodes.py",
+      "label": "相機加強節點 · nodes.py",
+      "kind": "node",
+      "source": "custom_nodes/ComfyUI-qwenmultiangle/nodes.py",
+      "target": "custom_nodes/ComfyUI-qwenmultiangle/nodes.py",
+      "size": 10239,
+      "sha256": "96b4cc7dd0f5ee17b52db851e1f4a2714a750e3ff9069eda87500c3c161c39d3"
+    },
+    {
+      "id": "camera-node-camera_glossary.py",
+      "label": "相機加強節點 · camera_glossary.py",
+      "kind": "node",
+      "source": "custom_nodes/ComfyUI-qwenmultiangle/camera_glossary.py",
+      "target": "custom_nodes/ComfyUI-qwenmultiangle/camera_glossary.py",
+      "size": 2919,
+      "sha256": "2e3607203a72dc3d90ab17100fbd5cf28c85a3ed5fdf30ce9ef285c2bc722782"
+    },
+    {
+      "id": "camera-node-js-main.js",
+      "label": "相機加強節點 · js/main.js",
+      "kind": "node",
+      "source": "custom_nodes/ComfyUI-qwenmultiangle/js/main.js",
+      "target": "custom_nodes/ComfyUI-qwenmultiangle/js/main.js",
+      "size": 1081053,
+      "sha256": "d9a27ce93b0c5540b625ed8881aaee940e0bf12c19a42e0071bcc52c831585f9"
+    },
+    {
+      "id": "camera-node-LICENSE",
+      "label": "相機加強節點 · LICENSE",
+      "kind": "node",
+      "source": "custom_nodes/ComfyUI-qwenmultiangle/LICENSE",
+      "target": "custom_nodes/ComfyUI-qwenmultiangle/LICENSE",
+      "size": 1087,
+      "sha256": "26ba9a341f8f915f8ea9782aefd6bc96762c47096e1aad4f6955af6864f6c984"
+    },
+    {
+      "id": "camera-node-pyproject.toml",
+      "label": "相機加強節點 · pyproject.toml",
+      "kind": "node",
+      "source": "custom_nodes/ComfyUI-qwenmultiangle/pyproject.toml",
+      "target": "custom_nodes/ComfyUI-qwenmultiangle/pyproject.toml",
+      "size": 407,
+      "sha256": "982b182ec2e64dc9476f4afcdb9192e9471013c1467ba54745773cb01d768b73"
+    },
+    {
+      "id": "camera-node-README.md",
+      "label": "相機加強節點 · README.md",
+      "kind": "node",
+      "source": "custom_nodes/ComfyUI-qwenmultiangle/README.md",
+      "target": "custom_nodes/ComfyUI-qwenmultiangle/README.md",
+      "size": 771,
+      "sha256": "65d6b4cbc1b4dcb98d1923c7005611815828be19208d45a800561d7f59142ded"
+    },
+    {
+      "id": "model-qwen-image-2.1-UC-int8_convrot",
+      "kind": "model",
+      "label": "qwen-image-2.1-UC-int8_convrot.safetensors",
+      "target": "models/diffusion_models/qwen-image-2.1-UC-int8_convrot.safetensors",
+      "size": 7256796840,
+      "sha256": "5bc5a6c007eff1e0d4004344a24c4af966b9d2c83d142e613b0d456ccceb19ae",
+      "url": "https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/6b34e59458d3eb7ba6a6f86a116aed5253dc02c3/qwen-image-2.1-UC-int8_convrot.safetensors",
+      "sourceUrl": "https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/blob/6b34e59458d3eb7ba6a6f86a116aed5253dc02c3/qwen-image-2.1-UC-int8_convrot.safetensors",
+      "repository": "abenzerps/Qwen-Image-2.1-Uncensored-GGUF",
+      "revision": "6b34e59458d3eb7ba6a6f86a116aed5253dc02c3"
+    },
+    {
+      "id": "model-qwen3vl_8b_bf16",
+      "kind": "model",
+      "label": "qwen3vl_8b_bf16.safetensors",
+      "target": "models/text_encoders/qwen3vl_8b_bf16.safetensors",
+      "size": 17534334616,
+      "sha256": "68bdc82bc1b66851162ae656225e7e2068166b603db19bd5d5a3b90eb12669a9",
+      "url": "https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/6b34e59458d3eb7ba6a6f86a116aed5253dc02c3/text_encoders/qwen3vl_8b_bf16.safetensors",
+      "sourceUrl": "https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/blob/6b34e59458d3eb7ba6a6f86a116aed5253dc02c3/text_encoders/qwen3vl_8b_bf16.safetensors",
+      "repository": "abenzerps/Qwen-Image-2.1-Uncensored-GGUF",
+      "revision": "6b34e59458d3eb7ba6a6f86a116aed5253dc02c3"
+    },
+    {
+      "id": "model-qwen_image_2.1_vae_bf16",
+      "kind": "model",
+      "label": "qwen_image_2.1_vae_bf16.safetensors",
+      "target": "models/vae/qwen_image_2.1_vae_bf16.safetensors",
+      "size": 675509688,
+      "sha256": "bb21f7473051e1ac368515dd3f2e15cd44d7a11748ee8823e1ddca3e4876b7c9",
+      "url": "https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/6b34e59458d3eb7ba6a6f86a116aed5253dc02c3/vae/qwen_image_2.1_vae_bf16.safetensors",
+      "sourceUrl": "https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/blob/6b34e59458d3eb7ba6a6f86a116aed5253dc02c3/vae/qwen_image_2.1_vae_bf16.safetensors",
+      "repository": "abenzerps/Qwen-Image-2.1-Uncensored-GGUF",
+      "revision": "6b34e59458d3eb7ba6a6f86a116aed5253dc02c3"
+    },
+    {
+      "id": "model-qwen_image_edit_2511_fp8mixed",
+      "kind": "model",
+      "label": "qwen_image_edit_2511_fp8mixed.safetensors",
+      "target": "models/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors",
+      "size": 20533762817,
+      "sha256": "c9fdc158e46d3b61ef75f21ae866ca2fe808bf4a53643120d1c1e87c19280a4e",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/f68ace85e60b4a02a323e394253731947657b7d2/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/blob/f68ace85e60b4a02a323e394253731947657b7d2/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors",
+      "repository": "Comfy-Org/Qwen-Image-Edit_ComfyUI",
+      "revision": "f68ace85e60b4a02a323e394253731947657b7d2"
+    },
+    {
+      "id": "model-qwen_2.5_vl_7b_fp8_scaled",
+      "kind": "model",
+      "label": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "target": "models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "size": 9384670680,
+      "sha256": "cb5636d852a0ea6a9075ab1bef496c0db7aef13c02350571e388aea959c5c0b4",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/1f12b17be14c89b026c51a91d67c32f84bb047bc/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/blob/1f12b17be14c89b026c51a91d67c32f84bb047bc/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "repository": "Comfy-Org/Qwen-Image_ComfyUI",
+      "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc"
+    },
+    {
+      "id": "model-qwen_image_vae",
+      "kind": "model",
+      "label": "qwen_image_vae.safetensors",
+      "target": "models/vae/qwen_image_vae.safetensors",
+      "size": 253806246,
+      "sha256": "a70580f0213e67967ee9c95f05bb400e8fb08307e017a924bf3441223e023d1f",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/1f12b17be14c89b026c51a91d67c32f84bb047bc/split_files/vae/qwen_image_vae.safetensors",
+      "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/blob/1f12b17be14c89b026c51a91d67c32f84bb047bc/split_files/vae/qwen_image_vae.safetensors",
+      "repository": "Comfy-Org/Qwen-Image_ComfyUI",
+      "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc"
+    },
+    {
+      "id": "model-qwen-image-edit-2511-multiple-angles-lora",
+      "kind": "model",
+      "label": "qwen-image-edit-2511-multiple-angles-lora.safetensors",
+      "target": "models/loras/qwen-image-edit-2511-multiple-angles-lora.safetensors",
+      "size": 295140688,
+      "sha256": "42426ded4e25fd22879d9e198b857556445ef4ca56e8da3246d0345155bb6765",
+      "url": "https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA/resolve/e3066224ab74263f4a5b6179cd1a3b0a15577e44/qwen-image-edit-2511-multiple-angles-lora.safetensors",
+      "sourceUrl": "https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA/blob/e3066224ab74263f4a5b6179cd1a3b0a15577e44/qwen-image-edit-2511-multiple-angles-lora.safetensors",
+      "repository": "fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA",
+      "revision": "e3066224ab74263f4a5b6179cd1a3b0a15577e44"
+    }
+  ]
+}

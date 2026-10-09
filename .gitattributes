@@ -1,0 +1,2 @@
+# Keep bundled resources byte-exact for the install manifest's SHA-256 checks.
+bundles/comfyui/** -text whitespace=cr-at-eol

@@ -613,3 +613,25 @@ code,pre {font-family:var(--font-mono)}
 @media(max-width:470px) {.camera-numbers {gap:8px}.camera-numbers select {font-size:10px}.gallery-card-actions.has-angle {grid-template-columns:0.8fr 1fr 1.2fr}}
 
 .stage-transition-note {display:block;margin-top:7px;font-size:10px;color:var(--color-text-dim)}
+
+.environment-setup {display:grid;gap:16px}
+.environment-modes {display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.environment-modes button {display:flex;align-items:center;gap:12px;padding:17px;text-align:left;background:var(--color-bg);border:1px solid var(--color-border);border-radius:10px;cursor:pointer;color:var(--color-text)}
+.environment-directory {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:5px}
+.environment-modes button[aria-pressed="true"] {border-color:var(--color-primary);background:var(--color-surface)}
+.environment-modes small {display:block;margin-top:5px;font-size:11px;color:var(--color-text-dim)}
+.environment-actions {display:flex;gap:10px;flex-wrap:wrap}
+.environment-plan,.environment-test,.environment-progress {padding:18px;border:1px solid var(--color-border);border-radius:10px;display:grid;gap:14px;min-width:0}
+.environment-summary {display:flex;justify-content:space-between;gap:12px;font-size:12px;flex-wrap:wrap}
+.environment-resource-row {display:flex;justify-content:space-between;gap:20px;align-items:flex-start;font-size:12px;padding:10px 0;border-bottom:1px solid var(--color-border)}
+.environment-resource-row strong {font-weight:500}.environment-resource-row span {white-space:nowrap;color:var(--color-text-dim)}
+.environment-resource-row small {display:block;margin-top:7px;color:#ac4741;overflow-wrap:anywhere}
+.environment-models summary,.environment-workflow-selection summary,.environment-manual-workflow summary {cursor:pointer;font-size:13px;padding:10px 0}
+.environment-models summary span {margin-left:12px;font-size:11px;color:var(--color-text-dim)}
+.environment-model-row {display:flex;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--color-border);font-size:12px}
+.environment-model-row div {min-width:0}.environment-model-row a,.environment-model-row small {overflow-wrap:anywhere}
+.environment-model-row small {display:block;color:var(--color-text-dim);margin-top:5px;font-size:10px}.environment-model-row span {white-space:nowrap}
+.environment-download-choice {display:flex;align-items:center;gap:8px;font-size:12px}
+.environment-progress > div {display:flex;justify-content:space-between;align-items:center;gap:12px}.environment-progress p {margin:0;overflow-wrap:anywhere;font-size:12px}
+.environment-progress progress {width:100%;accent-color:var(--color-primary);height:9px}.environment-progress small {color:var(--color-text-dim)}
+.environment-workflow-selection[open],.environment-manual-workflow[open] {display:grid;gap:14px}
