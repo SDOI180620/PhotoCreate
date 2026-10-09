@@ -295,18 +295,37 @@ function BatchRename({batch,onClose,onSave,busy}) {
 function SettingsModal({state,status,onSave,onLoad,onImport,onClose,onActivate,onBound,onBeforeTransfer,onImported,busy}) {
   const [tab,setTab] = useState('environment');
   const [paths,setPaths] = useState([]);
-  const [workflowPath,setWorkflowPath] = useState('Qwen Image 2.1/02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖.json');
+  const [workflowPath,setWorkflowPath] = useState('');
+  const [pathsLoading,setPathsLoading] = useState(true);
+  const [workflowRevision,setWorkflowRevision] = useState(0);
   const [error,setError] = useState('');
   const input = useRef(null);
-  useEffect(() => {api('/comfy/workflows').then(setPaths).catch(error => setError(error.message));},[state.settings.comfyUrl]);
+  const refreshWorkflows = () => setWorkflowRevision(value => value+1);
+  useEffect(() => {
+    let live=true;
+    setPathsLoading(true);setError('');setPaths([]);setWorkflowPath('');
+    api('/comfy/workflows').then(values => {
+      if(!live) return;
+      setPaths(values);
+      setWorkflowPath(values.includes(state.settings.workflowPath) ? state.settings.workflowPath : values.find(value => value.startsWith('PhotoCreate/') && value.includes('02 Qwen')) || values.find(value => !value.includes('3D 相機換角度')) || '');
+    }).catch(error => {if(live) setError(error.message);}).finally(() => {if(live) setPathsLoading(false);});
+    return () => {live=false;};
+  },[state.settings.comfyUrl,state.settings.workflowPath,state.settings.cameraWorkflowPath,state.settings.connectionCheckedAt,workflowRevision]);
+  const cameraPath=paths.includes(state.settings.cameraWorkflowPath) ? state.settings.cameraWorkflowPath : paths.find(value => value.startsWith('PhotoCreate/') && value.includes('3D 相機換角度')) || paths.find(value => value.includes('3D 相機換角度')) || '';
   return <Modal title="工作室設定" onClose={onClose} wide>
     <div className="settings-tabs" role="tablist" aria-label="工作室設定分頁"><button role="tab" aria-selected={tab==='environment'} onClick={()=>setTab('environment')}>環境與工作流</button><button role="tab" aria-selected={tab==='transfer'} onClick={()=>setTab('transfer')}>資料搬移</button></div>
     <div className="modal-body form-stack">
       <div hidden={tab!=='transfer'}><DataTransfer state={state} api={api} onBeforeTransfer={onBeforeTransfer} onImported={onImported} busy={busy}/></div>
       <div className="form-stack" hidden={tab!=='environment'}>
-        <EnvironmentSetup settings={state.settings} api={api} onSave={onSave} onActivate={onActivate} onBound={onBound} busy={busy}/>
+        <EnvironmentSetup settings={state.settings} api={api} onSave={onSave} onActivate={onActivate} onBound={onBound} onWorkflowsChanged={refreshWorkflows} busy={busy}/>
         <div className={`connection-message ${status.connected ? 'online' : ''}`}><span className="status-dot"/>{status.connected ? `${status.device} · ${state.settings.comfyUrl}` : status.error || '尚未連線'}</div>
-        <details className="environment-manual-workflow"><summary>手動載入與匯入工作流</summary><label>從 ComfyUI 讀取已保存的工作流<select value={workflowPath} onChange={e => setWorkflowPath(e.target.value)}>{!paths.includes(workflowPath) && <option value={workflowPath}>{workflowPath}</option>}{paths.map(value => <option key={value} value={value}>{value}</option>)}</select></label>{error && <p className="inline-error">{error}</p>}<div className="workflow-actions"><button className="button primary" disabled={busy || !status.connected} onClick={() => onLoad(workflowPath)}><RefreshCw size={16}/>載入工作流</button><button className="button secondary" disabled={busy} onClick={() => input.current.click()}><Upload size={16}/>匯入工作流 JSON</button><input ref={input} hidden type="file" accept=".json,application/json" onChange={e => {const file = e.target.files[0];e.target.value='';if(file) onImport(file);}}/></div><button className="button secondary" disabled={busy || !status.connected} onClick={() => onLoad(state.settings.cameraWorkflowPath && state.settings.cameraWorkflowPath!=='bundled' ? state.settings.cameraWorkflowPath : 'Qwen Multiangle/01 Qwen 2511 - 單圖 3D 相機換角度.json')}><RefreshCw size={15}/>載入相機工作流</button></details>
+        <details className="environment-manual-workflow"><summary>手動載入與匯入工作流</summary>
+          <p className="field-help">安裝的兩份工作流位於 PhotoCreate 資料夾。使用本機目錄時，按上方「檢查並載入」可同時載入兩份。</p>
+          <label>從 ComfyUI 讀取已保存的工作流<select aria-label="已保存的工作流" disabled={busy || pathsLoading || !paths.length} value={workflowPath} onChange={e => setWorkflowPath(e.target.value)}>{!workflowPath && <option value="">{pathsLoading ? '正在讀取工作流…' : '此 ComfyUI 尚無已保存的工作流'}</option>}{paths.map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+          {error && <p className="inline-error">{error}</p>}
+          <div className="workflow-actions"><button className="button primary" disabled={busy || pathsLoading || !status.connected || !workflowPath} onClick={() => onLoad(workflowPath)}><RefreshCw size={16}/>載入工作流</button><button className="button secondary" disabled={busy || pathsLoading} onClick={refreshWorkflows}><RefreshCw size={16}/>重新讀取清單</button><button className="button secondary" disabled={busy} onClick={() => input.current.click()}><Upload size={16}/>匯入工作流 JSON</button><input ref={input} hidden type="file" accept=".json,application/json" onChange={e => {const file = e.target.files[0];e.target.value='';if(file) onImport(file);}}/></div>
+          <button className="button secondary" disabled={busy || pathsLoading || !status.connected || !cameraPath} onClick={() => onLoad(cameraPath)}><RefreshCw size={15}/>載入相機工作流</button>
+        </details>
         <div className="workflow-summary"><div><Aperture size={22}/><strong>{state.workflow.ready ? '角色與服裝工作流已就緒' : '尚未載入工作流'}</strong></div><p>{state.workflow.name}</p>{state.workflow.ready && <><div className="workflow-stats"><span>{state.workflow.steps} steps</span><span>CFG {state.workflow.cfg}</span><span>{state.workflow.sampler} / {state.workflow.scheduler}</span></div><code>{state.workflow.model}</code></>}<p className="field-help">{'<image1>'} 角色 · {'<image2>'} 服裝</p></div>
         <div className="camera-workflow-summary"><strong>{state.cameraWorkflow?.ready ? '3D 相機工作流已就緒' : '3D 相機工作流尚未載入'}</strong><p className="field-help">{state.cameraWorkflow?.error || '換角度後使用 Qwen 2.1 低強度修正，保留內容。'}</p></div>
       </div>

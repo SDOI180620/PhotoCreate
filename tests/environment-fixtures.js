@@ -60,7 +60,7 @@ export function environmentFixture() {
   const model=Buffer.concat([length,header,payload]);
   resources.push({id:'model',kind:'model',label:'fixture.safetensors',target:'models/diffusion_models/fixture.safetensors',size:model.length,sha256:createHash('sha256').update(model).digest('hex'),url:'https://models.test/fixture.safetensors',sourceUrl:'https://models.test/fixture'});
   const manifest={name:'PhotoCreate environment fixture',version:1,resources};fs.writeFileSync(path.join(bundleDir,'manifest.json'),JSON.stringify(manifest));
-  const controls={missingModel:false,legacyCamera:false,foreignQueue:false,queueError:false,queueOffline:false,requests:[]};
+  const controls={missingModel:false,missingCamera:false,legacyCamera:false,foreignQueue:false,queueError:false,queueOffline:false,requests:[]};
   const fetchImpl=async (url,options={}) => {
     controls.requests.push({url,method:options.method || 'GET'});
     const parsed=new URL(url),route=decodeURIComponent(parsed.pathname);
@@ -71,11 +71,15 @@ export function environmentFixture() {
       if(controls.queueError) return Response.json({error:'temporary upstream error'},{status:500});
       return Response.json({queue_running:controls.foreignQueue ? [[0,'foreign-job']] : [],queue_pending:[]});
     }
-    if(route==='/userdata') return Response.json(['PhotoCreate/base.json','PhotoCreate/camera.json']);
-    if(route.startsWith('/userdata/')) return Response.json(route.includes('相機') || route.includes('camera') ? cameraUi : baseUi);
+    if(route==='/userdata') return Response.json(resources.filter(resource=>resource.kind==='workflow' && fs.existsSync(path.join(root,resource.target))).map(resource=>resource.target.replace('user/default/workflows/','')));
+    if(route.startsWith('/userdata/')) {
+      const file=path.join(root,'user/default',route.slice('/userdata/'.length));
+      return fs.existsSync(file) ? Response.json(JSON.parse(fs.readFileSync(file,'utf8'))) : new Response('',{status:404});
+    }
     if(route.startsWith('/object_info/')) {
       const type=route.split('/').at(-1),schema=structuredClone(schemas[type]);
       if(!schema) return Response.json({});
+      if(controls.missingCamera && type==='QwenMultiangleCameraNode') return Response.json({});
       if(controls.missingModel && type==='UNETLoader') schema.input.required.unet_name[0]=['unrelated-model.safetensors'];
       if(controls.legacyCamera && type==='QwenMultiangleCameraNode') {schema.input.required.vertical_angle[1].min=-30;schema.input.required.zoom[1].max=8;}
       return Response.json({[type]:schema});

@@ -5,7 +5,7 @@ const bytes = value => value===null || value===undefined ? '未知' : value>=1e9
 const inProgress = job => ['installing','downloading','verifying'].includes(job?.status);
 const labels = {installed:'已找到',different:'需更新',missing:'缺少'};
 
-export default function EnvironmentSetup({settings,api,onSave,onActivate,onBound,busy}) {
+export default function EnvironmentSetup({settings,api,onSave,onActivate,onBound,onWorkflowsChanged,busy}) {
   const [mode,setMode]=useState(settings.environmentDraft ? 'directory' : settings.connectionMode || (settings.comfyDirectory ? 'directory' : 'url'));
   const [url,setUrl]=useState(settings.environmentDraft?.comfyUrl || settings.comfyUrl),[directory,setDirectory]=useState(settings.environmentDraft?.comfyDirectory || settings.comfyDirectory || '');
   const [plan,setPlan]=useState(null),[job,setJob]=useState(null),[error,setError]=useState(''),[working,setWorking]=useState(false);
@@ -28,7 +28,7 @@ export default function EnvironmentSetup({settings,api,onSave,onActivate,onBound
   useEffect(()=> {
     if(!inFlight) return;
     let pending=false,live=true;
-    const timer=setInterval(async ()=>{if(pending) return;pending=true;try {const result=await api('/environment/install');if(live) {setJob(result.job);if(!inProgress(result.job)) await inspect(result.job.directory);}} catch(error) {if(live) setError(error.message);} finally {pending=false;}},1000);
+    const timer=setInterval(async ()=>{if(pending) return;pending=true;try {const result=await api('/environment/install');if(live) {setJob(result.job);if(!inProgress(result.job)) {await inspect(result.job.directory);onWorkflowsChanged?.();}}} catch(error) {if(live) setError(error.message);} finally {pending=false;}},1000);
     return ()=>{live=false;clearInterval(timer);};
   },[inFlight]);
   useEffect(()=>{setTested(null);setPaths([]);},[url]);
@@ -48,11 +48,12 @@ export default function EnvironmentSetup({settings,api,onSave,onActivate,onBound
         <div className="environment-summary"><span>工作流 {files.filter(row=>row.kind==='workflow').length} 組 · 相機加強節點 · 模型 {models.length} 個</span><span>需下載 {bytes(plan.missingModelBytes)} · 可用 {bytes(plan.freeBytes)}</span></div>
         <div className="environment-resource-row"><strong>角色、服裝與 3D 相機工作流</strong><span>{files.filter(row=>row.kind==='workflow').every(row=>row.status==='installed') ? '已安裝' : '待安裝'}</span></div>
         <div className="environment-resource-row"><strong>相機加強版（−90° / −60°、Zoom 9 / 10）</strong><span>{files.filter(row=>row.kind==='node').every(row=>row.status==='installed') ? '已安裝' : '待安裝'}</span></div>
+        {plan.filesReady && !plan.connectionError && !plan.cameraReady && <p className="inline-error" role="status">檔案已安裝，但 ComfyUI 尚未載入相機加強版。請重新啟動 ComfyUI，再按「檢查並載入」。</p>}
         <details className="environment-models"><summary>模型清單與下載來源 <span>{plan.modelsReady ? '全部已找到' : '有缺少的模型'}</span></summary>{models.map(row=><div className="environment-model-row" key={row.id}><div><a href={row.sourceUrl} target="_blank" rel="noreferrer">{row.label}</a><small>{row.target} · {bytes(row.size)}{row.partialBytes>0 && row.status!=='installed' ? ` · 已下載 ${bytes(row.partialBytes)}` : ''}</small></div><span>{labels[row.status]}</span></div>)}</details>
         {!!plan.missingCoreNodes?.length && <p className="inline-error">此 ComfyUI 缺少 {plan.missingCoreNodes.join('、')}。請先更新 ComfyUI，再檢查環境。</p>}
         {plan.connectionError && <p className="field-help">尚未連接 ComfyUI；可先安裝檔案，啟動 ComfyUI 後再檢查並載入。</p>}
         {!plan.modelsReady && <label className="environment-download-choice"><input type="checkbox" checked={includeModels} onChange={event=>setIncludeModels(event.target.checked)} disabled={inFlight}/>同時下載缺少的模型（{bytes(plan.missingModelBytes)}）</label>}
-        <p className="field-help">工作流安裝於 PhotoCreate 專用資料夾。更新同名節點或檔案前會保留備份，已有模型會略過。</p>
+        <p className="field-help">兩份工作流已包含在安裝套件中，會放入 user/default/workflows/PhotoCreate。安裝完成後，按「檢查並載入」綁定使用；相機節點更新後需先重啟 ComfyUI。更新檔案前會保留備份，已有模型會略過。</p>
         <div className="environment-actions"><button type="button" className="button primary" disabled={locked || inFlight || !directory.trim() || includeModels && plan.freeBytes!==null && plan.missingModelBytes>plan.freeBytes} onClick={()=>act(async()=>{await onSave({comfyUrl:url,comfyDirectory:directory});const result=await api('/environment/install',{method:'POST',body:{directory:plan.directory,includeModels}});setJob(result.job);await inspect();})}><Download size={16}/>{job?.status==='paused' || job?.status==='failed' ? '繼續安裝' : '安裝環境'}</button><button type="button" className="button secondary" disabled={locked || inFlight || !plan.modelsReady || !plan.filesReady} onClick={()=>act(async()=>{await onActivate();await inspect();const result=await api('/environment/install');setJob(result.job);})}><Link size={16}/>檢查並載入</button></div>
       </div>}
       {job && plan && job.directory===plan.directory && <div className="environment-progress" role="status"><div><strong>{job.status==='verifying' ? '驗證模型' : inFlight ? '安裝中' : job.status==='paused' ? '已暫停' : job.status==='failed' ? '安裝未完成' : '安裝完成'}</strong>{inFlight && <button type="button" className="button secondary" onClick={()=>act(async()=>{const result=await api('/environment/pause',{method:'POST'});setJob(result.job);})}><Pause size={14}/>暫停下載</button>}</div>{inFlight && <><p>{job.currentName}</p><progress max="100" value={percent}/><small>{bytes(finished)} / {bytes(job.currentTotal)} · {Math.floor(percent)}%</small></>}<p>{job.message || job.error}</p></div>}
