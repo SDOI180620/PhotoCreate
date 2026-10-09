@@ -5,6 +5,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { createStore } from './store.js';
+import { createTransferManager } from './transfer.js';
+import { LIMITS } from './transfer-schema.js';
+import { workbenchAccess } from './access.js';
 import { CATEGORIES, buildShotPlans, normalizePresetImport, referenceOnlyPrompt } from '../shared/domain.js';
 import { ACTIVE_STATUSES, RETRYABLE_STATUSES, STOPPABLE_STATUSES, defaultBatchName } from '../shared/batches.js';
 import { jobUpdateFromComfy } from './job-status.js';
@@ -37,19 +40,12 @@ const assetFields = body => {
 export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fetch, comfyOutputDir, environmentOptions = {}, directoryPicker = pickComfyDirectory } = {}) {
   const store = createStore(dataDir);
   const environment = createEnvironmentManager({dataDir,fetchImpl,...environmentOptions});
-  const closeStore=store.close;store.close=()=>{environment.close();closeStore();};
+  const transfer = createTransferManager({dataDir,store});
+  const closeStore=store.close;store.close=()=>{transfer.close();environment.close();closeStore();};
   const outputDir = () => comfyOutputDir || comfyOutputDirectory(store.read().settings);
   const app = express();
   app.disable('x-powered-by');
-  app.use((req,res,next) => {
-    if (!['127.0.0.1','localhost','::1'].includes(req.hostname)) return next(fail('僅接受本機工作檯連線。',403));
-    if (req.headers.origin) {
-      try { if (!['127.0.0.1','localhost','[::1]'].includes(new URL(req.headers.origin).hostname)) throw new Error(); }
-      catch { return next(fail('無法接受此來源的請求。',403)); }
-    }
-    if (req.headers['sec-fetch-site'] === 'cross-site') return next(fail('無法接受跨網站請求。',403));
-    next();
-  });
+  app.use(workbenchAccess());
   app.use(express.json({limit: '10mb'}));
   app.use('/uploads', express.static(path.join(dataDir,'uploads'),{ dotfiles: 'deny' }));
   const upload = multer({ storage: multer.memoryStorage(), limits: {fileSize: 25 * 1024 * 1024, files: 50} });
@@ -122,6 +118,25 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   const jobPrompt = (state,job,images) => buildCameraPipeline(job.workflowSnapshot || state.workflow,job.cameraWorkflowSnapshot || state.cameraWorkflow,job,images);
   app.get('/api/health',(req,res) => res.json({ok:true,app:'PhotoCreate'}));
   app.get('/api/state',(req,res) => res.json(publicState()));
+  app.post('/api/transfer/export',async (req,res) => res.json(await transfer.exportZip()));
+  app.get('/api/transfer/export/:token',(req,res,next) => {
+    const archive=transfer.download(req.params.token);
+    res.download(archive.path,archive.name,error=>{archive.cleanup();if(error && !res.headersSent) next(error);});
+  });
+  const transferUpload=multer({storage:multer.diskStorage({destination:transfer.uploadDir,filename:(req,file,callback)=>callback(null,`${randomUUID()}.zip`)}),limits:{fileSize:LIMITS.archive,files:1,fields:0,parts:1}}).single('archive');
+  app.post('/api/transfer/preview',(req,res,next)=> {
+    if(Number(req.headers['content-length'])>LIMITS.archive+1024**2) return next(fail('資料 ZIP 最多 2 GB。',413));
+    transferUpload(req,res,async error=> {
+      if(error) {if(req.file) fs.rmSync(req.file.path,{force:true});return next(fail(error.code==='LIMIT_FILE_SIZE' ? '資料 ZIP 最多 2 GB。' : '請選擇一個資料 ZIP。'));}
+      if(!req.file) return next(fail('請選擇資料 ZIP。'));
+      try {res.json(await transfer.prepare(req.file.path));} catch(error) {fs.rmSync(req.file.path,{force:true});next(error);}
+    });
+  });
+  app.post('/api/transfer/import',async (req,res)=> {
+    if(req.body.applyDraft && store.read().jobs.some(job=>ACTIVE_STATUSES.includes(job.status))) throw fail('拍攝進行中，請先保留目前拍攝設定，或暫停後再套用。',409);
+    res.json(await transfer.commit(req.body.token,{applyDraft:req.body.applyDraft ?? false}));
+  });
+  app.delete('/api/transfer/preview/:token',(req,res)=>{transfer.discard(req.params.token);res.json({ok:true});});
   app.put('/api/draft',(req,res) => {
     if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) throw fail('拍攝設定格式不正確。');
     store.mutate(state => {state.draft = req.body;});
@@ -681,13 +696,14 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   store.mutate(state => {for (const job of state.jobs) if(job.status === 'submitting') {job.status = job.promptId ? 'uncertain' : 'failed';job.error = '工作檯曾中斷，請重新整理 ComfyUI 任務狀態。';}});
   // Unsubmitted drafts can adopt the corrected reference format; submitted records retain their actual prompt.
   store.mutate(state => {for (const job of state.jobs) if(job.status === 'draft' && !job.promptId && !job.apiPrompt) job.prompt = referenceOnlyPrompt(job);});
-  return {app,store,loadWorkflow,loadCameraWorkflow,stageRunner,environment};
+  return {app,store,loadWorkflow,loadCameraWorkflow,stageRunner,environment,transfer};
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const {app,store,loadWorkflow,loadCameraWorkflow} = createApp({dataDir:process.env.PHOTOCREATE_DATA_DIR || undefined});
-  const port = Number(process.env.PHOTOCREATE_PORT || 4310);
-  app.listen(port,'127.0.0.1',() => console.log(`PhotoCreate: http://127.0.0.1:${port}`));
+  const port = Number(process.env.PHOTOCREATE_PORT || 8764);
+  const host = process.env.PHOTOCREATE_HOST || '0.0.0.0';
+  app.listen(port,host,() => console.log(`PhotoCreate: http://${host}:${port}`));
   if(store.read().settings.cameraWorkflowPath!=='bundled') loadCameraWorkflow(store.read().settings.cameraWorkflowPath || CAMERA_WORKFLOW_PATH).catch(error => {store.mutate(state => {state.cameraWorkflowError = error.message;});console.log('相機工作流：' + error.message);});
   if (!store.read().workflow) loadWorkflow(store.read().settings.workflowPath || WORKFLOW_PATH).then(() => console.log('Qwen workflow loaded: character and clothing references')).catch(error => console.log(error.message));
 }

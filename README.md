@@ -12,7 +12,7 @@ npm run build
 npm start
 ```
 
-打開 [http://127.0.0.1:4310](http://127.0.0.1:4310)。保持啟動程式的視窗開啟。
+伺服器預設監聽 `0.0.0.0:8764`，本機打開 [http://127.0.0.1:8764](http://127.0.0.1:8764)，同一區網的其他電腦使用 `http://這台電腦的IP:8764`。保持啟動程式的視窗開啟。
 
 開發時執行 `npm run dev`，打開 [http://127.0.0.1:5173](http://127.0.0.1:5173)。
 
@@ -175,7 +175,19 @@ Qwen Image 2.1/02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖.json
 
 第一版是關鍵字與標籤搜尋。未接入 embedding 模型或語意 RAG。未來若需要「找適合海邊夕陽的自然回眸」這類語意搜尋，可在現有資料加上 embedding 索引，再結合類別／標籤篩選；SQLite 仍可作為主要資料庫。語意搜尋的用途是取回已有提詞，最後仍由使用者選擇與確認。
 
-完整備份：先停止工作檯，再複製整個 `data` 資料夾。單獨匯出提詞 JSON 不包含圖片或拍攝任務。
+## ZIP 資料搬移
+
+開啟「工作流與連線設定」→「資料搬移」，按「匯出 ZIP」。在新環境安裝並啟動 PhotoCreate 後，於相同分頁選擇資料 ZIP、檢查預覽，再按「匯入資料」。
+
+資料包包含服裝與角色原圖、名稱、保存的提詞、標籤、整個提詞庫（包含 3D 相機名稱、水平角度、俯仰角度、Zoom 與備註），以及目前拍攝設定：候選選取、隨機模式、選填開關、比例、解析度、步數、換角度步數、修正強度、Seed 與補充／負面提詞。若保留了舊版場景圖庫，也會一起搬移。
+
+匯入採合併：既有資料不覆寫，相同圖片與相同資料／提詞內容略過；ID 相同但內容不同時，另建 ID 並重新對應拍攝設定的選取。預設勾選「套用 ZIP 內的拍攝設定」，取消即可保留這台電腦目前的拍攝設定。拍攝進行中可合併圖庫，但需取消套用拍攝設定。重複匯入相同資料包不會持續建立重複項目。
+
+ZIP 使用 `photocreate.json`（`format: PhotoCreate-library`、`version: 1`）與 `images/`，相同原圖只保存一次。匯入先逐一檢查 SHA-256、ZIP CRC、圖片格式、檔案數量與解壓大小，全部通過後才在單一 SQLite 交易寫入；寫入失敗會回收此次複製的圖片。每包 ZIP／解壓後最多 2 GB、每張圖最多 25 MB、最多 10,000 個圖片資料和 10,000 筆提詞，資料清單最多 10 MB。預覽與未下載的 ZIP 暫存 30 分鐘；關閉預覽會移除暫存。
+
+資料 ZIP 不包含成果照片、拍攝任務、模型權重、ComfyUI 目錄／網址或已綁定的工作流。新環境的模型與工作流可用「環境與工作流」安裝／驗證綁定；圖庫搬移不會修改目前連線，也不會呼叫 ComfyUI 或佔用 GPU。
+
+完整備份（包含拍攝紀錄）：先停止工作檯，再複製整個 `data` 資料夾；ComfyUI 的成果檔位於其 `output` 目錄，需另外備份。單獨匯出提詞 JSON 不包含圖片或拍攝任務。
 
 ## 驗證
 
@@ -183,10 +195,11 @@ Qwen Image 2.1/02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖.json
 npm test
 npm run build
 npm run test:ui
+npm run test:transfer-ui
 ```
 
 單元／整合測試涵蓋 JSON 驗證、批次組合、SQLite 重開與搜尋、兩張參考圖、可選表情／服裝狀態／場景互動、重製快照、舊三圖拍攝相容、任務提交、遺失回應、防止重送、拍攝組歸屬、舊資料升級與整組移除。UI 測試使用本機 Chrome 與隔離的測試資料庫／模擬 ComfyUI，涵蓋上傳、提詞管理、100 張收成一組、每頁 24 張、跨頁選取、組名保存與匯出、總覽每頁 12 組、整組生成隔離與手機版。UI 測試不會提交任務至真實 ComfyUI。
 
-可用 `PHOTOCREATE_BROWSER` 指定 Chrome／Edge 路徑，用 `PHOTOCREATE_PORT` 更改服務埠，用 `PHOTOCREATE_DATA_DIR` 指定其他資料目錄。
+可用 `PHOTOCREATE_BROWSER` 指定 Chrome／Edge 路徑，用 `PHOTOCREATE_PORT` 更改服務埠（預設 8764）、`PHOTOCREATE_HOST` 更改監聽位址（預設 `0.0.0.0`），用 `PHOTOCREATE_DATA_DIR` 指定其他資料目錄。
 
 ComfyUI API 參考：[官方基本範例](https://github.com/comfyanonymous/ComfyUI/blob/master/script_examples/basic_api_example.py)、[伺服器路由](https://github.com/comfyanonymous/ComfyUI/blob/master/server.py)、[使用者檔案路由](https://github.com/comfyanonymous/ComfyUI/blob/master/app/user_manager.py)。

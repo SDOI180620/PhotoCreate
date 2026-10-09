@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const COMFY = process.env.COMFY_URL || 'http://127.0.0.1:8188';
-const APP = process.env.APP_URL || 'http://127.0.0.1:4310';
+const APP = process.env.APP_URL || 'http://127.0.0.1:8764';
 const WORKFLOW_FILE = process.env.WORKFLOW_FILE ||
   'Z:/AI/comfulUI/ComfyUI-Easy-Install/ComfyUI/user/default/workflows/Qwen Image 2.1/01 Qwen Image 2.1 Uncensored 5090 High Quality - 文生圖.json';
 

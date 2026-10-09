@@ -1,7 +1,7 @@
 // Batch-generate 30 erotic costume reference sheets via the ComfyUI "01 文生圖" workflow,
 // then register the outputs into the PhotoCreate clothing library (garments).
 const COMFY = 'http://127.0.0.1:8188';
-const STATE = 'http://127.0.0.1:4310';
+const STATE = 'http://127.0.0.1:8764';
 const WORKFLOW_PATH = 'workflows/Qwen Image 2.1/01 Qwen Image 2.1 Uncensored 5090 High Quality - 文生圖.json';
 
 const NEGATIVE = 'person, body, mannequin, skin, face, eyes, hands, fingers, blurry, lowres, low quality, jpeg artifacts, watermark, signature, text, deformed, disfigured, extra limbs, extra fingers, mutated hands, bad anatomy, bad hands, cropped, out of frame, worst quality, jpeg artifacts, ugly, duplicate, morbid, mutilated, out of focus, dehydrated, bad proportions, fused fingers, too many fingers, long neck';

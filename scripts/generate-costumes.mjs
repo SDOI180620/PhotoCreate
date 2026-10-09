@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const COMFY = "http://127.0.0.1:8188";
-const STUDIO = "http://127.0.0.1:4310";
+const STUDIO = "http://127.0.0.1:8764";
 const WF_FILE = "Z:/AI/comfulUI/ComfyUI-Easy-Install/ComfyUI/user/default/workflows/Qwen Image 2.1/01 Qwen Image 2.1 Uncensored 5090 High Quality - \u6587\u751f\u5716.json";
 const OUTPUT_ROOT = "Z:/AI/comfulUI/ComfyUI-Easy-Install/ComfyUI/output";
 

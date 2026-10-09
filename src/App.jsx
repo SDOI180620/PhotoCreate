@@ -9,12 +9,13 @@ import ResultGallery from './ResultGallery.jsx';
 import ShotOptions from './ShotOptions.jsx';
 import CameraControl from './CameraControl.jsx';
 import EnvironmentSetup from './EnvironmentSetup.jsx';
+import DataTransfer from './DataTransfer.jsx';
+import {DEFAULT_DRAFT} from '../shared/draft.js';
 import {productionPreview,productionStatus} from '../shared/production.js';
 import { DEFAULT_CAMERA_ANGLE, cameraPreset, cameraPrompt, cameraAngleLabel, REFINE_PROMPT } from '../shared/camera.js';
 import { resolveCameraSource } from '../shared/camera-source.js';
 import { RETRYABLE_STATUSES, STOPPABLE_STATUSES } from '../shared/batches.js';
 
-const DEFAULT_DRAFT = {cameraMode:'multiangle',angleSteps:20,refineDenoise:0.2,mode:'combinations',randomCount:30,randomPoolMode:'all',randomOptional:{expression:false,clothing_state:false,interaction:false},cameraIds:['camera-full'],lightingIds:['light-window'],colorIds:['color-natural'],qualityIds:['quality-editorial'],aspectRatio:'reference',batchName:'',characterId:'',expressionId:'',clothingStateId:'',interactionId:'',sceneInteraction:'',garmentIds:[],poseIds:['pose-standing'],cameraId:'camera-full',lightingId:'light-window',colorId:'color-natural',qualityId:'quality-editorial',extra:'',negative:'blurry, low resolution, distorted anatomy, extra fingers, extra limbs, text, watermark',resolution:1536,steps:40,seed:-1,copies:1};
 const ASSET_LABELS = {garments:{name:'服裝',title:'服裝圖庫',subtitle:'每一套服裝，都是下一組寫真的起點。',icon:Shirt},characters:{name:'角色',title:'角色參考',subtitle:'保存角色的外貌與辨識特徵。',icon:UserRound}};
 const PAGES = [{id:'studio',label:'拍攝工作檯',icon:SlidersHorizontal},{id:'garments',label:'服裝圖庫',icon:Shirt},{id:'references',label:'角色參考',icon:UserRound},{id:'presets',label:'提詞資料庫',icon:FileJson},{id:'jobs',label:'拍攝清單',icon:Layers3},{id:'gallery',label:'成果畫廊',icon:Images}];
 
@@ -291,13 +292,26 @@ function BatchRename({batch,onClose,onSave,busy}) {
   return <Modal title="重新命名拍攝組" onClose={onClose}><form onSubmit={e => {e.preventDefault();onSave(name);}}><div className="modal-body"><label>拍攝組名稱<input required maxLength={200} value={name} onChange={e => setName(e.target.value)}/></label></div><div className="modal-footer"><span className="muted">這組有 {batch.total} 張照片。</span><button className="button primary" disabled={busy || !name.trim()}><Check size={16}/>保存名稱</button></div></form></Modal>;
 }
 
-function SettingsModal({state,status,onSave,onLoad,onImport,onClose,onActivate,onBound,busy}) {
+function SettingsModal({state,status,onSave,onLoad,onImport,onClose,onActivate,onBound,onBeforeTransfer,onImported,busy}) {
+  const [tab,setTab] = useState('environment');
   const [paths,setPaths] = useState([]);
   const [workflowPath,setWorkflowPath] = useState('Qwen Image 2.1/02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖.json');
   const [error,setError] = useState('');
   const input = useRef(null);
   useEffect(() => {api('/comfy/workflows').then(setPaths).catch(error => setError(error.message));},[state.settings.comfyUrl]);
-  return <Modal title="ComfyUI 與工作流" onClose={onClose} wide><div className="modal-body form-stack"><EnvironmentSetup settings={state.settings} api={api} onSave={onSave} onActivate={onActivate} onBound={onBound} busy={busy}/><div className={`connection-message ${status.connected ? 'online' : ''}`}><span className="status-dot"/>{status.connected ? `${status.device} · ${state.settings.comfyUrl}` : status.error || '尚未連線'}</div><details className="environment-manual-workflow"><summary>手動載入與匯入工作流</summary><label>從 ComfyUI 讀取已保存的工作流<select value={workflowPath} onChange={e => setWorkflowPath(e.target.value)}>{!paths.includes(workflowPath) && <option value={workflowPath}>{workflowPath}</option>}{paths.map(value => <option key={value} value={value}>{value}</option>)}</select></label>{error && <p className="inline-error">{error}</p>}<div className="workflow-actions"><button className="button primary" disabled={busy || !status.connected} onClick={() => onLoad(workflowPath)}><RefreshCw size={16}/>載入工作流</button><button className="button secondary" disabled={busy} onClick={() => input.current.click()}><Upload size={16}/>匯入工作流 JSON</button><input ref={input} hidden type="file" accept=".json,application/json" onChange={e => {const file = e.target.files[0];e.target.value='';if(file) onImport(file);}}/></div><button className="button secondary" disabled={busy || !status.connected} onClick={() => onLoad(state.settings.cameraWorkflowPath && state.settings.cameraWorkflowPath!=='bundled' ? state.settings.cameraWorkflowPath : 'Qwen Multiangle/01 Qwen 2511 - 單圖 3D 相機換角度.json')}><RefreshCw size={15}/>載入相機工作流</button></details><div className="workflow-summary"><div><Aperture size={22}/><strong>{state.workflow.ready ? '角色與服裝工作流已就緒' : '尚未載入工作流'}</strong></div><p>{state.workflow.name}</p>{state.workflow.ready && <><div className="workflow-stats"><span>{state.workflow.steps} steps</span><span>CFG {state.workflow.cfg}</span><span>{state.workflow.sampler} / {state.workflow.scheduler}</span></div><code>{state.workflow.model}</code></>}<p className="field-help">{'<image1>'} 角色 · {'<image2>'} 服裝</p></div><div className="camera-workflow-summary"><strong>{state.cameraWorkflow?.ready ? '3D 相機工作流已就緒' : '3D 相機工作流尚未載入'}</strong><p className="field-help">{state.cameraWorkflow?.error || '換角度後使用 Qwen 2.1 低強度修正，保留內容。'}</p></div></div><div className="modal-footer"><span className="muted">PhotoCreate Studio · v1.0</span><button className="button secondary" onClick={onClose}>完成</button></div></Modal>;
+  return <Modal title="工作室設定" onClose={onClose} wide>
+    <div className="settings-tabs" role="tablist" aria-label="工作室設定分頁"><button role="tab" aria-selected={tab==='environment'} onClick={()=>setTab('environment')}>環境與工作流</button><button role="tab" aria-selected={tab==='transfer'} onClick={()=>setTab('transfer')}>資料搬移</button></div>
+    <div className="modal-body form-stack">
+      <div hidden={tab!=='transfer'}><DataTransfer state={state} api={api} onBeforeTransfer={onBeforeTransfer} onImported={onImported} busy={busy}/></div>
+      <div className="form-stack" hidden={tab!=='environment'}>
+        <EnvironmentSetup settings={state.settings} api={api} onSave={onSave} onActivate={onActivate} onBound={onBound} busy={busy}/>
+        <div className={`connection-message ${status.connected ? 'online' : ''}`}><span className="status-dot"/>{status.connected ? `${status.device} · ${state.settings.comfyUrl}` : status.error || '尚未連線'}</div>
+        <details className="environment-manual-workflow"><summary>手動載入與匯入工作流</summary><label>從 ComfyUI 讀取已保存的工作流<select value={workflowPath} onChange={e => setWorkflowPath(e.target.value)}>{!paths.includes(workflowPath) && <option value={workflowPath}>{workflowPath}</option>}{paths.map(value => <option key={value} value={value}>{value}</option>)}</select></label>{error && <p className="inline-error">{error}</p>}<div className="workflow-actions"><button className="button primary" disabled={busy || !status.connected} onClick={() => onLoad(workflowPath)}><RefreshCw size={16}/>載入工作流</button><button className="button secondary" disabled={busy} onClick={() => input.current.click()}><Upload size={16}/>匯入工作流 JSON</button><input ref={input} hidden type="file" accept=".json,application/json" onChange={e => {const file = e.target.files[0];e.target.value='';if(file) onImport(file);}}/></div><button className="button secondary" disabled={busy || !status.connected} onClick={() => onLoad(state.settings.cameraWorkflowPath && state.settings.cameraWorkflowPath!=='bundled' ? state.settings.cameraWorkflowPath : 'Qwen Multiangle/01 Qwen 2511 - 單圖 3D 相機換角度.json')}><RefreshCw size={15}/>載入相機工作流</button></details>
+        <div className="workflow-summary"><div><Aperture size={22}/><strong>{state.workflow.ready ? '角色與服裝工作流已就緒' : '尚未載入工作流'}</strong></div><p>{state.workflow.name}</p>{state.workflow.ready && <><div className="workflow-stats"><span>{state.workflow.steps} steps</span><span>CFG {state.workflow.cfg}</span><span>{state.workflow.sampler} / {state.workflow.scheduler}</span></div><code>{state.workflow.model}</code></>}<p className="field-help">{'<image1>'} 角色 · {'<image2>'} 服裝</p></div>
+        <div className="camera-workflow-summary"><strong>{state.cameraWorkflow?.ready ? '3D 相機工作流已就緒' : '3D 相機工作流尚未載入'}</strong><p className="field-help">{state.cameraWorkflow?.error || '換角度後使用 Qwen 2.1 低強度修正，保留內容。'}</p></div>
+      </div>
+    </div><div className="modal-footer"><span className="muted">PhotoCreate Studio · v1.0</span><button className="button secondary" onClick={onClose}>完成</button></div>
+  </Modal>;
 }
 
 export default function App() {
@@ -315,6 +329,7 @@ export default function App() {
   const [loadError,setLoadError] = useState('');
   const initialized = useRef(false);
   const saveChain = useRef(Promise.resolve());
+  const draftSaveTimer = useRef(null);
   const toastTimer = useRef(null);
   const notify = (message,type = 'success') => {setToast({message,type});clearTimeout(toastTimer.current);toastTimer.current = setTimeout(() => setToast(null),6000);};
   const reload = async () => {const data = await api('/state');setState(data);return data;};
@@ -327,11 +342,20 @@ export default function App() {
   useEffect(() => {
     if(!initialized.current) return;
     setSaved('saving');
-    const timer = setTimeout(() => {
+    const timer = draftSaveTimer.current = setTimeout(() => {
       saveChain.current = saveChain.current.catch(() => {}).then(() => api('/draft',{method:'PUT',body:draft})).then(() => setSaved('saved')).catch(error => {setSaved('error');notify(error.message,'error');});
     },450);
     return () => clearTimeout(timer);
   },[draft]);
+  const flushDraft = async () => {
+    clearTimeout(draftSaveTimer.current);
+    saveChain.current = saveChain.current.catch(()=>{}).then(()=>api('/draft',{method:'PUT',body:draft}));
+    await saveChain.current;setSaved('saved');
+  };
+  const importedData = async result => {
+    const data=await reload();
+    if(result.draftApplied) {clearTimeout(draftSaveTimer.current);setDraft({...structuredClone(DEFAULT_DRAFT),...data.draft});}
+  };
   const activeJobs = submittingIds.length > 0 || state?.jobs.some(job => STOPPABLE_STATUSES.includes(job.status));
   useEffect(() => {
     if(!activeJobs) return;
@@ -434,7 +458,7 @@ export default function App() {
     {modal?.type === 'rename-batch' && <BatchRename batch={modal.batch} onClose={closeModal} busy={busy} onSave={name => safely(run(async () => {await api(`/batches/${modal.batch.id}`,{method:'PATCH',body:{name}});closeModal();},'拍攝組名稱已保存。'))}/>}
     {modal?.type === 'delete-batch' && <Modal title="移除整組拍攝" onClose={closeModal}><div className="modal-body"><p>確定移除「{modal.batch.name}」與組內 {modal.batch.total} 張照片的拍攝紀錄？</p><p className="muted">ComfyUI 已保存的輸出圖片會保留。</p></div><div className="modal-footer"><button className="button secondary" onClick={closeModal}>取消</button><button className="button danger" disabled={busy} onClick={() => safely(run(async () => {await api(`/batches/${modal.batch.id}`,{method:'DELETE'});closeModal();},'已移除這組拍攝。'))}><Trash2 size={16}/>移除整組</button></div></Modal>}
     {modal?.type === 'delete-job' && <Modal title="移除拍攝任務" onClose={closeModal}><div className="modal-body"><p>確定移除「{modal.job.name}」？</p><p className="muted">ComfyUI 已保存的輸出圖片會保留。</p></div><div className="modal-footer"><button className="button secondary" onClick={closeModal}>取消</button><button className="button danger" disabled={busy} onClick={() => safely(run(async () => {await api(`/jobs/${modal.job.id}`,{method:'DELETE'});closeModal();},'已移除拍攝任務。'))}><Trash2 size={16}/>移除任務</button></div></Modal>}
-    {modal?.type === 'settings' && <SettingsModal state={state} status={status} busy={busy} onClose={closeModal} onSave={settings => run(async () => {await api('/environment/settings',{method:'PUT',body:settings});},'安裝設定已保存，通過檢查後才切換環境。')} onActivate={()=>run(async()=>{const result=await api('/environment/activate',{method:'POST'});await checkConnection();return result;},'環境與工作流已就緒。')} onBound={()=>run(async()=>{await checkConnection();},'已綁定此 ComfyUI。')} onLoad={workflowPath => safely(run(() => api(workflowPath.includes('3D 相機換角度') ? '/camera-workflow/load' : '/workflow/load',{method:'POST',body:{path:workflowPath}}),'角色與服裝的 Qwen 工作流已就緒。'))} onImport={file => safely(run(async () => {const workflow = JSON.parse(await file.text());return api('/workflow/import',{method:'POST',body:{workflow,name:file.name.replace(/\.json$/,'')}});},'工作流已匯入。'))}/>}
+    {modal?.type === 'settings' && <SettingsModal state={state} status={status} busy={busy} onClose={closeModal} onBeforeTransfer={flushDraft} onImported={importedData} onSave={settings => run(async () => {await api('/environment/settings',{method:'PUT',body:settings});},'安裝設定已保存，通過檢查後才切換環境。')} onActivate={()=>run(async()=>{const result=await api('/environment/activate',{method:'POST'});await checkConnection();return result;},'環境與工作流已就緒。')} onBound={()=>run(async()=>{await checkConnection();},'已綁定此 ComfyUI。')} onLoad={workflowPath => safely(run(() => api(workflowPath.includes('3D 相機換角度') ? '/camera-workflow/load' : '/workflow/load',{method:'POST',body:{path:workflowPath}}),'角色與服裝的 Qwen 工作流已就緒。'))} onImport={file => safely(run(async () => {const workflow = JSON.parse(await file.text());return api('/workflow/import',{method:'POST',body:{workflow,name:file.name.replace(/\.json$/,'')}});},'工作流已匯入。'))}/>}
     {toast && <div className={`toast ${toast.type}`} role={toast.type === 'error' ? 'alert' : 'status'}>{toast.type === 'error' ? <Circle size={17}/> : <CheckCircle2 size={17}/>}<span>{toast.message}</span><button aria-label="關閉訊息" onClick={() => setToast(null)}><X size={16}/></button></div>}
   </div>;
 }

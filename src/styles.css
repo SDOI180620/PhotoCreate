@@ -635,3 +635,32 @@ code,pre {font-family:var(--font-mono)}
 .environment-progress > div {display:flex;justify-content:space-between;align-items:center;gap:12px}.environment-progress p {margin:0;overflow-wrap:anywhere;font-size:12px}
 .environment-progress progress {width:100%;accent-color:var(--color-primary);height:9px}.environment-progress small {color:var(--color-text-dim)}
 .environment-workflow-selection[open],.environment-manual-workflow[open] {display:grid;gap:14px}
+
+.settings-tabs {display:flex;gap:22px;padding:0 26px;border-bottom:1px solid var(--color-border);flex-shrink:0}
+.settings-tabs button {background:none;border:0;border-bottom:2px solid transparent;padding:15px 1px;color:var(--color-text-dim);font-size:13px;cursor:pointer}
+.settings-tabs button[aria-selected="true"] {color:var(--color-primary);border-bottom-color:var(--color-primary)}
+.settings-tabs button:focus-visible {outline:2px solid var(--color-primary);outline-offset:3px}
+.form-stack[hidden] {display:none}
+.data-transfer {display:grid;gap:20px}
+.data-transfer h2 {font-size:18px;font-weight:500;margin:0 0 8px}
+.data-transfer h3 {font-size:14px;font-weight:500;margin:0 0 6px}
+.transfer-card {border:1px solid var(--color-border);border-radius:10px;padding:22px;display:grid;gap:18px}
+.transfer-card-heading {display:flex;gap:13px;align-items:flex-start}
+.transfer-card-heading > svg {color:var(--color-primary);margin-top:2px;flex-shrink:0}
+.transfer-card .field-help {margin:0;line-height:1.7}
+.transfer-card > .button {justify-self:start}
+.transfer-export-card {grid-template-columns:minmax(0,1fr) auto;gap:14px}
+.transfer-export-card > .button {grid-column:2;grid-row:1 / span 2;align-self:center}
+.transfer-export-card .transfer-counts {grid-column:1}
+.transfer-counts {display:flex;gap:24px;flex-wrap:wrap;margin-left:33px;font-size:12px;color:var(--color-text-dim)}
+.transfer-counts strong {font-size:18px;font-weight:500;color:var(--color-text);margin-right:6px}
+.transfer-preview {display:grid;gap:15px;border-top:1px solid var(--color-border);padding-top:20px}
+.transfer-preview-heading {display:flex;justify-content:space-between;gap:16px;font-size:13px}
+.transfer-preview-heading span {font-size:11px;color:var(--color-text-dim)}
+.transfer-preview table {border-collapse:collapse;width:100%;font-size:12px}
+.transfer-preview th,.transfer-preview td {border-bottom:1px solid var(--color-border);padding:11px 0;text-align:right;font-weight:400}
+.transfer-preview th:first-child {text-align:left}.transfer-preview thead th {color:var(--color-text-dim);font-size:11px}
+.transfer-draft-choice {display:flex;align-items:center;gap:9px;font-size:12px}
+.transfer-draft-choice input {width:16px;height:16px;accent-color:var(--color-primary);margin:0}
+.transfer-status {display:flex;align-items:center;gap:9px;margin:0;font-size:12px;color:var(--color-primary)}
+.transfer-scope {line-height:1.8;margin:0}
