@@ -1,0 +1,18 @@
+[
+  { "id": "interaction-pool", "category": "interaction", "name": "在水池邊", "prompt": "Beside a swimming pool, sitting on the pool edge with feet in the water, wet skin glistening in the sunlight.", "tags": ["泳池", "水邊"] },
+  { "id": "interaction-classroom", "category": "interaction", "name": "在學校課桌", "prompt": "Leaning back against a school desk in an afternoon classroom, rows of desks and chairs softly blurred behind.", "tags": ["教室", "課桌"] },
+  { "id": "interaction-nurse", "category": "interaction", "name": "在保健室床鋪", "prompt": "Lying on a nurse's office cot with crisp white sheets, soft curtains and a medical cabinet in the background.", "tags": ["保健室", "白色床單"] },
+  { "id": "interaction-onsen", "category": "interaction", "name": "在溫泉", "prompt": "Soaking in a hot spring, steam rising around the shoulders, wet hair and flushed skin.", "tags": ["溫泉", "蒸汽"] },
+  { "id": "interaction-balcony", "category": "interaction", "name": "在黃昏陽台", "prompt": "On a balcony at dusk, city lights glowing softly in the background, warm rim light on the skin.", "tags": ["陽台", "黃昏"] },
+
+  { "id": "pose-hair-sweep", "category": "pose", "name": "撩髮露頸", "prompt": "Hand sweeping hair up and over one shoulder, exposing the bare neck, shoulder and jawline.", "tags": ["撩髮", "露頸"] },
+  { "id": "pose-legs-crossed", "category": "pose", "name": "雙腿交纏", "prompt": "Standing with knees together and legs crossed, thighs pressed tightly together, hips tilted.", "tags": ["交纏", "大腿"] },
+  { "id": "pose-collar-pull", "category": "pose", "name": "拉開領口", "prompt": "Fingers pulling the collar aside and downward, exposing the collarbone, shoulder and upper chest.", "tags": ["領口", "拉開"] },
+  { "id": "pose-prone-bed", "category": "pose", "name": "俯臥床上", "prompt": "Lying prone on a bed, upper body raised on elbows, legs bent behind, looking back over the shoulder.", "tags": ["俯臥", "床上"] },
+  { "id": "pose-kabedon", "category": "pose", "name": "壁咚壓牆", "prompt": "Back pressed flat against the wall, one arm pinned above the head, body pressed close and shoulders braced.", "tags": ["壁咚", "壓牆"] },
+  { "id": "pose-bend-forward", "category": "pose", "name": "彎腰前傾", "prompt": "Bending forward at the waist toward the camera, breasts swaying forward and downward, cleavage visible.", "tags": ["前傾", "乳溝"] },
+  { "id": "pose-look-back", "category": "pose", "name": "回眸露背", "prompt": "Twisting to look back over the shoulder, bare back and shoulder blades exposed, top slipped down.", "tags": ["回眸", "裸背"] },
+  { "id": "pose-supine", "category": "pose", "name": "仰躺張腿", "prompt": "Lying on the back with knees bent and legs apart, hips slightly raised off the surface.", "tags": ["仰躺", "張腿"] },
+  { "id": "pose-kneel-lean", "category": "pose", "name": "跪坐後仰", "prompt": "Kneeling with hips pressed forward, upper body leaning back, chest lifted toward the camera.", "tags": ["跪坐", "後仰"] },
+  { "id": "pose-unhook", "category": "pose", "name": "反手解扣", "prompt": "Reaching one arm behind the back to unhook the bra clasp, bare shoulder blades and back exposed.", "tags": ["解扣", "背部"] }
+]

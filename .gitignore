@@ -1,0 +1,11 @@
+node_modules/
+dist/
+data/
+test-results/
+*.log
+.codebase-memory/
+state_probe.json
+scripts/*-tmp.mjs
+.env
+.env.*
+!.env.example

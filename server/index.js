@@ -1,0 +1,595 @@
+import express from 'express';
+import multer from 'multer';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
+import { createStore } from './store.js';
+import { CATEGORIES, buildShotPlans, normalizePresetImport, referenceOnlyPrompt } from '../shared/domain.js';
+import { ACTIVE_STATUSES, RETRYABLE_STATUSES, STOPPABLE_STATUSES, defaultBatchName } from '../shared/batches.js';
+import { jobUpdateFromComfy } from './job-status.js';
+import { createStageRunner } from './stage-runner.js';
+import { buildRemakePlans } from '../shared/remakes.js';
+import { resolveCameraSource } from '../shared/camera-source.js';
+import { cameraPreset, normalizeCameraAngle, cameraPrompt, REFINE_PROMPT } from '../shared/camera.js';
+import { CAMERA_WORKFLOW_PATH, validateCameraWorkflow, buildCameraPipeline, buildCameraStage } from './camera-workflow.js';
+import { DEFAULT_COMFY_OUTPUT_DIR, deleteOutputFiles } from './outputs.js';
+import { WORKFLOW_NAME, WORKFLOW_PATH, convertWorkflow, validateTemplate, buildComfyPrompt, referenceKinds, workflowSummary } from './workflow.js';
+
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const kinds = ['garments','characters','scenes'];
+const fail = (message,status = 400) => Object.assign(new Error(message),{ status });
+const safeText = (value, max, label) => {
+  if (typeof value !== 'string' || value.length > max) throw fail(`${label}格式不正確或過長。`);
+  return value.trim();
+};
+const assetFields = body => {
+  const name = safeText(body.name,200,'名稱');
+  if (!name) throw fail('請輸入名稱。');
+  const description = safeText(body.description ?? '',20000,'描述');
+  const tags = body.tags ?? [];
+  if (!Array.isArray(tags) || tags.length > 50 || tags.some(tag => typeof tag !== 'string' || tag.length > 100)) throw fail('標籤格式不正確。');
+  return {name, description, tags: tags.map(tag => tag.trim()).filter(Boolean)};
+};
+
+export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fetch, comfyOutputDir = DEFAULT_COMFY_OUTPUT_DIR } = {}) {
+  const store = createStore(dataDir);
+  const app = express();
+  app.disable('x-powered-by');
+  app.use((req,res,next) => {
+    if (!['127.0.0.1','localhost','::1'].includes(req.hostname)) return next(fail('僅接受本機工作檯連線。',403));
+    if (req.headers.origin) {
+      try { if (!['127.0.0.1','localhost','[::1]'].includes(new URL(req.headers.origin).hostname)) throw new Error(); }
+      catch { return next(fail('無法接受此來源的請求。',403)); }
+    }
+    if (req.headers['sec-fetch-site'] === 'cross-site') return next(fail('無法接受跨網站請求。',403));
+    next();
+  });
+  app.use(express.json({limit: '10mb'}));
+  app.use('/uploads', express.static(path.join(dataDir,'uploads'),{ dotfiles: 'deny' }));
+  const upload = multer({ storage: multer.memoryStorage(), limits: {fileSize: 25 * 1024 * 1024, files: 50} });
+  let submitting = false;
+  let syncing = false;
+  let submission = null;
+  const stopAttempts = new Map();
+  const publicState = () => {
+    const state = store.read();
+    const workflow = workflowSummary(state.workflow,state.workflowName || WORKFLOW_NAME);
+    const cameraWorkflow = {ready:Boolean(state.cameraWorkflow),name:state.cameraWorkflowName || CAMERA_WORKFLOW_PATH,error:state.cameraWorkflowError || ''};
+    delete state.workflow;delete state.cameraWorkflow;
+    state.cameraWorkflow = cameraWorkflow;
+    return {...state,workflow,features:{stopJobs:true,stagedProduction:true},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
+  };
+  async function comfyAt(base,endpoint,options = {}) {
+    let response;
+    try { response = await fetchImpl(`${base}${endpoint}`,{...options,signal: AbortSignal.timeout(30000)}); }
+    catch (error) { throw fail(`無法連接 ComfyUI（${base}）：${error.message}`,502); }
+    if (!response.ok) {
+      const text = await response.text();
+      let message = text;
+      try { const data = JSON.parse(text); message = [data.error?.message || data.error, ...Object.entries(data.node_errors || {}).map(([id,detail]) => `節點 ${id}: ${detail.errors?.map(e => e.details || e.message).join('; ')}`)].filter(Boolean).join(' · ') || text; } catch { /* upstream text response */ }
+      throw fail(`ComfyUI ${response.status}: ${message.slice(0,2000)}`,502);
+    }
+    return response;
+  }
+  const comfyJson = async (endpoint,options = {},base = store.read().settings.comfyUrl) => (await comfyAt(base,endpoint,options)).json();
+  async function loadWorkflow(workflowPath = WORKFLOW_PATH) {
+    if (typeof workflowPath !== 'string' || !workflowPath.endsWith('.json') || workflowPath.includes('..')) throw fail('工作流路徑無效。');
+    const base = store.read().settings.comfyUrl;
+    const uiWorkflow = await comfyJson(`/userdata/${encodeURIComponent(`workflows/${workflowPath}`)}`,{},base);
+    const classes = [...new Set(uiWorkflow.nodes?.map(node => node.type).filter(type => !['MarkdownNote','Note'].includes(type)) || [])];
+    if (!classes.length) throw fail('工作流沒有可執行的節點。');
+    const schemas = await Promise.all(classes.map(type => comfyJson(`/object_info/${encodeURIComponent(type)}`,{},base)));
+    const graph = convertWorkflow(uiWorkflow,Object.assign({},...schemas));
+    fs.writeFileSync(path.join(dataDir,'workflow-source.json'),JSON.stringify(uiWorkflow,null,2));
+    store.mutate(state => { state.workflow = graph; state.workflowName = workflowPath.split('/').pop().replace(/\.json$/,''); });
+    return workflowSummary(graph,store.read().workflowName);
+  }
+
+  async function loadCameraWorkflow(workflowPath = CAMERA_WORKFLOW_PATH) {
+    if(typeof workflowPath !== 'string' || !workflowPath.endsWith('.json') || workflowPath.includes('..')) throw fail('相機工作流路徑無效。');
+    const base = store.read().settings.comfyUrl;
+    const ui = await comfyJson(`/userdata/${encodeURIComponent(`workflows/${workflowPath}`)}`,{},base);
+    const classes = [...new Set(ui.nodes?.map(node => node.type).filter(type => !['MarkdownNote','Note'].includes(type)) || [])];
+    const schemas = await Promise.all(classes.map(type => comfyJson(`/object_info/${encodeURIComponent(type)}`,{},base)));
+    const graph = convertWorkflow(ui,Object.assign({},...schemas),{validate:validateCameraWorkflow});
+    fs.writeFileSync(path.join(dataDir,'camera-workflow-source.json'),JSON.stringify(ui,null,2));
+    store.mutate(state => {state.cameraWorkflow = graph;state.cameraWorkflowName = workflowPath;delete state.cameraWorkflowError;});
+    return {ready:true,name:workflowPath};
+  }
+  app.post('/api/camera-workflow/load',async (req,res) => res.json(await loadCameraWorkflow(req.body.path || CAMERA_WORKFLOW_PATH)));
+  app.post('/api/camera-workflow/import',(req,res) => {
+    const graph = validateCameraWorkflow(req.body.workflow);
+    store.mutate(state => {state.cameraWorkflow = graph;state.cameraWorkflowName = safeText(req.body.name || '相機角度',200,'名稱');delete state.cameraWorkflowError;});
+    res.json({ready:true});
+  });
+  const jobPrompt = (state,job,images) => buildCameraPipeline(job.workflowSnapshot || state.workflow,job.cameraWorkflowSnapshot || state.cameraWorkflow,job,images);
+  app.get('/api/health',(req,res) => res.json({ok:true,app:'PhotoCreate'}));
+  app.get('/api/state',(req,res) => res.json(publicState()));
+  app.put('/api/draft',(req,res) => {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) throw fail('拍攝設定格式不正確。');
+    store.mutate(state => {state.draft = req.body;});
+    res.json({ok:true});
+  });
+  app.put('/api/settings',(req,res) => {
+    let url;
+    try { url = new URL(req.body.comfyUrl); } catch { throw fail('請輸入完整的 ComfyUI 網址。'); }
+    if (!['http:','https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw fail('請輸入 http 或 https 的 ComfyUI 主機網址。');
+    const comfyUrl = url.origin;
+    store.mutate(state => {state.settings.comfyUrl = comfyUrl;});
+    res.json({comfyUrl});
+  });
+  app.post('/api/assets/:kind',(req,res,next) => {
+    if (!kinds.includes(req.params.kind)) return next(fail('圖庫類型無效。'));
+    if (Number(req.headers['content-length']) > 150 * 1024 * 1024) return next(fail('每批上傳最多 150 MB。'));
+    next();
+  },upload.array('images',50), (req,res) => {
+    if (!req.files?.length) throw fail('請選擇 PNG、JPG 或 WebP 圖片。');
+    const detected = req.files.map(file => {
+      const b = file.buffer;
+      if (b.length >= 24 && b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return {ext:'.png',mime:'image/png'};
+      if (b.length >= 12 && b[0] === 255 && b[1] === 216 && b[2] === 255) return {ext:'.jpg',mime:'image/jpeg'};
+      if (b.length >= 12 && b.toString('ascii',0,4) === 'RIFF' && b.toString('ascii',8,12) === 'WEBP') return {ext:'.webp',mime:'image/webp'};
+      throw fail('只支援有效的 PNG、JPG 或 WebP 圖片。');
+    });
+    const rows = req.files.map((file,index) => {
+      const id = randomUUID();
+      const fileName = `${id}${detected[index].ext}`;
+      // Multer decodes filenames as latin1; browser FormData sends UTF-8.
+      const originalName = /[^\x00-\x7f]/.test(file.originalname) ? Buffer.from(file.originalname,'latin1').toString('utf8') : file.originalname;
+      fs.writeFileSync(path.join(dataDir,'uploads',fileName),file.buffer);
+      return { id, name: path.parse(originalName).name.slice(0,200) || '未命名', description:'',tags:[],image:`/uploads/${fileName}`,fileName,mime:detected[index].mime,createdAt:new Date().toISOString() };
+    });
+    store.mutate(state => {state[req.params.kind].unshift(...rows);});
+    res.status(201).json(rows);
+  });
+  app.patch('/api/assets/:kind/:id',(req,res) => {
+    if (!kinds.includes(req.params.kind)) throw fail('圖庫類型無效。');
+    const fields = assetFields(req.body);
+    const row = store.mutate(state => {
+      const item = state[req.params.kind].find(item => item.id === req.params.id);
+      if (!item) throw fail('找不到圖片。',404);
+      return Object.assign(item,fields);
+    });
+    res.json(row);
+  });
+  app.delete('/api/assets/:kind/:id',(req,res) => {
+    if (!kinds.includes(req.params.kind)) throw fail('圖庫類型無效。');
+    store.mutate(state => {state[req.params.kind] = state[req.params.kind].filter(row => row.id !== req.params.id);});
+    // Files remain available for saved shot snapshots.
+    res.json({ok:true});
+  });
+  app.post('/api/presets',(req,res) => {
+    const [preset] = normalizePresetImport([req.body]);
+    store.mutate(state => {
+      const index = state.presets.findIndex(row => row.id === preset.id);
+      if (index === -1) state.presets.push(preset); else state.presets[index] = preset;
+    });
+    res.json(preset);
+  });
+  app.post('/api/presets/import',(req,res) => {
+    const rows = normalizePresetImport(req.body);
+    store.mutate(state => {
+      const merged = new Map(state.presets.map(row => [row.id,row]));
+      for (const row of rows) merged.set(row.id,row);
+      state.presets = [...merged.values()];
+    });
+    res.json({count:rows.length});
+  });
+  app.get('/api/presets/search',(req,res) => {
+    const q = String(req.query.q || '').slice(0,300);
+    const category = String(req.query.category || '');
+    if(category && !Object.hasOwn(CATEGORIES,category)) throw fail('提詞分類無效。');
+    const limit = Math.max(1,Math.min(100,Number(req.query.limit) || 60));
+    const offset = Math.max(0,Number(req.query.offset) || 0);
+    res.json(store.searchPresets({q,category,limit:Math.floor(limit),offset:Math.floor(offset)}));
+  });
+  app.delete('/api/presets/:id',(req,res) => {
+    store.mutate(state => {state.presets = state.presets.filter(row => row.id !== req.params.id);});
+    res.json({ok:true});
+  });
+
+  app.get('/api/comfy/status',async (req,res) => {
+    try {
+      const stats = await comfyJson('/system_stats');
+      res.json({connected:true,device:stats.devices?.[0]?.name || 'ComfyUI',version:stats.system?.comfyui_version});
+    } catch (error) {res.json({connected:false,error:error.message});}
+  });
+  app.get('/api/comfy/workflows',async (req,res) => {
+    const files = await comfyJson('/userdata?dir=workflows&recurse=true&split=false');
+    res.json(files.filter(file => typeof file === 'string' && file.endsWith('.json')));
+  });
+  app.post('/api/workflow/load',async (req,res) => res.json(await loadWorkflow(req.body.path || WORKFLOW_PATH)));
+  app.post('/api/workflow/import',async (req,res) => {
+    let graph = req.body.workflow;
+    if (graph?.nodes) {
+      const types = [...new Set(graph.nodes.map(node => node.type).filter(type => !['MarkdownNote','Note'].includes(type)))];
+      const schemas = await Promise.all(types.map(type => comfyJson(`/object_info/${encodeURIComponent(type)}`)));
+      graph = convertWorkflow(graph,Object.assign({},...schemas));
+    }
+    graph = validateTemplate(graph?.prompt || graph);
+    const name = safeText(req.body.name || WORKFLOW_NAME,200,'工作流名稱');
+    store.mutate(state => {state.workflow = graph;state.workflowName = name;});
+    res.json(workflowSummary(graph,name));
+  });
+  app.get('/api/workflow/export',(req,res) => {
+    const state = store.read();
+    if (!state.workflow) throw fail('請先載入工作流。');
+    res.json(state.workflow);
+  });
+
+  app.post('/api/shots/preview',(req,res) => res.json(buildShotPlans(store.read(),req.body)));
+  app.post('/api/jobs', (req,res) => {
+    const plans = buildShotPlans(store.read(),req.body);
+    if(plans.some(job => job.cameraMode === 'multiangle') && !store.read().cameraWorkflow) throw fail('請先載入 3D 相機換角度工作流。');
+    const name = safeText(req.body.batchName ?? '',200,'拍攝組名稱') || defaultBatchName(plans);
+    const batch = {id:randomUUID(),name,createdAt:new Date().toISOString()};
+    const shots = plans.map(shot => ({...shot,batchId:batch.id,status:'draft',createdAt:batch.createdAt,images:[]}));
+    store.mutate(state => {state.batches.unshift(batch);state.jobs.unshift(...shots);});
+    res.status(201).json(shots);
+  });
+  app.post('/api/jobs/remake',(req,res) => {
+    const {requestId,ids,deleteSourceOnComplete = false} = req.body;
+    if(typeof requestId !== 'string' || !/^[\w-]{1,120}$/.test(requestId)) throw fail('重製請求 ID 無效。');
+    if(!Array.isArray(ids) || !ids.length || ids.length > 100 || ids.some(id => typeof id !== 'string')) throw fail('請選擇 1–100 張已完成的成果。');
+    if(typeof deleteSourceOnComplete !== 'boolean') throw fail('刪除舊圖設定無效。');
+    const state = store.read();
+    const existing = state.jobs.filter(job => job.remakeRequestId === requestId);
+    if(existing.length) {
+      const requested = [...new Set(ids)].sort();
+      if(JSON.stringify(existing.map(job => job.sourceJobId).sort()) !== JSON.stringify(requested) || existing.some(job => job.deleteSourceOnComplete !== deleteSourceOnComplete)) throw fail('此重製請求 ID 已用於另一組照片。',409);
+      return res.json({jobs:existing,created:false});
+    }
+    const createdAt = new Date().toISOString();
+    const jobs = buildRemakePlans(state,ids,{requestId,deleteSourceOnComplete}).map(shot => ({...shot,status:'draft',createdAt,images:[]}));
+    store.mutate(current => {current.jobs.unshift(...jobs);});
+    res.status(201).json({jobs,created:true});
+  });
+  app.post('/api/jobs/:id/angle',(req,res) => {
+    const {requestId,angle,name = '自訂角度',imageIndex = 0,deleteSourceOnComplete = true,angleSteps = 20,refineDenoise = 0.2} = req.body;
+    if(typeof requestId !== 'string' || !/^[\w-]{1,120}$/.test(requestId)) throw fail('換角度請求 ID 無效。');
+    const cameraAngle = normalizeCameraAngle(angle);
+    if(typeof deleteSourceOnComplete !== 'boolean' || !Number.isInteger(angleSteps) || angleSteps < 1 || angleSteps > 100 || typeof refineDenoise !== 'number' || !Number.isFinite(refineDenoise) || refineDenoise < 0.05 || refineDenoise > 0.4) throw fail('換角度製作設定無效。');
+    const cameraName = safeText(name,200,'角度名稱');if(!cameraName) throw fail('請輸入角度名稱。');
+    const state = store.read(),source = state.jobs.find(job => job.id === req.params.id);
+    if(!state.cameraWorkflow || !state.workflow) throw fail('請先載入相機與 Qwen 2.1 工作流。');
+    const existing = state.jobs.find(job => job.remakeRequestId === requestId);
+    if(existing) {
+      if(existing.jobKind !== 'angle-edit' || existing.sourceJobId !== req.params.id || existing.sourceImageIndex !== imageIndex || JSON.stringify(existing.camera?.angle) !== JSON.stringify(cameraAngle) || existing.camera?.name !== cameraName || existing.angleSteps !== angleSteps || existing.refineDenoise !== refineDenoise || existing.deleteSourceOnComplete !== deleteSourceOnComplete) throw fail('此請求 ID 已用於另一個角度。',409);
+      return res.json({job:existing,created:false});
+    }
+    if(!source || !Number.isInteger(imageIndex) || imageIndex < 0 || !source.images?.[imageIndex]) throw fail('請選擇有成果圖的拍攝。');
+    const cameraSource = resolveCameraSource(state,source,imageIndex);
+    const [plan] = buildRemakePlans(state,[source.id],{requestId,deleteSourceOnComplete});
+    const job = {...plan,jobKind:'angle-edit',cameraMode:'multiangle',executionMode:'staged',camera:{id:`angle-${requestId}`,category:'camera',name:cameraName,angle:cameraAngle,prompt:cameraPrompt(cameraAngle),tags:[]},angleSteps,refineDenoise,
+      workflowSnapshot:structuredClone(state.workflow),cameraWorkflowSnapshot:structuredClone(state.cameraWorkflow),cameraSource,sourceImage:structuredClone(cameraSource.image),sourceImageIndex:imageIndex,sourceComfyUrl:cameraSource.comfyUrl || state.settings.comfyUrl,
+      name:`${source.garment.name} · ${cameraName} · 重製 ${plan.remakeVersion}`,prompt:`${cameraPrompt(cameraAngle)}\n\n高清修正：${REFINE_PROMPT}`,status:'draft',createdAt:new Date().toISOString(),images:[]};
+    delete job.sourceInput;
+    delete job.sourceInputComfyUrl;
+    store.mutate(current => current.jobs.unshift(job));
+    res.status(201).json({job,created:true});
+  });
+  const deleteOutputs = (ids,replacedByJobId = null) => {
+    const state = store.read();
+    const jobs = [...new Set(ids)].map(id => state.jobs.find(job => job.id === id));
+    if(jobs.some(job => !job || job.status !== 'completed')) throw fail('只能刪除已完成的成果。');
+    for(const job of jobs) {
+      const base = new URL(job.comfyUrl || state.settings.comfyUrl);
+      if(!['127.0.0.1','localhost','[::1]'].includes(base.hostname)) throw fail('此成果位於其他 ComfyUI 主機，無法從本機刪除。');
+    }
+    const selected = new Set(ids);
+    const imageKey = image => JSON.stringify([image.type || 'output',String(image.subfolder || '').replaceAll('\\','/'),image.filename]);
+    const retained = new Set(state.jobs.filter(job => !selected.has(job.id)).flatMap(job => job.images || []).map(imageKey));
+    const images = jobs.flatMap(job => job.images || []).filter(image => !retained.has(imageKey(image)));
+    const deletedFiles = deleteOutputFiles(comfyOutputDir,images);
+    const deletedAt = new Date().toISOString();
+    store.mutate(current => {
+      for(const source of jobs) {
+        const job = current.jobs.find(row => row.id === source.id);
+        job.images = [];job.outputsDeletedAt = deletedAt;
+        if(replacedByJobId) job.replacedByJobId = replacedByJobId;
+      }
+    });
+    return {deletedJobs:jobs.length,deletedFiles};
+  };
+  const cleanupRemakes = () => {
+    const jobs = store.read().jobs.filter(job => job.status === 'completed' && job.images?.length && job.sourceJobId && job.deleteSourceOnComplete && !job.sourceCleanupAt);
+    for(const job of jobs) {
+      try {
+        const source = store.read().jobs.find(row => row.id === job.sourceJobId);
+        if(source?.images?.length) deleteOutputs([source.id],job.id);
+        store.mutate(state => {Object.assign(state.jobs.find(row => row.id === job.id),{sourceCleanupAt:new Date().toISOString(),sourceCleanupError:null});});
+      } catch(error) {
+        store.mutate(state => {const current = state.jobs.find(row => row.id === job.id);if(current) current.sourceCleanupError = error.message;});
+      }
+    }
+  };
+  app.post('/api/jobs/outputs/delete',(req,res) => {
+    const {ids} = req.body;
+    if(!Array.isArray(ids) || !ids.length || ids.length > 100 || ids.some(id => typeof id !== 'string')) throw fail('請選擇 1–100 張成果。');
+    res.json(deleteOutputs(ids));
+  });
+  app.patch('/api/batches/:id',(req,res) => {
+    const name = safeText(req.body.name,200,'拍攝組名稱');
+    if(!name) throw fail('請輸入拍攝組名稱。');
+    const batch = store.mutate(state => {
+      const item = state.batches.find(row => row.id === req.params.id);
+      if(!item) throw fail('找不到拍攝組。',404);
+      item.name = name;return item;
+    });
+    res.json(batch);
+  });
+  app.delete('/api/batches/:id',(req,res) => {
+    store.mutate(state => {
+      if(!state.batches.some(row => row.id === req.params.id)) throw fail('找不到拍攝組。',404);
+      const jobs = state.jobs.filter(job => job.batchId === req.params.id);
+      if(jobs.some(job => ACTIVE_STATUSES.includes(job.status) || submission?.ids.has(job.id))) throw fail('這組仍有傳送、生成或停止中的照片，請等處理完成後再移除。');
+      state.jobs = state.jobs.filter(job => job.batchId !== req.params.id);
+      state.batches = state.batches.filter(batch => batch.id !== req.params.id);
+    });
+    res.json({ok:true});
+  });
+  app.delete('/api/jobs/:id',(req,res) => {
+    store.mutate(state => {
+      const job = state.jobs.find(row => row.id === req.params.id);
+      if (job && (ACTIVE_STATUSES.includes(job.status) || submission?.ids.has(job.id))) throw fail('請等任務完成或確認停止後再移除。');
+      state.jobs = state.jobs.filter(row => row.id !== req.params.id);
+      if(job?.batchId && !state.jobs.some(row => row.batchId === job.batchId)) state.batches = state.batches.filter(batch => batch.id !== job.batchId);
+    });
+    res.json({ok:true});
+  });
+  async function uploadReference(asset,base) {
+    if (!asset?.fileName || path.basename(asset.fileName) !== asset.fileName) throw fail('參考圖檔名無效。');
+    const buffer = fs.readFileSync(path.join(dataDir,'uploads',asset.fileName));
+    const form = new FormData();
+    form.append('image',new Blob([buffer],{type:asset.mime}),asset.fileName);
+    form.append('type','input');
+    form.append('subfolder','PhotoCreate');
+    const result = await (await comfyAt(base,'/upload/image',{method:'POST',body:form})).json();
+    return result.subfolder ? `${result.subfolder}/${result.name}` : result.name;
+  }
+  async function uploadAngleSource(job,base) {
+    if(job.sourceInput && job.sourceInputComfyUrl === base) return job.sourceInput;
+    const cachedInput = job.sourceInput && job.sourceInputComfyUrl;
+    const source = cachedInput ? {filename:path.posix.basename(job.sourceInput),subfolder:path.posix.dirname(job.sourceInput) === '.' ? '' : path.posix.dirname(job.sourceInput),type:'input'} : job.sourceImage;
+    if(!source?.filename || !['input','output','temp'].includes(source.type || 'output')) throw fail('原始成果圖資料無效。');
+    const response = await comfyAt(cachedInput ? job.sourceInputComfyUrl : job.sourceComfyUrl || base,`/view?${new URLSearchParams({filename:source.filename,subfolder:source.subfolder || '',type:source.type || 'output'})}`);
+    const blob = new Blob([await response.arrayBuffer()],{type:response.headers.get('content-type') || 'image/png'});
+    const form = new FormData();form.append('image',blob,`angle-source-${job.id}.png`);form.append('type','input');form.append('subfolder','PhotoCreate');
+    const result = await (await comfyAt(base,'/upload/image',{method:'POST',body:form})).json();
+    if(!result.name) throw fail('原始成果圖上傳失敗。');
+    const input = result.subfolder ? `${result.subfolder}/${result.name}` : result.name;
+    store.mutate(state => Object.assign(state.jobs.find(row => row.id === job.id),{sourceInput:input,sourceInputComfyUrl:base}));
+    return input;
+  }
+  const stopRequested = id => Boolean(store.read().jobs.find(job => job.id === id)?.stopRequestedAt);
+  const waitingForSubmission = id => submission?.currentId === id && submission.phase === 'sending' || stageRunner.sending(id);
+  const reconcileJob = (job,queue,history) => job.executionMode === 'staged' ? stageRunner.reconcile(job,queue,history) : store.mutate(state => {
+    const current = state.jobs.find(row => row.id === job.id);
+    if (!current || current.promptId !== job.promptId || ['completed','stopped'].includes(current.status)) return;
+    // A sync started before Stop must not overwrite the newer stop state.
+    if (current.stopRequestedAt && !job.stopRequestedAt) return;
+    Object.assign(current,jobUpdateFromComfy(current,queue,history));
+  });
+  async function stopRemoteJob(job) {
+    const key = `${job.id}:${job.promptId}`;
+    if (stopAttempts.has(key)) return stopAttempts.get(key);
+    const promise = (async () => {
+      const base = job.comfyUrl || store.read().settings.comfyUrl;
+      // ComfyUI's per-job API checks the running prompt atomically. Never use
+      // a global interrupt or clear the shared ComfyUI queue.
+      const result = await comfyJson(`/api/jobs/${encodeURIComponent(job.promptId)}/cancel`,{method:'POST'},base);
+      if (typeof result.cancelled !== 'boolean') throw fail('ComfyUI 未確認取消結果，請更新狀態或再次停止。',502);
+      if (result.cancelled) store.mutate(state => {
+        const current = state.jobs.find(row => row.id === job.id);
+        if (current?.promptId === job.promptId) current.stopDispatchedAt = new Date().toISOString();
+      });
+      const [queue,history] = await Promise.all([comfyJson('/queue',{},base),comfyJson(`/history/${encodeURIComponent(job.promptId)}`,{},base)]);
+      reconcileJob(job,queue,history);
+      return store.read().jobs.find(row => row.id === job.id);
+    })();
+    stopAttempts.set(key,promise);
+    try {return await promise;} finally {stopAttempts.delete(key);}
+  }
+  const stageRunner = createStageRunner({store,comfyJson,comfyAt,uploadReference,uploadAngleSource,onCompleted:cleanupRemakes,onStop:stopRemoteJob});
+  app.post('/api/jobs/stop',async (req,res) => {
+    const {ids,batchId,all} = req.body || {};
+    if ([ids !== undefined,batchId !== undefined,all !== undefined].filter(Boolean).length !== 1) throw fail('請指定任務、拍攝組或全部製作。');
+    const snapshot = store.read();
+    let selected;
+    if (all !== undefined) {
+      if (all !== true) throw fail('全部停止參數無效。');
+      selected = snapshot.jobs;
+    } else if (batchId !== undefined) {
+      if (typeof batchId !== 'string' || !snapshot.batches.some(batch => batch.id === batchId)) throw fail('找不到拍攝組。',404);
+      selected = snapshot.jobs.filter(job => job.batchId === batchId);
+    } else {
+      if (!Array.isArray(ids) || !ids.length || ids.length > 100 || ids.some(id => typeof id !== 'string')) throw fail('請選擇 1–100 個任務。');
+      selected = [...new Set(ids)].map(id => snapshot.jobs.find(job => job.id === id));
+      if (selected.some(job => !job)) throw fail('找不到拍攝任務。',404);
+    }
+    const targets = selected.filter(job => job.status !== 'completed' && (STOPPABLE_STATUSES.includes(job.status) || submission?.waiting.has(job.id) || submission?.currentId === job.id));
+    store.mutate(state => {
+      for (const target of targets) {
+        const job = state.jobs.find(row => row.id === target.id);
+        job.stopRequestedAt ||= new Date().toISOString();
+        const unsent = stageRunner.waiting(job.id) || submission?.waiting.has(job.id) || (submission?.currentId === job.id && submission.phase === 'uploading');
+        Object.assign(job,{status:unsent ? 'stopped' : 'stopping',error:null,...(unsent ? {finishedAt:new Date().toISOString()} : {})});
+      }
+    });
+    const results = [];
+    for (const target of targets) {
+      const job = store.read().jobs.find(row => row.id === target.id);
+      if (job.status === 'stopped' || waitingForSubmission(job.id)) {results.push({id:job.id,ok:true,status:job.status});continue;}
+      try {
+        if (!job.promptId) throw fail('任務沒有 ComfyUI ID，尚無法確認停止。',409);
+        const current = await stopRemoteJob(job);
+        results.push({id:job.id,ok:current.status !== 'uncertain',status:current.status,error:current.error});
+      } catch (error) {
+        store.mutate(state => {const current = state.jobs.find(row => row.id === job.id);if (current?.promptId === job.promptId) Object.assign(current,{status:'uncertain',error:`停止尚未確認：${error.message}`});});
+        results.push({id:job.id,ok:false,error:error.message});
+      }
+    }
+    cleanupRemakes();
+    res.json({results,jobs:publicState().jobs});
+  });
+  app.post('/api/jobs/submit',async (req,res) => {
+    if (submitting) throw fail('正在送出另一批任務，請稍候。',409);
+    if (!Array.isArray(req.body.ids) || !req.body.ids.length || req.body.ids.length > 100 || req.body.ids.some(id => typeof id !== 'string')) throw fail('請選擇 1–100 個草稿。');
+    const snapshot = store.read();
+    if (!snapshot.workflow) throw fail('請先載入 Qwen 工作流。');
+    const ids = [...new Set(req.body.ids)];
+    const jobs = ids.map(id => {
+      const job = snapshot.jobs.find(row => row.id === id);
+      if (!job || !RETRYABLE_STATUSES.includes(job.status)) throw fail('只能送出草稿、失敗或已停止的任務。');
+      return job;
+    });
+    if(jobs.some(job => job.cameraMode === 'multiangle')) {
+      if(jobs.some(job => job.cameraMode !== 'multiangle')) throw fail('請將原有拍攝與分階段拍攝分開送出。');
+      submitting = true;
+      try {return res.json(await stageRunner.start(ids,snapshot));} finally {submitting = false;}
+    }
+    if(stageRunner.hasWork()) throw fail('分階段製作中，請完成或暫停後再送出原有拍攝。',409);
+    submitting = true;
+    submission = {ids:new Set(ids),waiting:new Set(ids),currentId:null,phase:null};
+    // A retry is a new attempt. Clear only old stop markers before the loop;
+    // requests made during this submission must remain effective.
+    store.mutate(state => {for (const job of state.jobs) if (submission.ids.has(job.id)) {delete job.stopRequestedAt;delete job.stopDispatchedAt;}});
+    const results = [];
+    const uploaded = new Map();
+    try {
+      for (const job of jobs) {
+        if (stopRequested(job.id)) {results.push({id:job.id,ok:false,stopped:true});continue;}
+        submission.waiting.delete(job.id);
+        submission.currentId = job.id;
+        submission.phase = 'uploading';
+        store.mutate(state => {const current = state.jobs.find(row => row.id === job.id);delete current.promptId;delete current.finishedAt;Object.assign(current,{status:'submitting',error:null});});
+        let attemptedPrompt = false;
+        try {
+          const images = {};
+          if(job.jobKind === 'angle-edit') images.source = await uploadAngleSource(job,snapshot.settings.comfyUrl);
+          for (const kind of job.jobKind === 'angle-edit' ? [] : referenceKinds(job)) {
+            const asset = job[kind];
+            if (!uploaded.has(asset.id)) uploaded.set(asset.id,await uploadReference(asset,snapshot.settings.comfyUrl));
+            images[kind] = uploaded.get(asset.id);
+            if (stopRequested(job.id)) break;
+          }
+          if (stopRequested(job.id)) {results.push({id:job.id,ok:false,stopped:true});continue;}
+          const prompt = jobPrompt(snapshot,job,images);
+          if(job.cameraMode === 'multiangle') store.mutate(state => Object.assign(state.jobs.find(row => row.id === job.id),{workflowSnapshot:job.workflowSnapshot || structuredClone(snapshot.workflow),cameraWorkflowSnapshot:job.cameraWorkflowSnapshot || structuredClone(snapshot.cameraWorkflow)}));
+          // Save the exact graph before submitting. A stable prompt_id allows
+          // reconciliation if ComfyUI receives the request but the reply is lost.
+          const promptId = randomUUID();
+          store.mutate(state => {Object.assign(state.jobs.find(row => row.id === job.id),{promptId,comfyUrl:snapshot.settings.comfyUrl,apiPrompt:prompt});});
+          attemptedPrompt = true;
+          submission.phase = 'sending';
+          const result = await comfyJson('/prompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,prompt_id:promptId,client_id:'photocreate-studio'})},snapshot.settings.comfyUrl);
+          if (!result.prompt_id) throw fail('ComfyUI 回應缺少 prompt_id。',502);
+          submission.phase = 'queued';
+          store.mutate(state => {const current = state.jobs.find(row => row.id === job.id);Object.assign(current,{status:current.stopRequestedAt ? 'stopping' : 'queued',promptId:result.prompt_id,submittedAt:new Date().toISOString()});});
+          if (stopRequested(job.id)) {
+            const current = await stopRemoteJob(store.read().jobs.find(row => row.id === job.id));
+            results.push(current.status === 'uncertain' ? {id:job.id,ok:false,error:current.error} : current.status === 'completed' ? {id:job.id,ok:true} : {id:job.id,ok:false,stopped:true});
+          } else results.push({id:job.id,ok:true});
+        } catch (error) {
+          // An ambiguous network result must never become a retryable draft.
+          const ambiguous = attemptedPrompt && !/^ComfyUI 4\d\d:/.test(error.message);
+          store.mutate(state => {Object.assign(state.jobs.find(row => row.id === job.id),{status:ambiguous ? 'uncertain' : 'failed',error:error.message});});
+          submission.phase = 'queued';
+          if (stopRequested(job.id) && !attemptedPrompt) store.mutate(state => {Object.assign(state.jobs.find(row => row.id === job.id),{status:'stopped',error:null,finishedAt:new Date().toISOString()});});
+          results.push({id:job.id,ok:false,error:error.message});
+          break;
+        }
+      }
+    } finally { submitting = false;submission = null; }
+    res.json({results});
+  });
+  app.post('/api/jobs/sync',async (req,res) => {
+    if (syncing) return res.json(publicState().jobs);
+    syncing = true;
+    try {
+      await stageRunner.tick();
+      const jobs = store.read().jobs.filter(job => job.executionMode !== 'staged' && ['queued','running','stopping','uncertain'].includes(job.status) && job.promptId);
+      const queues = new Map();
+      for (const job of jobs) {
+        const base = job.comfyUrl || store.read().settings.comfyUrl;
+        try {
+          if (waitingForSubmission(job.id)) continue;
+          if(job.executionMode === 'staged' && job.stageWaiting) continue;
+          if (job.stopRequestedAt) {await stopRemoteJob(job);continue;}
+          if (!queues.has(base)) queues.set(base,await comfyJson('/queue',{},base));
+          const history = await comfyJson(`/history/${encodeURIComponent(job.promptId)}`,{},base);
+          reconcileJob(job,queues.get(base),history);
+        } catch { /* Preserve status during connection outages. */ }
+      }
+      cleanupRemakes();
+      res.json(publicState().jobs);
+    } finally { syncing = false; }
+  });
+  app.get('/api/jobs/:id/prompt',(req,res) => {
+    const state = store.read();
+    const job = state.jobs.find(row => row.id === req.params.id);
+    if (!job) throw fail('找不到拍攝任務。',404);
+    if(job.executionMode === 'staged') {
+      const names = job.jobKind === 'angle-edit' ? ['angle','refine'] : ['base','angle','refine'];
+      const templates = [job.workflowSnapshot || state.workflow,job.cameraWorkflowSnapshot || state.cameraWorkflow];
+      const references = Object.fromEntries(referenceKinds(job).map(kind => [kind,`PhotoCreate/${job[kind].fileName}`]));
+      const sourceFor = stage => {
+        if(stage === 'angle' && job.jobKind === 'angle-edit') return job.sourceInput || `PhotoCreate/angle-source-${job.id}.png`;
+        const previous = stage === 'angle' ? 'base' : 'angle',image = job.stageResults?.[previous]?.images?.[0];
+        return job.stageInputs?.[stage]?.image || (image ? `${image.subfolder ? image.subfolder+'/' : ''}${image.filename} [${image.type || 'output'}]` : `PhotoCreate/_stages/${job.id}/${previous}_00001_.png [output]`);
+      };
+      const stages = names.map(stage => ({stage,prompt:job.stageResults?.[stage]?.apiPrompt || buildCameraStage(...templates,job,stage,stage === 'base' ? references : {source:sourceFor(stage)})}));
+      return res.json({executionMode:'staged',prompt:job.apiPrompt || stages[0].prompt,stages,note:'工作檯依整組分階段執行，階段間釋放模型。手動執行時須依序完成每階段，再使用實際的中間圖檔名。'});
+    }
+    if (job.apiPrompt) return res.json({prompt:job.apiPrompt});
+    if (!state.workflow) throw fail('請先載入工作流。');
+    const images = job.jobKind === 'angle-edit' ? {source:job.sourceInput || `PhotoCreate/angle-source-${job.id}.png`} : Object.fromEntries(referenceKinds(job).map(kind => [kind,`PhotoCreate/${job[kind].fileName}`]));
+    res.json({prompt:jobPrompt(state,job,images),note:job.jobKind === 'angle-edit' ? '由工作檯送出會自動上傳原始成果圖。' : `執行前請將 ${referenceKinds(job).length} 張參考圖放進 ComfyUI/input/PhotoCreate，或直接由工作檯送出。`});
+  });
+  app.get('/api/jobs/:id/angle-source',async (req,res) => {
+    const state = store.read(),job = state.jobs.find(row => row.id === req.params.id);
+    if(!job) throw fail('找不到拍攝任務。',404);
+    const index = Number(req.query.index ?? 0);
+    if(!Number.isInteger(index) || index < 0 || index > 99) throw fail('原圖索引無效。');
+    const source = resolveCameraSource(state,job,index),image = source.image;
+    const response = await comfyAt(source.comfyUrl || state.settings.comfyUrl,`/view?${new URLSearchParams({filename:image.filename,subfolder:image.subfolder || '',type:image.type || 'output'})}`);
+    res.set('Content-Type',response.headers.get('content-type') || 'image/png');
+    res.send(Buffer.from(await response.arrayBuffer()));
+  });
+  app.get('/api/jobs/:id/image/:index',async (req,res) => {
+    const job = store.read().jobs.find(row => row.id === req.params.id);
+    const stage = req.query.stage;
+    if(stage !== undefined && !['base','angle'].includes(stage)) throw fail('圖片階段無效。');
+    const source = stage === undefined ? job : job?.stageResults?.[stage];
+    const image = job && !job.outputsDeletedAt && (stage === undefined || source?.completed) ? source?.images?.[Number(req.params.index)] : null;
+    if (!image) throw fail('找不到輸出圖片。',404);
+    const query = new URLSearchParams({filename:image.filename,subfolder:image.subfolder || '',type:image.type || 'output'});
+    const response = await comfyAt(source.comfyUrl || job.comfyUrl || store.read().settings.comfyUrl,`/view?${query}`);
+    res.set('Content-Type',response.headers.get('content-type') || 'image/png');
+    if (req.query.download) res.attachment(path.basename(image.filename));
+    res.send(Buffer.from(await response.arrayBuffer()));
+  });
+
+  if (fs.existsSync(path.join(rootDir,'dist'))) {
+    app.use(express.static(path.join(rootDir,'dist')));
+    app.get('/{*path}',(req,res) => res.sendFile(path.join(rootDir,'dist','index.html')));
+  }
+  app.use((error,req,res,next) => {
+    const message = error instanceof multer.MulterError ? (error.code === 'LIMIT_FILE_SIZE' ? '每張圖片最多 25 MB。' : '每批最多 50 張圖片，請分批匯入。') : error.message;
+    res.status(error.status || 400).json({error:message});
+  });
+  // A process restart cannot determine if a request was received by ComfyUI.
+  store.mutate(state => {for (const job of state.jobs) if(job.status === 'submitting') {job.status = job.promptId ? 'uncertain' : 'failed';job.error = '工作檯曾中斷，請重新整理 ComfyUI 任務狀態。';}});
+  // Unsubmitted drafts can adopt the corrected reference format; submitted records retain their actual prompt.
+  store.mutate(state => {for (const job of state.jobs) if(job.status === 'draft' && !job.promptId && !job.apiPrompt) job.prompt = referenceOnlyPrompt(job);});
+  return {app,store,loadWorkflow,loadCameraWorkflow,stageRunner};
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const {app,store,loadWorkflow,loadCameraWorkflow} = createApp({dataDir:process.env.PHOTOCREATE_DATA_DIR || undefined});
+  const port = Number(process.env.PHOTOCREATE_PORT || 4310);
+  app.listen(port,'127.0.0.1',() => console.log(`PhotoCreate: http://127.0.0.1:${port}`));
+  loadCameraWorkflow().catch(error => {store.mutate(state => {state.cameraWorkflowError = error.message;});console.log('相機工作流：' + error.message);});
+  if (!store.read().workflow) loadWorkflow().then(() => console.log('Qwen workflow loaded: 3 reference pictures')).catch(error => console.log(error.message));
+}

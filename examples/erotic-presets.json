@@ -1,0 +1,22 @@
+[
+  { "id": "expression-hazy-eyes", "category": "expression", "name": "迷濛醉眼", "prompt": "Half-lidded seductive eyes with a hazy, dazed gaze, relaxed eyelids, dreamy and alluring expression.", "tags": ["性感", "迷濛"] },
+  { "id": "expression-lipbite", "category": "expression", "name": "咬唇喘息", "prompt": "Lower lip gently caught between white teeth, parted lips with a soft breathless gasp, flushed cheeks.", "tags": ["咬唇", "喘息"] },
+  { "id": "expression-lip-lick", "category": "expression", "name": "舔唇誘惑", "prompt": "Tongue tip lightly licking the upper lip, glossy wet lips, playful seductive expression.", "tags": ["舔唇", "俏皮"] },
+  { "id": "expression-orgasm", "category": "expression", "name": "高潮失神", "prompt": "Eyes rolled back and unfocused, mouth slightly open in a breathless gasp, flushed skin, dazed ecstatic expression.", "tags": ["高潮", "失神"] },
+  { "id": "expression-blush", "category": "expression", "name": "羞紅臉頰", "prompt": "Deep blush spreading across cheeks, ears and neckline, shy averted gaze, timid embarrassed smile.", "tags": ["臉紅", "害羞"] },
+  { "id": "expression-smirk", "category": "expression", "name": "挑眉勾引", "prompt": "One eyebrow raised, sidelong knowing glance with a teasing smirk, confident seductive expression.", "tags": ["挑逗", "自信"] },
+
+  { "id": "clothing-off-shoulder", "category": "clothing_state", "name": "上衣滑落露肩", "prompt": "Top slipped off one shoulder, bare shoulder and collarbone exposed, strap hanging loose along the arm.", "tags": ["露肩", "滑落"] },
+  { "id": "clothing-topless", "category": "clothing_state", "name": "半褪露胸", "prompt": "Blouse partially unbuttoned and slipping down, breasts partially exposed with natural soft weight, fabric hanging open.", "tags": ["半裸", "露胸"] },
+  { "id": "clothing-wet-panties", "category": "clothing_state", "name": "內衣微濕", "prompt": "White cotton panties slightly damp, subtle darker wetness at the crotch area, soft fabric clinging to the skin.", "tags": ["濕潤", "內衣"] },
+  { "id": "clothing-unbuttoned", "category": "clothing_state", "name": "鈕扣崩開", "prompt": "Shirt buttons undone and fabric falling open, cleavage and chest exposed, collar spread wide.", "tags": ["敞開", "乳溝"] },
+  { "id": "clothing-stockings", "category": "clothing_state", "name": "絲襪半褪", "prompt": "Thigh-high stockings slipped down to mid-thigh, fabric gathered at the top edge, bare skin of upper thigh exposed.", "tags": ["長襪", "半褪"] },
+  { "id": "clothing-skirt-lift", "category": "clothing_state", "name": "裙襬掀開", "prompt": "Skirt hem lifted upward by one hand, thighs and panties revealed, fabric bunched softly in the fingers.", "tags": ["掀裙", "內褲"] },
+
+  { "id": "interaction-prone-bed", "category": "interaction", "name": "俯臥床上", "prompt": "Lying prone on a bed, upper body raised on elbows, legs bent behind, mattress supporting the body with soft indentations.", "tags": ["床", "俯臥"] },
+  { "id": "interaction-kabedon", "category": "interaction", "name": "壁咚壓牆", "prompt": "Back pressed flat against the wall, one arm pinned above the head, body pressed close and shoulders braced.", "tags": ["壁咚", "壓牆"] },
+  { "id": "interaction-strap-pull", "category": "interaction", "name": "拉下肩帶", "prompt": "Fingers hooking a shoulder strap and sliding it slowly down the arm, baring the shoulder.", "tags": ["肩帶", "拉下"] },
+  { "id": "interaction-hair-sweep", "category": "interaction", "name": "撩髮露頸", "prompt": "Hand sweeping hair up and over one shoulder, exposing the bare neck, shoulder and jawline.", "tags": ["撩髮", "露頸"] },
+  { "id": "interaction-legs-crossed", "category": "interaction", "name": "雙腿交纏", "prompt": "Standing with knees together and legs crossed, thighs pressed tightly together, hips tilted.", "tags": ["交纏", "大腿"] },
+  { "id": "interaction-collar-pull", "category": "interaction", "name": "拉開領口", "prompt": "Fingers pulling the collar aside and downward, exposing the collarbone, shoulder and upper chest.", "tags": ["領口", "拉開"] }
+]

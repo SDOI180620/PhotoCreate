@@ -1,0 +1,22 @@
+[
+  { "id": "camera-overhead", "category": "camera", "name": "俯視全身", "prompt": "camera directly overhead looking straight down, bird's-eye view, her body stretched out below with arms and legs relaxed toward the edges of the frame", "tags": ["俯視", "全身"] },
+  { "id": "camera-high-angle", "category": "camera", "name": "高角度俯視", "prompt": "camera high above at an angle, looking down on her upper body, face and chest prominent in the frame", "tags": ["高角度", "上半身"] },
+  { "id": "camera-side-half", "category": "camera", "name": "側半身平視", "prompt": "camera at her eye level capturing her from the side, half-body framing, the curve of her body in profile", "tags": ["側面", "半身"] },
+  { "id": "camera-shoulder-closeup", "category": "camera", "name": "回眸特寫", "prompt": "camera close behind her shoulder, close-up of her face as she glances back over her shoulder at the lens", "tags": ["回眸", "特寫"] },
+  { "id": "camera-chest-closeup", "category": "camera", "name": "胸部特寫", "prompt": "close-up of her chest and collarbone, shallow depth of field, face softly cropped above the frame", "tags": ["胸部", "特寫"] },
+  { "id": "camera-upskirt", "category": "camera", "name": "裙下仰拍", "prompt": "camera low in front of her feet, looking up along her legs, skirt and thighs filling the frame", "tags": ["裙底", "仰拍"] },
+  { "id": "camera-back-curve", "category": "camera", "name": "裸背曲線", "prompt": "camera behind her at shoulder level, capturing the curve of her bare back and shoulders", "tags": ["裸背", "曲線"] },
+  { "id": "camera-recline-side", "category": "camera", "name": "側臥平視", "prompt": "camera at pillow level, her reclining body extending diagonally across the frame", "tags": ["側臥", "床上"] },
+  { "id": "camera-thigh-closeup", "category": "camera", "name": "大腿特寫", "prompt": "close-up on her hips and thighs, soft skin texture, upper body cropped out of frame", "tags": ["大腿", "特寫"] },
+  { "id": "camera-face-closeup", "category": "camera", "name": "面部大特寫", "prompt": "extreme close-up of her face, eyes and lips filling the frame, flushed breathless expression", "tags": ["面部", "特寫"] },
+  { "id": "camera-foot-of-bed", "category": "camera", "name": "床尾視角", "prompt": "camera low at the foot of the bed, looking along her body toward the head, feet closer to the lens", "tags": ["床尾", "低角度"] },
+  { "id": "camera-mirror", "category": "camera", "name": "鏡中反射", "prompt": "shot in a mirror reflection, her reflected pose facing the mirror, soft bedroom light", "tags": ["鏡子", "反射"] },
+  { "id": "camera-backlit", "category": "camera", "name": "逆光剪影", "prompt": "camera backlit by window light, silhouette of her body with a soft rim light tracing her curves", "tags": ["逆光", "剪影"] },
+  { "id": "camera-waterline", "category": "camera", "name": "水面視角", "prompt": "camera at water level just above the surface, her wet shoulders and collarbone breaking the waterline", "tags": ["水面", "泳池"] },
+  { "id": "camera-neckline", "category": "camera", "name": "俯視胸線", "prompt": "looking down at her neckline and collarbone, cleavage soft in the lower frame", "tags": ["胸線", "俯視"] },
+  { "id": "camera-three-quarter-back", "category": "camera", "name": "側後方視角", "prompt": "camera behind her at three-quarter angle, capturing her back and profile as she looks back", "tags": ["側後", "回眸"] },
+  { "id": "camera-low-side", "category": "camera", "name": "低角度側面", "prompt": "camera low at her hip level from the side, legs and hips in the foreground", "tags": ["低角度", "側面"] },
+  { "id": "camera-pov", "category": "camera", "name": "第一人稱視角", "prompt": "first-person POV from her partner's eyes, her body reaching toward the camera", "tags": ["POV", "第一人稱"] },
+  { "id": "camera-half-body-front", "category": "camera", "name": "正面半身平視", "prompt": "camera at eye level framing her from the waist up, soft natural light, facing the lens", "tags": ["正面", "半身"] },
+  { "id": "camera-full-side", "category": "camera", "name": "側面全身", "prompt": "camera capturing her full body in side silhouette against soft light, full figure in profile", "tags": ["側面", "全身"] }
+]

@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "expression-gentle-smile",
+      "category": "expression",
+      "name": "溫柔微笑",
+      "prompt": "A gentle smile with relaxed lips and warm eyes.",
+      "tags": ["微笑", "自然"]
+    },
+    {
+      "id": "clothing-state-rolled-sleeves",
+      "category": "clothing_state",
+      "name": "袖子捲至手肘",
+      "prompt": "The sleeves are neatly rolled up to the elbows, preserving the original garment cut and fabric.",
+      "tags": ["袖子", "捲袖"]
+    },
+    {
+      "id": "pose-beach-turn",
+      "category": "pose",
+      "name": "海邊回眸",
+      "prompt": "Standing near the shoreline, turning gently to look over one shoulder, relaxed hands, natural expression, subtle wind in the hair and clothing.",
+      "tags": ["海邊", "回眸", "站姿"]
+    },
+    {
+      "id": "camera-editorial-three-quarter",
+      "category": "camera",
+      "name": "雜誌三分之二身",
+      "prompt": "Editorial three-quarter body framing, eye-level camera, 85mm lens, generous negative space, natural perspective and clear garment details.",
+      "tags": ["雜誌", "85mm", "服裝"]
+    },
+    {
+      "id": "light-seaside-sunset",
+      "category": "lighting",
+      "name": "海邊夕陽光",
+      "prompt": "Warm low-angle sunset light, soft reflected fill from the water, subtle rim light on hair and fabric, realistic lighting consistent with the scene.",
+      "tags": ["海邊", "夕陽", "暖光"]
+    },
+    {
+      "id": "color-soft-summer",
+      "category": "color",
+      "name": "柔和夏日色",
+      "prompt": "Soft summer photographic color grading, gentle warm highlights, muted blues, natural skin tones and accurate garment colors.",
+      "tags": ["夏日", "暖色", "自然"]
+    }
+  ]
+}
