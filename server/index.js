@@ -18,6 +18,7 @@ import { CATEGORIES, buildShotPlans, getOutputSize, normalizePresetImport, refer
 import { ACTIVE_STATUSES, RETRYABLE_STATUSES, STOPPABLE_STATUSES, defaultBatchName } from '../shared/batches.js';
 import { jobUpdateFromComfy } from './job-status.js';
 import { createStageRunner } from './stage-runner.js';
+import {createPresetPreviews,relatedPresetPhotos} from './preset-previews.js';
 import { buildRemakePlans } from '../shared/remakes.js';
 import { resolveSelectedPhotoSource } from '../shared/camera-source.js';
 import { PHOTO_CUSTOMIZATION_VERSION,PHOTO_CHANGE_FIELDS,PHOTO_PRESET_CATEGORIES,normalizePhotoCustomization,customPhotoPrompt,clothingDescription } from '../shared/photo-customization.js';
@@ -46,7 +47,7 @@ const assetFields = body => {
   return {name, description, tags: tags.map(tag => tag.trim()).filter(Boolean)};
 };
 
-export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fetch, comfyOutputDir, environmentOptions = {}, directoryPicker = pickComfyDirectory, publicUrl = process.env.PHOTOCREATE_PUBLIC_URL } = {}) {
+export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fetch, comfyOutputDir, environmentOptions = {}, presetPreviewOptions = {}, directoryPicker = pickComfyDirectory, publicUrl = process.env.PHOTOCREATE_PUBLIC_URL } = {}) {
   const access=workbenchAccess({publicUrl});
   const store = createStore(dataDir);
   const photoFolders=createPhotoFolders(store);
@@ -77,8 +78,9 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   let syncing = false;
   let submission = null;
   let pickingDirectory = false;
+  let presetPreviews;
   const assertEnvironmentIdle = () => {
-    if(environment.isActive() || submitting || store.read().jobs.some(job=>ACTIVE_STATUSES.includes(job.status))) throw fail('請先暫停環境安裝與拍攝，再切換環境。',409);
+    if(environment.isActive() || submitting || presetPreviews?.hasWork() || store.read().jobs.some(job=>ACTIVE_STATUSES.includes(job.status))) throw fail('請先暫停環境安裝與拍攝，再切換環境。',409);
   };
   const rememberOutputLocations = state => {
     const directory=outputDir();
@@ -117,7 +119,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     delete state.workflow;delete state.cameraWorkflow;
     state.cameraWorkflow = cameraWorkflow;
     state.photoFolders=photoFolders.list('admin');
-    return {...state,customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true,characterPools:true,gpuMemoryControl:true,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
+    return {...state,customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true,characterPools:true,gpuMemoryControl:true,presetPreviews:1,presetPreviewRatios:1,presetReview:1,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
   };
   const adminJob=(id,state=store.read())=>{
     const job=state.jobs.find(row=>row.id===id && belongsToStudio(row));
@@ -344,7 +346,10 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     const [preset] = normalizePresetImport([req.body]);
     store.mutate(state => {
       const index = state.presets.findIndex(row => row.id === preset.id);
-      if (index === -1) state.presets.push(preset); else state.presets[index] = preset;
+      if (index === -1) state.presets.push(preset); else {
+        if(preset.reviewed===undefined && state.presets[index].reviewed!==undefined) preset.reviewed=state.presets[index].reviewed;
+        state.presets[index] = preset;
+      }
     });
     res.json(preset);
   });
@@ -352,7 +357,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     const rows = normalizePresetImport(req.body);
     store.mutate(state => {
       const merged = new Map(state.presets.map(row => [row.id,row]));
-      for (const row of rows) merged.set(row.id,row);
+      for (const row of rows) merged.set(row.id,{...(merged.get(row.id)?.reviewed===undefined ? {} : {reviewed:merged.get(row.id).reviewed}),...row});
       state.presets = [...merged.values()];
     });
     res.json({count:rows.length});
@@ -364,6 +369,16 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     const limit = Math.max(1,Math.min(100,Number(req.query.limit) || 60));
     const offset = Math.max(0,Number(req.query.offset) || 0);
     res.json(store.searchPresets({q,category,limit:Math.floor(limit),offset:Math.floor(offset)}));
+  });
+  app.patch('/api/presets/:id/review',(req,res)=>{
+    if(typeof req.body?.reviewed!=='boolean') throw fail('確認狀態須為勾選或取消勾選。');
+    let preset;
+    store.mutate(state=>{
+      preset=state.presets.find(row=>row.id===req.params.id);
+      if(!preset) throw fail('找不到這個提詞。',404);
+      preset.reviewed=req.body.reviewed;
+    });
+    res.json(preset);
   });
   app.delete('/api/presets/:id',(req,res) => {
     store.mutate(state => {state.presets = state.presets.filter(row => row.id !== req.params.id);reconcileLibrarySelections(state);});
@@ -642,6 +657,18 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     try {return await promise;} finally {stopAttempts.delete(key);}
   }
   const stageRunner = createStageRunner({store,comfyJson,comfyAt,uploadReference,uploadAngleSource,onCompleted:cleanupRemakes,onStop:stopRemoteJob});
+  presetPreviews=createPresetPreviews({dataDir,store,outputDir,comfyJson,comfyAt,uploadReference,...presetPreviewOptions});
+  const closeWithStages=store.close;
+  store.close=()=>{presetPreviews.close();closeWithStages();};
+  app.get('/api/presets/:id/photos',(req,res)=>res.set('Cache-Control','no-store').json(relatedPresetPhotos(store.read(),req.params.id,{limit:Number(req.query.limit ?? 5),offset:Number(req.query.offset ?? 0),sample:req.query.sample==='1'})));
+  app.put('/api/preset-previews/:id',(req,res)=>res.set('Cache-Control','no-store').json(presetPreviews.open(req.params.id,req.body.presetId)));
+  app.get('/api/preset-previews/:id',(req,res)=>res.set('Cache-Control','no-store').json(presetPreviews.status(req.params.id)));
+  app.post('/api/preset-previews/:id/shots',(req,res)=>res.status(202).set('Cache-Control','no-store').json(presetPreviews.shoot(req.params.id,req.body)));
+  app.delete('/api/preset-previews/:id',(req,res)=>res.json(presetPreviews.stop(req.params.id)));
+  app.get('/api/preset-previews/:id/jobs/:jobId/image/:index',(req,res)=>{
+    const file=presetPreviews.imageFile(req.params.id,req.params.jobId,Number(req.params.index));
+    res.set('Cache-Control','no-store').type(path.extname(file)).send(fs.readFileSync(file));
+  });
   function queueShots(ids) {
     if(environment.isActive()) throw fail('攝影棚正在準備，請稍後再拍攝。',503);
     const snapshot=store.read();
@@ -868,7 +895,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   store.mutate(state => {for (const job of state.jobs) if(job.status === 'submitting') {job.status = job.promptId ? 'uncertain' : 'failed';job.error = '工作檯曾中斷，請重新整理 ComfyUI 任務狀態。';}});
   // Unsubmitted drafts can adopt the corrected reference format; submitted records retain their actual prompt.
   store.mutate(state => {for (const job of state.jobs) if(job.status === 'draft' && !job.promptId && !job.apiPrompt) job.prompt = referenceOnlyPrompt(job);});
-  return {app,store,authentication,loadWorkflow,loadCameraWorkflow,stageRunner,environment,transfer};
+  return {app,store,authentication,loadWorkflow,loadCameraWorkflow,stageRunner,environment,transfer,presetPreviews};
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

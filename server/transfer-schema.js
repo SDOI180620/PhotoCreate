@@ -26,7 +26,7 @@ export function imageType(buffer) {
 export function portablePresets(rows) {
   if(!Array.isArray(rows) || rows.length>LIMITS.presets) throw transferError('提詞數量超過 10,000 筆。');
   if(!rows.length) return [];
-  const input=rows.map(row=>({id:idField(row.id),category:row.category,name:row.name,prompt:row.prompt,tags:tagsField(row.tags ?? []),...(row.category==='camera' ? {angle:cameraPreset(row).angle} : {})}));
+  const input=rows.map(row=>({id:idField(row.id),category:row.category,name:row.name,prompt:row.prompt,tags:tagsField(row.tags ?? []),...(row.reviewed===undefined ? {} : {reviewed:row.reviewed}),...(row.category==='camera' ? {angle:cameraPreset(row).angle} : {})}));
   return normalizePresetImport(input).map((row,index)=>row.category==='camera' ? {...row,mappingVersion:Number.isInteger(rows[index].mappingVersion) && rows[index].mappingVersion >= 1 && rows[index].mappingVersion <= CAMERA_MAPPING_VERSION ? rows[index].mappingVersion : row.mappingVersion,mappingSource:rows[index].mappingSource==='automatic' ? 'automatic' : 'manual',mappingNote:textField(rows[index].mappingNote ?? '',2000,'角度備註')} : row);
 }
 export function portableDraft(input,assets,presets) {

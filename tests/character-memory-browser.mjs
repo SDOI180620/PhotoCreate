@@ -36,7 +36,8 @@ try {
   await picker.getByRole('button',{name:'使用所選圖片',exact:true}).click();
   await expect.poll(()=>store.read().draft.characterIds).toEqual(['character','second-character']);
   await page.getByRole('button',{name:'套用至顧客攝影棚',exact:true}).click();
-  await expect.poll(()=>store.read().customerRecipe.characterIds).toEqual(['character','second-character']);
+  await expect.poll(()=>store.read().customerRecipe?.characterIds).toEqual(['character','second-character']);
+  await expect(page.getByRole('button',{name:'套用至顧客攝影棚',exact:true})).toBeDisabled();
   await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('0');
   await expect(page.getByRole('button',{name:'套用至顧客攝影棚',exact:true})).toBeDisabled();
   await expect(page.locator('#customer-publish-reason')).toContainText('1–100');
@@ -46,14 +47,14 @@ try {
   const removed=await page.request.delete(base+'/api/presets/expression-smile');
   if(!removed.ok()) throw new Error('Could not delete the selected expression');
   await page.reload();
-  await expect(page.getByRole('button',{name:'套用至顧客攝影棚',exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:'套用至顧客攝影棚',exact:true})).toBeDisabled();
   await expect.poll(()=>store.read().draft.expressionIds).toEqual([]);
   await expect.poll(()=>store.read().workbenchDrafts.combinations.expressionIds).toEqual([]);
   await expect.poll(()=>store.read().customerRecipe.pools.expression).toEqual([]);
   await page.getByRole('button',{name:'候選組合',exact:true}).click();
   await expect(page.getByRole('button',{name:'建立拍攝清單',exact:true})).toBeEnabled();
   await page.getByRole('button',{name:'隨機寫真',exact:true}).click();
-  await expect(page.getByRole('button',{name:'套用至顧客攝影棚',exact:true})).toBeEnabled();
+  await expect(page.getByRole('button',{name:'套用至顧客攝影棚',exact:true})).toBeDisabled();
   await expect(page.locator('.prompt-preview')).not.toContainText('Compose one continuous photographic scene');
   await expect(page.locator('.prompt-preview')).not.toContainText('Extract the identity and clothing');
   await page.getByRole('button',{name:'工作流與連線設定',exact:true}).click();

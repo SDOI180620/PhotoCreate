@@ -14,7 +14,7 @@ const imagePath = image => {
 
 // Persist both stage outputs and stable prompt IDs. Every model change has a
 // cohort barrier; no later stage is queued while an earlier prompt is unconfirmed.
-export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploadAngleSource,onCompleted,onStop}) {
+export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploadAngleSource,onCompleted,onStop,preparePrompt = prompt => prompt}) {
   let busy = false,closed = false,current = null,timer = null;
   const jobsFor = run => store.read().jobs.filter(job => run.jobIds.includes(job.id) && job.stageRunId === run.id);
   const eligible = job => ['queued','submitting','running','stopping','uncertain'].includes(job.status);
@@ -91,7 +91,7 @@ export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploa
         }
       } else images.source = stage === 'angle' && job.jobKind === 'angle-edit' ? await uploadAngleSource(job,run.comfyUrl) : await previousImage(job,stage,run.comfyUrl);
       if(stopped(job.id)) {mutateJob(job.id,row => {row.status = 'stopped';row.stageWaiting = true;});return;}
-      const prompt = buildCameraStage(job.workflowSnapshot,job.cameraWorkflowSnapshot,job,stage,images),promptId = randomUUID();
+      const prompt = preparePrompt(buildCameraStage(job.workflowSnapshot,job.cameraWorkflowSnapshot,job,stage,images),job,stage),promptId = randomUUID();
       mutateJob(job.id,row => Object.assign(row,{promptId,apiPrompt:prompt,comfyUrl:run.comfyUrl,stageWaiting:false}));
       attempted = true;current.phase = 'sending';
       const result = await comfyJson('/prompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,prompt_id:promptId,client_id:'photocreate-studio'})},run.comfyUrl);
@@ -225,5 +225,5 @@ export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploa
   timer = setInterval(() => {advance().catch(() => {});},1500);timer.unref();
   const close = store.close;
   store.close = () => {closed = true;clearInterval(timer);close();};
-  return {start,tick:advance,reconcile,waiting,sending,hasWork:() => store.read().pipelineRuns?.some(run => ['active','queued'].includes(run.status)) || false};
+  return {start,tick:advance,reconcile,waiting,sending,processing:id=>current?.id===id,hasWork:() => store.read().pipelineRuns?.some(run => ['active','queued'].includes(run.status)) || false};
 }

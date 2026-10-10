@@ -1,0 +1,13 @@
+.preset-review-mark {display:inline-flex;align-items:center;flex-shrink:0;color:var(--color-primary);vertical-align:middle}
+.preset-review-toggle {display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:4px 6px;font-size:10px;color:var(--color-text-dim)}
+.preset-review-toggle[aria-pressed="true"] {color:var(--color-primary);background:var(--color-soft)}
+.preset-review-toggle:hover:not(:disabled) {background:var(--color-soft);color:var(--color-primary)}
+.preset-editor .preset-review-field {display:flex;flex-direction:row;align-items:center;gap:8px;color:var(--color-primary);font-size:12px}
+.preset-review-field input[type="checkbox"] {width:15px;height:15px;margin:0;accent-color:var(--color-primary)}
+.pool-option-copy {flex:1;min-width:0}
+.pool-option .pool-option-title {display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.shot-tag.shot-tag-link {display:inline-flex;align-items:center;gap:4px;text-align:left}
+.shot-tag-link:hover {background:var(--color-secondary);color:var(--color-primary)}
+.shot-tag-link .preset-review-mark svg {width:12px;height:12px}
+.shot-option-link {display:inline-flex;align-items:center;gap:5px;text-align:left;color:var(--color-primary);padding:0;overflow-wrap:anywhere}
+.shot-option-link:hover {text-decoration:underline;text-underline-offset:3px}

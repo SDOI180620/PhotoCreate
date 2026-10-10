@@ -143,11 +143,12 @@ export function normalizePresetImport(input) {
     if(row.category === 'camera' && row.prompt === undefined) row = {...row,prompt:cameraPrompt(row.angle || cameraPreset(row).angle)};
     if (row.name.length > 200 || row.prompt.length > 20000) throw new Error(`第 ${index + 1} 筆內容過長。`);
     if (row.tags !== undefined && (!Array.isArray(row.tags) || row.tags.some(tag => typeof tag !== 'string'))) throw new Error(`第 ${index + 1} 筆的 tags 必須是文字陣列。`);
+    if (row.reviewed !== undefined && typeof row.reviewed !== 'boolean') throw new Error(`第 ${index + 1} 筆的 reviewed 必須是勾選或取消勾選。`);
     if (row.id !== undefined && (typeof row.id !== 'string' || !/^[\w-]{1,120}$/.test(row.id))) throw new Error(`第 ${index + 1} 筆 id 請使用英數字、底線或連字號。`);
     const id = row.id || `import-${row.category}-${globalThis.crypto.randomUUID()}`;
     if (ids.has(id)) throw new Error(`匯入資料有重複 id：${id}`);
     ids.add(id);
-    const preset = { id, category: row.category, name: row.name.trim(), prompt: row.prompt.trim(), tags: row.tags || [] };
+    const preset = { id, category: row.category, name: row.name.trim(), prompt: row.prompt.trim(), tags: row.tags || [],...(row.reviewed===undefined ? {} : {reviewed:row.reviewed}) };
     return row.category === 'camera' ? cameraPreset({...preset,mappingVersion:CAMERA_MAPPING_VERSION,mappingSource:row.angle ? 'manual' : 'automatic',...(row.angle ? {angle:row.angle,mappingNote:''} : {})}) : preset;
   });
 }
