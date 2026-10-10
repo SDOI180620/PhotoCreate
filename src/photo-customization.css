@@ -1,0 +1,45 @@
+.photo-customization {margin:18px 0;text-align:left;min-width:0}
+.custom-photo-preview {display:block;max-width:100%;width:100%;height:220px;object-fit:contain;background:#f3f1f6;border-radius:8px}
+.photo-preserve-choice {display:flex!important;align-items:center;gap:9px!important;font-size:12px!important;line-height:1.6}
+.photo-preserve-choice input {width:16px;height:16px;flex:none;margin:0}
+.photo-customization-help {font-size:11px;line-height:1.7;color:#81768b;margin:9px 0 14px}
+.photo-change-fields {display:grid;gap:16px}
+.photo-change-option {margin:0!important;padding:0 0 14px;border-bottom:1px solid #eee8f3}
+.photo-change-option:last-child {border-bottom:0;padding-bottom:0}
+.photo-option-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;margin-bottom:8px}
+.photo-original-setting {margin:0 0 9px;font-size:12px;line-height:1.7;overflow-wrap:anywhere;white-space:pre-wrap;color:#544861}
+.photo-original-setting>span {color:#81768b}
+.photo-original-setting small,.photo-settings dt span {display:inline-block;margin-left:7px;padding:1px 5px;border-radius:4px;background:#f0e9fa;color:#755296;font-size:10px;font-weight:400}
+.photo-settings {margin:18px 0;min-width:0;text-align:left}
+.photo-settings h3 {font-size:12px;font-weight:500;margin:0 0 10px;color:#6b567b}
+.photo-settings-list {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;margin:0}
+.photo-settings-list>div {min-width:0}
+.photo-settings-list dt {font-size:11px;color:#8c8095;margin-bottom:3px}
+.photo-settings-list dd {font-size:12px;line-height:1.7;margin:0;overflow-wrap:anywhere;white-space:pre-wrap;color:#544861}
+.photo-clothing-description {display:block!important;margin:5px 0 0!important;padding:0!important;background:transparent!important;border-radius:0!important;font-size:11px!important;line-height:1.7;color:#81768b!important;font-weight:400;white-space:pre-wrap}
+.photo-resolved-clothing {margin-top:10px;padding:10px 12px;border-radius:7px;background:#f7f2fb;font-size:11px;line-height:1.7;color:#756280}
+.photo-resolved-clothing p {margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.photo-resolved-clothing button {font:inherit;color:#674297;background:#fff;border:1px solid #ded6e8;border-radius:5px;padding:5px 8px;cursor:pointer}
+.photo-change-fields label {display:grid;gap:7px;font-size:12px;color:inherit}
+.photo-change-fields textarea {width:100%;min-height:75px;resize:vertical;box-sizing:border-box;font:inherit;font-size:12px;line-height:1.7;padding:10px 12px;border:1px solid #ded6e8;border-radius:7px;background:#fff;color:#3d3344}
+.photo-change-fields select {width:100%;box-sizing:border-box;font:inherit;font-size:12px;line-height:1.7;padding:10px 12px;border:1px solid #ded6e8;border-radius:7px;background:#fff;color:#3d3344}
+.photo-ratio-choice {margin:0 0 18px;padding:12px;border:1px solid #e5ddec;border-radius:8px;background:#faf8fc}
+.photo-ratio-choice .photo-option-heading {flex-wrap:wrap}
+.photo-ratio-choice .photo-option-heading small {font-size:10px;color:#81768b}
+.photo-ratio-choice .photo-customization-help {margin:9px 0 0}
+.photo-ratio-options {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.photo-ratio-options button {font:inherit;font-size:11px;line-height:1.7;border:1px solid #ded6e8;border-radius:6px;background:#fff;color:#756280;padding:7px 5px;cursor:pointer}
+.photo-ratio-options button[aria-pressed=true] {background:#f0e9fa;color:#674297;border-color:#b9a0df}
+.photo-clothing-choice {border:0;padding:0;margin:0;min-width:0}
+.photo-clothing-choice legend {font-size:12px;padding:0;margin-bottom:7px}
+.photo-clothing-modes {display:flex;flex-wrap:wrap;gap:7px;margin-bottom:11px}
+.photo-clothing-modes button {font:inherit;font-size:11px;padding:7px 10px;border:1px solid #ded6e8;background:#fff;border-radius:6px;color:#756280;cursor:pointer}
+.photo-clothing-modes button[aria-pressed=true] {background:#f0e9fa;color:#674297;border-color:#b9a0df}
+.photo-garment-picker {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;max-height:320px;overflow-y:auto;padding:2px}
+.photo-garment-picker button {font:inherit;border:1px solid #e1d9eb;border-radius:7px;background:#fff;padding:5px;cursor:pointer;min-width:0;text-align:left;color:inherit}
+.photo-garment-picker button[aria-pressed=true] {border-color:#7c54ab;box-shadow:0 0 0 1px #7c54ab;background:#f7f1ff}
+.photo-garment-picker img {display:block;width:100%;height:105px;object-fit:contain;background:#f6f3f8}
+.photo-garment-picker span {display:block;font-size:10px;line-height:1.5;margin:6px 2px;overflow-wrap:anywhere}
+.photo-customization button:focus-visible,.photo-customization textarea:focus-visible,.photo-customization select:focus-visible {outline:2px solid #8966b3;outline-offset:2px}
+.photo-customization button:disabled {opacity:.5;cursor:default}
+@media(max-width:470px) {.photo-garment-picker {grid-template-columns:repeat(2,minmax(0,1fr))}.photo-settings-list {grid-template-columns:minmax(0,1fr)}.photo-ratio-options {grid-template-columns:repeat(2,minmax(0,1fr))}}

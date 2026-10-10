@@ -2,6 +2,7 @@ import {cameraPrompt,REFINE_PROMPT,REFINE_NEGATIVE,REFINE_STEPS} from '../shared
 import {productionStages} from '../shared/production.js';
 import {referenceKinds} from './workflow.js';
 import {withSingleSubjectPrompt} from '../shared/subject.js';
+import {photoSettings} from '../shared/photo-customization.js';
 
 const STAGES=[['base','原始生成'],['angle','不同角度拍攝'],['refine','細節修復']];
 const nodeOf=(graph,type)=>Object.values(graph || {}).find(node=>node.class_type===type);
@@ -49,10 +50,10 @@ export function photoPromptDetails(state,job,{apiBase='/api/studio'}={}) {
       : stage==='refine' || owner.cameraMode!=='multiangle'
       ? owner.images?.length ? `${apiBase}/jobs/${owner.id}/image/0` : null
       : result?.completed && result.images?.length ? `${apiBase}/jobs/${owner.id}/image/0?stage=${stage}` : null;
-    return {id:stage,label:stage==='base' && selectedSource ? '拍攝來源' : label,source:graph ? 'snapshot' : completed ? 'record' : 'pending',completed,image,
+    return {id:stage,label:stage==='base' && selectedSource ? '拍攝來源' : stage==='base' && job.jobKind==='photo-edit' ? '自訂拍攝' : label,source:graph ? 'snapshot' : completed ? 'record' : 'pending',completed,image,
       ...(graph ? graphDetails(graph) : fallback),
-      references:stage==='base' && !selectedSource ? referenceKinds(owner).map((kind,index)=>({label:`<image${index+1}>`,name:owner[kind]?.name || kind})) : [{label:'<image1>',name:stage==='base' || stage==='angle' && selectedSource ? '選取的照片' : stage==='angle' || !productionStages(job).includes('angle') ? '原始生成圖片' : '不同角度圖片'}]};
+      references:stage==='base' && !selectedSource ? referenceKinds(owner).map((kind,index)=>({label:`<image${index+1}>`,name:kind==='source' ? '選取的照片' : owner[kind]?.name || kind})) : [{label:'<image1>',name:stage==='base' || stage==='angle' && selectedSource ? '選取的照片' : stage==='angle' || !productionStages(job).includes('angle') ? '原始生成圖片' : '不同角度圖片'}]};
   });
-  return {id:job.id,stages,width:job.outputWidth,height:job.outputHeight,
+  return {id:job.id,stages,width:job.outputWidth,height:job.outputHeight,settings:photoSettings(baseJob),
     selections:Object.fromEntries(['character','garment','pose','expression','clothingState','interaction','camera','lighting','color','quality'].filter(key=>job[key]?.name).map(key=>[key,job[key].name]))};
 }

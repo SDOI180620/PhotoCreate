@@ -17,7 +17,7 @@ export function buildRemakePlans(state,ids,{requestId,deleteSourceOnComplete = f
   if(new Set(roots).size !== roots.length) throw new Error('同一張照片請選擇一個版本重製。');
   const pending = pendingRemakeRoots(state.jobs);
   if(roots.some(id => pending.has(id))) throw new Error('所選照片已有重製任務，請等完成或處理待確認任務。');
-  const fields = ['batchId','character','garment','scene','pose','expression','clothingState','interaction','camera','lighting','color','quality','prompt','negative','resolution','steps','sceneInteraction','aspectRatio','outputWidth','outputHeight','generationMode','cameraMode','cameraEnabled','executionMode','angleSteps','refineSteps','refineDenoise','jobKind','sourceImage','sourceImageIndex','sourceComfyUrl','sourceInput','sourceInputComfyUrl','cameraWorkflowSnapshot'];
+  const fields = ['batchId','character','garment','scene','pose','expression','clothingState','interaction','camera','lighting','color','quality','prompt','negative','resolution','steps','sceneInteraction','aspectRatio','outputWidth','outputHeight','generationMode','cameraMode','cameraEnabled','executionMode','angleSteps','refineSteps','refineDenoise','jobKind','sourceImage','sourceImageIndex','sourceComfyUrl','sourceInput','sourceInputComfyUrl','cameraWorkflowSnapshot','photoCustomization','photoSource'];
   return sources.map(source => {
     const root = rootJobId(source);
     const remakeVersion = Math.max(0,...state.jobs.filter(job => rootJobId(job) === root).map(job => job.remakeVersion || 0)) + 1;

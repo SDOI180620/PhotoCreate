@@ -1,6 +1,7 @@
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Check,Copy,Loader2,ArrowUpRight} from 'lucide-react';
 import ImageViewer from './ImageViewer.jsx';
+import PhotoSettings from './PhotoSettings.jsx';
 
 const selectionLabels={character:'角色',garment:'服裝',pose:'動作',expression:'表情',clothingState:'服裝狀態',interaction:'場景互動',camera:'鏡位',lighting:'光線',color:'色彩',quality:'畫質'};
 const parameterLabels={seed:'Seed',steps:'步數',cfg:'CFG',denoise:'修正強度',sampler_name:'採樣器',scheduler:'排程'};
@@ -29,6 +30,7 @@ export default function PhotoPrompts({job,api}) {
     {error && <div className="pc-error" role="alert">{error}<button onClick={()=>setRetry(value=>value+1)}>重新讀取</button></div>}
     {!details && !error && <p className="pc-small-note" role="status"><Loader2 size={13} className="spin"/>讀取實際提詞…</p>}
     {details && stage && <><div className="pc-prompt-stages" role="group" aria-label="製作階段">{details.stages.map(row=><button key={row.id} aria-pressed={stage.id===row.id} onClick={()=>setStageId(row.id)}>{row.label}</button>)}</div>
+      {stage.id==='base' && <PhotoSettings settings={details.settings || Object.entries(details.selections).map(([key,value])=>({key,label:selectionLabels[key],value}))}/>}
       <p className="pc-small-note">{stage.source==='snapshot' ? '實際送出的提詞與參數' : stage.source==='record' ? '依拍攝記錄顯示；此階段未保存完整送出內容。' : '此階段尚未送出，先顯示預定提詞。'}</p>
       {stage.image && <button className="pc-stage-image" onClick={()=>setViewer({src:stage.image,alt:`${stage.label}階段成果`})}><img src={stage.image} alt={`${stage.label}階段成果`}/><span>放大{stage.label}階段成果<ArrowUpRight size={13}/></span></button>}
       <div className="pc-prompt-references">{stage.references.map(row=><span key={row.label}>{row.label}：{row.name}</span>)}</div>

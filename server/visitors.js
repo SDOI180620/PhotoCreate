@@ -5,8 +5,11 @@ import path from 'node:path';
 import {OUTPUT_RATIOS} from '../shared/domain.js';
 import {STOPPABLE_STATUSES,RETRYABLE_STATUSES} from '../shared/batches.js';
 import {photoPromptDetails} from './photo-prompts.js';
-import {customerDraft} from './customer-recipe.js';
+import {customerDraft,customerCharacters} from './customer-recipe.js';
 import {productionStages} from '../shared/production.js';
+import {CAMERA_FRAMING_VERSION} from '../shared/camera.js';
+import {PHOTO_CUSTOMIZATION_VERSION,PHOTO_PRESET_CATEGORIES,photoSettings} from '../shared/photo-customization.js';
+import {createFeaturedGallery} from './featured-gallery.js';
 
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const publicCharacter=(row,visitorId)=>({id:row.id,name:row.name,image:`/api/studio/characters/${row.id}/image`,owned:row.visitorId===visitorId});
@@ -18,14 +21,15 @@ const publicJob=job=>{
     createdAt:job.createdAt,status:job.status,stage:job.pipelineStage || 'base',images,folderId:job.folderId || '',
     preview:!job.outputsDeletedAt && previewStage ? `${base}/image/0?stage=${previewStage}` : null,
     angle:job.camera?.angle,cameraEnabled:productionStages(job).includes('angle'),garment:job.garment?.name || '',pose:job.pose?.name || '',
-    width:job.outputWidth,height:job.outputHeight,
+    width:job.outputWidth,height:job.outputHeight,aspectRatio:job.aspectRatio || 'reference',resolution:job.resolution,settings:photoSettings(job),characterReference:{name:job.character?.name || '原本選取的角色',image:`${base}/character-reference`},
     error:job.error ? job.status==='failed' ? '這張照片未完成，請重新拍攝。' : '攝影棚正在重新確認連線，請稍候。' : '',
     canRetry:RETRYABLE_STATUSES.includes(job.status),canStop:STOPPABLE_STATUSES.includes(job.status),active:STOPPABLE_STATUSES.includes(job.status)};
 };
 
 // Every read and mutation checks the authenticated account's stable owner ID.
-export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,getCustomerRecipe,uploadCharacter,createShots,remakeShots,angleShot,queueShots,stopShots,purgeOutputs,sendImage,sendAngleSource}) {
+export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,getCustomerRecipe,uploadCharacter,createShots,remakeShots,angleShot,customShot,queueShots,stopShots,purgeOutputs,sendImage,sendAngleSource,sendCharacterReference}) {
   const router=express.Router();
+  const gallery=createFeaturedGallery(store);
   const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024,files:1,fields:0,parts:1}}).single('image');
   router.use((req,res,next)=>{
     if(req.account?.role!=='customer') return next(fail('請先登入顧客帳號。',401));
@@ -62,16 +66,27 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
   const stateFor=visitorId=>{
     const recipe=getCustomerRecipe();
     const state=store.read();
-    return {characters:state.characters.filter(row=>!row.visitorId || row.visitorId===visitorId).map(row=>publicCharacter(row,visitorId)),
+    return {characters:customerCharacters(state,recipe,visitorId).map(row=>publicCharacter(row,visitorId)),
       folders:photoFolders.list(visitorId),
+      gallery:gallery.list(visitorId),galleryFolders:gallery.folders(visitorId),
       jobs:state.jobs.filter(job=>job.visitorId===visitorId && !job.visitorDeletedAt).map(publicJob),
       trash:state.jobs.filter(job=>job.visitorId===visitorId && job.visitorDeletedAt).map(job=>({...publicJob(job),deletedAt:job.visitorDeletedAt})),
-      ready:Boolean(recipe && state.workflow && !isInstalling()),cameraReady:Boolean(state.workflow && state.cameraWorkflow && !isInstalling()),
-      wardrobeCount:recipe?.pools.garment.length || 0,maxCount:24,canQueueShoots:true,
+      ready:Boolean(recipe && ['garment','pose','lighting','color','quality'].every(key=>recipe.pools[key]?.length) && state.workflow && !isInstalling()),cameraReady:Boolean(state.workflow && state.cameraWorkflow && !isInstalling()),
+      wardrobeCount:recipe?.pools.garment.length || 0,maxCount:24,canQueueShoots:true,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION,
+      garments:(recipe?.pools.garment || []).map(row=>({id:row.id,name:row.name,image:`/api/studio/garments/${row.id}/image`})),
+      presets:Object.entries(PHOTO_PRESET_CATEGORIES).flatMap(([key,category])=>(recipe?.pools[key==='scene' ? 'interaction' : key] || []).filter(row=>row.category===category).map(row=>({id:row.id,category,name:row.name}))),
       cameras:(recipe?.pools.camera || []).map(row=>({id:row.id,name:row.name,angle:row.angle})),
     };
   };
   router.get('/state',(req,res)=>res.json(stateFor(req.visitorId)));
+  router.get('/gallery',(req,res)=>res.json(gallery.list(req.visitorId)));
+  router.post('/gallery',(req,res)=>{const result=gallery.add(req.visitorId,req.body);res.status(result.created ? 201 : 200).json(result);});
+  router.post('/gallery/move',(req,res)=>res.json(gallery.move(req.visitorId,req.body?.ids,req.body?.folderId)));
+  router.post('/gallery/remove',(req,res)=>res.json(gallery.remove(req.visitorId,req.body?.ids)));
+  router.get('/gallery/folders',(req,res)=>res.json(gallery.folders(req.visitorId)));
+  router.post('/gallery/folders',(req,res)=>res.status(201).json(gallery.createFolder(req.visitorId,req.body?.name)));
+  router.patch('/gallery/folders/:id',(req,res)=>res.json(gallery.renameFolder(req.visitorId,req.params.id,req.body?.name)));
+  router.delete('/gallery/folders/:id',(req,res)=>res.json(gallery.removeFolder(req.visitorId,req.params.id)));
   router.get('/folders',(req,res)=>res.json(photoFolders.list(req.visitorId)));
   router.post('/folders',(req,res)=>res.status(201).json(photoFolders.create(req.visitorId,req.body?.name)));
   router.patch('/folders/:id',(req,res)=>res.json(photoFolders.rename(req.visitorId,req.params.id,req.body?.name)));
@@ -88,6 +103,7 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     try {deletedFiles=purgeOutputs(jobs);} catch {throw fail('照片檔案暫時無法清理，請稍後再試或聯絡攝影棚管理員。');}
     store.mutate(state=>{
       state.jobs=state.jobs.filter(job=>!ids.has(job.id) || job.visitorId!==req.visitorId);
+      state.galleryEntries=(state.galleryEntries || []).filter(row=>row.ownerId!==req.visitorId || !ids.has(row.jobId));
       const batches=new Set(jobs.map(job=>job.batchId));
       state.batches=state.batches.filter(batch=>batch.visitorId!==req.visitorId || !batches.has(batch.id) || state.jobs.some(job=>job.batchId===batch.id));
     });
@@ -121,10 +137,17 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     res.json({ok:true});
   });
   router.get('/characters/:id/image',(req,res)=>{
-    const row=store.read().characters.find(row=>row.id===req.params.id && (!row.visitorId || row.visitorId===req.visitorId));
+    const row=customerCharacters(store.read(),getCustomerRecipe(),req.visitorId).find(row=>row.id===req.params.id);
     if(!row || !row.fileName || path.basename(row.fileName)!==row.fileName) throw fail('找不到角色圖片。',404);
     const file=path.join(dataDir,'uploads',row.fileName);
     if(!fs.existsSync(file)) throw fail('角色圖片已不存在。',404);
+    res.type(['image/png','image/jpeg','image/webp'].includes(row.mime) ? row.mime : 'image/png').send(fs.readFileSync(file));
+  });
+  router.get('/garments/:id/image',(req,res)=>{
+    const row=getCustomerRecipe()?.pools.garment.find(row=>row.id===req.params.id);
+    if(!row?.fileName || path.basename(row.fileName)!==row.fileName) throw fail('找不到服裝圖片。',404);
+    const file=path.join(dataDir,'uploads',row.fileName);
+    if(!fs.existsSync(file)) throw fail('服裝圖片已不存在。',404);
     res.type(['image/png','image/jpeg','image/webp'].includes(row.mime) ? row.mime : 'image/png').send(fs.readFileSync(file));
   });
   router.post('/shoots',(req,res)=>{
@@ -133,7 +156,7 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     if(typeof cameraEnabled!=='boolean') throw fail('鏡頭設定無效。');
     if(!Number.isInteger(count) || count<1 || count>24) throw fail('每次可以拍攝 1–24 張照片。');
     if(!Object.hasOwn(OUTPUT_RATIOS,aspectRatio)) throw fail('請選擇有效的照片比例。');
-    const state=store.read(),character=state.characters.find(row=>row.id===body.characterId && (!row.visitorId || row.visitorId===req.visitorId));
+    const state=store.read(),character=customerCharacters(state,getCustomerRecipe(),req.visitorId).find(row=>row.id===body.characterId);
     if(!character) throw fail('請先上傳或選擇你的角色。');
     const existing=state.batches.find(row=>row.visitorId===req.visitorId && row.visitorRequestId===key);
     if(existing) {
@@ -161,6 +184,13 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     if(result.created) queueShots([result.job.id]);
     res.status(result.created ? 202 : 200).json({job:publicJob(result.job),created:result.created});
   });
+  router.post('/jobs/:id/custom',(req,res)=>{
+    ownedJob(req.params.id,req.visitorId);assertReady(false);
+    const body=req.body || {};
+    const result=customShot(req.params.id,{requestId:requestId(body.requestId,req.visitorId),imageIndex:body.imageIndex ?? 0,customization:body.customization},{visitorId:req.visitorId});
+    if(result.created) queueShots([result.job.id]);
+    res.status(result.created ? 202 : 200).json({job:publicJob(result.job),created:result.created});
+  });
   router.post('/jobs/:id/retry',(req,res)=>{
     const job=ownedJob(req.params.id,req.visitorId);assertReady(productionStages(job).includes('angle'));
     if(!RETRYABLE_STATUSES.includes(job.status)) throw fail('這張照片正在拍攝，請稍候。',409);
@@ -185,6 +215,9 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
   });
   router.get('/jobs/:id/angle-source',async(req,res)=>{
     ownedJob(req.params.id,req.visitorId);await sendAngleSource(req.params.id,req.query.index,res);
+  });
+  router.get('/jobs/:id/character-reference',(req,res)=>{
+    ownedJob(req.params.id,req.visitorId);sendCharacterReference(req.params.id,res);
   });
   router.use((req,res)=>res.status(404).json({error:'找不到這個攝影棚功能。'}));
   return router;

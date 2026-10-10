@@ -2,12 +2,15 @@ import {useEffect,useRef,useState} from 'react';
 import {Folder,FolderOpen,FolderPlus,FolderInput,Pencil,Trash2,X} from 'lucide-react';
 import './photo-folders.css';
 
-export function usePhotoDrag(onMove,disabled=false) {
-  const gesture=useRef(null),options=useRef({onMove,disabled}),suppressClick=useRef(false),highlight=useRef(null);
+export function usePhotoDrag(onMove,disabled=false,scope='') {
+  const gesture=useRef(null),options=useRef({onMove,disabled,scope}),suppressClick=useRef(false),highlight=useRef(null);
   const [preview,setPreview]=useState(null);
-  options.current={onMove,disabled};
+  options.current={onMove,disabled,scope};
   useEffect(()=>{
-    const targetAt=event=>document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-photo-folder-id]:not(:disabled)');
+    const targetAt=event=>{
+      const target=document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-photo-folder-id]:not(:disabled)');
+      return options.current.scope && target?.closest('[data-photo-folder-scope]')?.getAttribute('data-photo-folder-scope')!==options.current.scope ? null : target;
+    };
     const clear=()=>{
       const current=gesture.current;gesture.current=null;highlight.current?.classList.remove('drop-target');highlight.current=null;
       if(current?.element.hasPointerCapture(current.pointerId)) current.element.releasePointerCapture(current.pointerId);
@@ -57,7 +60,7 @@ export function FolderDestination({folders=[],value='',onChange,onCreate,busy}) 
   return <div className="photo-folder-destination"><div><label>照片存放位置<select aria-label="產圖資料夾" disabled={busy} value={valid} onChange={event=>onChange(event.target.value)}><option value="">未分類</option>{folders.map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label>{onCreate && <button disabled={busy} aria-label="新增產圖資料夾" onClick={()=>setCreating(!creating)}><FolderPlus size={16}/>新增</button>}</div>{creating && <FolderNameForm busy={busy} onClose={()=>setCreating(false)} onSave={async name=>{const folder=await onCreate(name);if(folder?.id) onChange(folder.id);return folder;}}/>}</div>;
 }
 
-export default function PhotoFolders({folders=[],photos=[],value='all',onChange,onCreate,onRename,onDelete,onMove,selectedIds=[],onClearSelection,selectionActions,busy=false}) {
+export default function PhotoFolders({folders=[],photos=[],value='all',onChange,onCreate,onRename,onDelete,onMove,selectedIds=[],onClearSelection,selectionActions,busy=false,dragScope=''}) {
   const [editing,setEditing]=useState(null),[confirmDelete,setConfirmDelete]=useState(false),[destination,setDestination]=useState('choose');
   const section=useRef(null),[stickyTop,setStickyTop]=useState(0);
   useEffect(()=>{
@@ -71,7 +74,7 @@ export default function PhotoFolders({folders=[],photos=[],value='all',onChange,
   const count=id=>photos.filter(photo=>(photo.folderId || '')===id).length;
   const change=id=>{setEditing(null);setConfirmDelete(false);onChange(id);};
   const folderButton=(id,name,total,Icon)=> <button key={id} className={`photo-folder-tab ${value===id ? 'selected' : ''}`} data-photo-folder-id={id==='all' ? undefined : id} aria-label={`資料夾 ${name}`} aria-pressed={value===id} disabled={busy} onClick={()=>change(id)}><Icon size={15}/><span>{name}</span><small>{total}</small></button>;
-  return <section ref={section} className="photo-folders" style={{'--photo-folder-top':`${stickyTop}px`}} aria-label="照片資料夾"><div className="photo-folder-tabs">
+  return <section ref={section} className="photo-folders" data-photo-folder-scope={dragScope} style={{'--photo-folder-top':`${stickyTop}px`}} aria-label="照片資料夾"><div className="photo-folder-tabs">
     {folderButton('all','全部照片',photos.length,FolderOpen)}{folderButton('','未分類',count(''),Folder)}{folders.map(folder=>folderButton(folder.id,folder.name,count(folder.id),Folder))}
     {onCreate && <button className="photo-folder-new" disabled={busy} onClick={()=>{setEditing(editing===true ? null : true);setConfirmDelete(false);}}><FolderPlus size={15}/>新增資料夾</button>}
   </div>{editing!==null && <FolderNameForm key={editing?.id || 'new'} initialName={editing?.name || ''} busy={busy} onClose={()=>setEditing(null)} onSave={async name=>{const folder=editing===true ? await onCreate(name) : await onRename(editing.id,name);if(folder?.id) onChange(folder.id);return folder;}}/>}

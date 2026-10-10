@@ -1,17 +1,17 @@
 import {randomUUID} from 'node:crypto';
+import {belongsToStudio} from './studio-ownership.js';
 
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const dto=folder=>({id:folder.id,name:folder.name,createdAt:folder.createdAt});
 const fieldFor=ownerId=>ownerId==='admin' ? 'adminFolderId' : 'folderId';
-const belongsTo=(job,ownerId)=>ownerId==='admin' || job.visitorId===ownerId;
+const belongsTo=belongsToStudio;
 const rootId=job=>job.rootJobId || job.id;
 const folderName=value=>{
   if(typeof value!=='string' || value.trim().length<1 || value.trim().length>60) throw fail('資料夾名稱需為 1–60 個字。');
   return value.trim();
 };
 
-// Folders classify records without moving ComfyUI files. Operator categories
-// and each customer's categories remain independent, including on one photo.
+// Folders classify each owner's records without moving ComfyUI files.
 export function createPhotoFolders(store) {
   const list=ownerId=>(store.read().photoFolders || []).filter(row=>row.ownerId===ownerId).map(dto);
   const requireFolder=(ownerId,id)=>{

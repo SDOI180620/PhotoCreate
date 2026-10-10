@@ -61,6 +61,7 @@ export function validateTemplate(graph) {
 }
 
 export function referenceKinds(shot) {
+  if(shot.jobKind==='photo-edit') return ['character',...(shot.garment?.fileName ? ['garment'] : [])];
   return ['character','garment',...(shot.scene ? ['scene'] : [])];
 }
 

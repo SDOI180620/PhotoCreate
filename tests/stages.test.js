@@ -34,7 +34,7 @@ test('每階段只載入自己的模型，高清保留單一圖像 latent 與內
   }
 });
 
-async function fixture(t,count = 3,cameraEnabled = true) {
+async function fixture(t,count = 3,cameraEnabled = true,releaseGpuMemory = true) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-stages-'));
   const outputDir = path.join(dataDir,'output');fs.mkdirSync(outputDir);
   const pending = new Set(),history = new Map(),submitted = [],events = [],cancelled = [],views = [];
@@ -63,6 +63,7 @@ async function fixture(t,count = 3,cameraEnabled = true) {
   const server = f.app.listen(0,'127.0.0.1');await new Promise(resolve => server.once('listening',resolve));
   const request = async (route,body = {},method = 'POST') => {const response = await fetch(`http://127.0.0.1:${server.address().port}/api${route}`,{method,headers:{'content-type':'application/json'},...(method === 'GET' ? {} : {body:JSON.stringify(body)})});return {status:response.status,data:await response.json()};};
   const imageRequest = route => fetch(`http://127.0.0.1:${server.address().port}/api${route}`);
+  const saved=await request('/settings',{comfyUrl:'http://127.0.0.1:8188',releaseGpuMemory},'PUT');assert.equal(saved.status,200);
   const jobs = (await request('/jobs',{...DRAFT,cameraMode:'multiangle',cameraEnabled,garmentIds:['garment-a'],poseIds:['pose-standing'],copies:count})).data;
   const complete = id => {
     const entry = submitted.find(row => row.id === id);assert.ok(entry);
@@ -79,6 +80,20 @@ async function fixture(t,count = 3,cameraEnabled = true) {
   t.after(() => {server.close();f.store.close();fs.rmSync(dataDir,{recursive:true,force:true});});
   return {...f,dataDir,request,imageRequest,views,jobs,pending,history,submitted,events,cancelled,complete,loseNext:() => {loseReply = true;}};
 }
+
+test('關閉主動釋放時維持階段與共用佇列屏障，整組不卸載模型也不送釋放檢查',async t=>{
+  const f=await fixture(t,1,true,false);
+  assert.equal(f.store.read().settings.releaseGpuMemory,false);
+  assert.equal((await f.request('/settings',{comfyUrl:'http://127.0.0.1:8188',releaseGpuMemory:'false'},'PUT')).status,400);
+  await f.request('/jobs/submit',{ids:f.jobs.map(job=>job.id)});
+  assert.equal(f.store.read().pipelineRuns[0].releaseGpuMemory,false);
+  await f.request('/settings',{comfyUrl:'http://127.0.0.1:8188',releaseGpuMemory:true},'PUT');
+  f.complete(f.submitted.at(-1).id);f.pending.add('foreign');await f.stageRunner.tick();assert.deepEqual(f.events,['base']);
+  f.pending.delete('foreign');await f.stageRunner.tick();assert.deepEqual(f.events,['base','angle']);
+  f.complete(f.submitted.at(-1).id);await f.stageRunner.tick();assert.deepEqual(f.events,['base','angle','refine']);
+  f.complete(f.submitted.at(-1).id);await f.stageRunner.tick();assert.equal(f.store.read().jobs[0].status,'completed');
+  assert.equal(f.store.read().pipelineRuns[0].modelReleases,undefined);
+});
 
 test('整組原圖完成才轉視角，整組角度完成才高清；兩次釋放不打斷其他佇列',async t => {
   const f = await fixture(t),ids = f.jobs.map(job => job.id);
@@ -188,7 +203,7 @@ test('階段回應遺失不得重送，確認完成後才能釋放與接續',asy
 test('肩後與背面分開設計，局部特寫有俯仰偏轉，升級保留手改角度與既有拍攝',() => {
   const old = {id:'camera-shoulder-closeup',name:'回眸特寫',category:'camera',prompt:'saved prose',tags:[]};
   old.angle = inferLegacyCameraAngle(old).angle;
-  const improved = upgradeCameraMapping(old);assert.deepEqual(improved.angle,{horizontalAngle:133,verticalAngle:31,zoom:10});
+  const improved = upgradeCameraMapping(old);assert.deepEqual(improved.angle,{horizontalAngle:133,verticalAngle:31,zoom:8});
   assert.equal(improved.id,old.id);assert.equal(improved.prompt,old.prompt);
   assert.equal(upgradeCameraMapping({id:'custom-back',name:'背後'}).angle.horizontalAngle,180);
   for(const id of ['camera-chest-closeup','camera-neckline','camera-side-breast','camera-macro-chest']) {
@@ -198,4 +213,43 @@ test('肩後與背面分開設計，局部特寫有俯仰偏轉，升級保留�
   assert.deepEqual(upgradeCameraMapping({...old,angle:manual}).angle,manual);
   const imported = normalizePresetImport([{...old,angle:manual}])[0];assert.equal(imported.mappingSource,'manual');assert.deepEqual(imported.angle,manual);
   assert.deepEqual(upgradeCameraMapping(improved),improved);
+});
+
+test('舊版自動鏡位依新級距升級：一般特寫用 8，大特寫與微距保留 9/10，手改與歷史資料保留',()=>{
+  for(const name of ['胸部特寫','回眸特寫','鎖骨特寫','髮絲特寫']) {
+    const row={id:'old-'+name,name,angle:{horizontalAngle:133,verticalAngle:31,zoom:10},mappingVersion:2,mappingSource:'automatic'};
+    const next=upgradeCameraMapping(row);
+    assert.deepEqual(next.angle,{horizontalAngle:133,verticalAngle:31,zoom:8});
+    assert.equal(next.mappingVersion,3);
+    assert.deepEqual(upgradeCameraMapping(next),next);
+    assert.equal(row.angle.zoom,10,'The saved source object must not be mutated');
+    assert.deepEqual(upgradeCameraMapping({...row,mappingSource:'manual'}).angle,row.angle);
+  }
+  for(const [name,zoom,expected] of [['面部大特寫',9,9],['貼胸微距',10,10],['側面半身',5,8],['50mm 全身',1,3],['全身遠景',1,1]]) {
+    const next=upgradeCameraMapping({id:name,name,angle:{horizontalAngle:12,verticalAngle:18,zoom},mappingVersion:2,mappingSource:'automatic'});
+    assert.deepEqual(next.angle,{horizontalAngle:12,verticalAngle:18,zoom:expected});
+  }
+});
+
+test('重啟升級管理與已發布顧客鏡位，保持候選名單、手動設定及既有照片快照',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-camera-mapping-'));
+  let store=createStore(dir);
+  t.after(()=>{store.close();assert.equal(path.dirname(fs.realpathSync(dir)),fs.realpathSync(os.tmpdir()));fs.rmSync(dir,{recursive:true,force:true});});
+  const camera={id:'camera-migration-close',category:'camera',name:'一般特寫',prompt:'saved prompt',tags:[],angle:{horizontalAngle:133,verticalAngle:31,zoom:10},mappingVersion:2,mappingSource:'automatic'};
+  const manual={...camera,id:'camera-migration-manual',mappingSource:'manual'};
+  const recipe={updatedAt:'2026-10-10',characterIds:['selected-character'],settings:{steps:27},pools:{camera:[camera,manual],garment:[{id:'saved-outfit'}]}};
+  const job={id:'existing-photo',status:'completed',createdAt:'2026-10-10',batchId:'existing-batch',camera,images:[{filename:'original.png'}]};
+  store.mutate(state=>{state.presets=[camera,manual];state.characters=[{id:'selected-character',name:'Selected character'}];state.garments=[{id:'saved-outfit',name:'Saved outfit'}];state.customerRecipe=recipe;state.jobs=[job];});
+  const before=store.read();store.close();store=createStore(dir);
+  const after=store.read();
+  assert.equal(after.presets[0].angle.zoom,8);
+  assert.equal(after.customerRecipe.pools.camera[0].angle.zoom,8);
+  assert.deepEqual(after.presets[1].angle,manual.angle);
+  assert.deepEqual(after.customerRecipe.pools.camera[1].angle,manual.angle);
+  assert.deepEqual(after.jobs,before.jobs);
+  assert.deepEqual(after.customerRecipe.characterIds,recipe.characterIds);
+  assert.deepEqual(after.customerRecipe.settings,recipe.settings);
+  assert.deepEqual(after.customerRecipe.pools.garment,recipe.pools.garment);
+  assert.equal(after.customerRecipe.updatedAt,recipe.updatedAt);
+  store.close();store=createStore(dir);assert.deepEqual(store.read(),after);
 });

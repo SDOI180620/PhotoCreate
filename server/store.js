@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { DEFAULT_PRESETS } from '../shared/domain.js';
 import { migrateShootBatches } from '../shared/batches.js';
 import { upgradeCameraMapping } from '../shared/camera.js';
+import { reconcileLibrarySelections } from '../shared/library-selections.js';
 
 export function createStore(dataDir) {
   fs.mkdirSync(path.join(dataDir,'uploads'), { recursive: true });
@@ -71,6 +72,7 @@ export function createStore(dataDir) {
     } catch(error) {db.exec('ROLLBACK');throw error;}
   }
   const beforeMigration = fresh ? {} : structuredClone(state);
+  state.settings.releaseGpuMemory ??= false;
   if (!state.interactionPresetsVersion) {
     const ids = new Set(state.presets.map(row => row.id));
     state.presets.push(...structuredClone(DEFAULT_PRESETS.filter(row => row.category === 'interaction' && !ids.has(row.id))));
@@ -82,6 +84,8 @@ export function createStore(dataDir) {
     state.detailPresetsVersion = 1;
   }
   state.presets = state.presets.map(row => row.category === 'camera' ? upgradeCameraMapping(row) : row);
+  if(state.customerRecipe?.pools?.camera) state.customerRecipe.pools.camera = state.customerRecipe.pools.camera.map(row => row.id === 'camera-original' ? row : upgradeCameraMapping(row));
+  reconcileLibrarySelections(state);
   migrateShootBatches(state);
   if(fresh || JSON.stringify(beforeMigration) !== JSON.stringify(state)) save(beforeMigration);
   return {

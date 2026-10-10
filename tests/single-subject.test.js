@@ -14,17 +14,24 @@ const encoder = graph => Object.values(graph).find(node=>node.class_type==='Text
 const assertSingle = (positive,negative) => {
   assert.match(positive,/exactly one person, solo/);
   assert.match(positive,/one subject appearing once in one camera view/);
-  assert.match(positive,/one continuous photographic scene/);
-  assert.match(positive,/Extract the identity and clothing from the reference/);
+  assert.doesNotMatch(positive,/Compose one continuous photographic scene|Extract the identity and clothing from the reference|Use the reference only for appearance and clothing|never copy its page layout/);
   for(const term of ['multiple people','duplicate person','multiple views','three-view','turnaround','front side back','triptych','split screen']) assert(negative.includes(term),term);
 };
 
 test('舊的單人提詞升級後只有一份新限制，負提詞補上三視圖且不重複',()=>{
   const legacy='A single-person photograph: exactly one person, solo, one subject appearing once in one camera view. The references may show different views of the same person; use them only for identity and clothing. Produce one photograph of one person, with no additional people, duplicate figures, reference sheet, collage, or split panels.';
-  const positive=withSingleSubjectPrompt(`A studio portrait.\n\n${legacy}`),negative=withSingleSubjectNegative('blurry, three-view');
-  assertSingle(positive,negative);assert(positive.startsWith('A studio portrait.'));
-  assert(!positive.includes('The references may show different views'));
-  assert.equal(withSingleSubjectPrompt(positive),positive);assert.equal(withSingleSubjectNegative(negative),negative);
+  const removed='Extract the identity and clothing from the reference, then photograph that person once in the requested scene. Use the reference only for appearance and clothing, never copy its page layout.';
+  const previous=SINGLE_SUBJECT_PROMPT.replace('The result is',removed+' The result is');
+  const composition='Compose one continuous photographic scene, one uninterrupted frame, one viewpoint and one pose.';
+  const earlier=SINGLE_SUBJECT_PROMPT.replace('The result is',composition+' '+removed+' The result is');
+  const negative=withSingleSubjectNegative('blurry, three-view');
+  for(const oldPrompt of [legacy,previous,earlier,removed,composition]) {
+    const positive=withSingleSubjectPrompt(`A studio portrait.\n\n${oldPrompt}`);
+    assertSingle(positive,negative);assert.equal(positive,`A studio portrait.\n\n${SINGLE_SUBJECT_PROMPT}`);
+    assert(!positive.includes('The references may show different views'));
+    assert.equal(withSingleSubjectPrompt(positive),positive);
+  }
+  assert.equal(withSingleSubjectNegative(negative),negative);
   assert.equal(negative.split(',').filter(term=>term.trim()==='three-view').length,1);
 });
 

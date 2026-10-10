@@ -78,7 +78,7 @@ test('產圖時可指定資料夾，拍攝去重含目的地，不能指定別�
   assert.equal((await bob('/shoots',{...body,folderId:42,requestId:randomUUID()})).status,400);
 });
 
-test('移動照片會帶著所有版本；跨帳號混入的要求整批拒絕，管理分類獨立於顧客分類',async t=>{
+test('移動照片會帶著所有版本；顧客與後台均不能整理別人的照片',async t=>{
   const f=await fixture(t),alice=await f.customer('move-alice'),bob=await f.customer('move-bob');
   const folder=(await alice('/folders',{name:'精選'})).data;
   const adminFolder=(await f.admin('/photo-folders',{name:'後台審圖'})).data;
@@ -89,11 +89,11 @@ test('移動照片會帶著所有版本；跨帳號混入的要求整批拒絕�
   assert.equal(JSON.stringify(f.store.read().jobs),before);
   assert.equal((await alice('/photos/move',{ids:[versionId],folderId:folder.id})).status,200);
   assert.ok(f.store.read().jobs.filter(row=>[a.job.id,versionId].includes(row.id)).every(row=>row.folderId===folder.id));
-  assert.equal((await f.admin('/jobs/move',{ids:[a.job.id],folderId:adminFolder.id})).status,200);
-  assert.ok(f.store.read().jobs.filter(row=>[a.job.id,versionId].includes(row.id)).every(row=>row.folderId===folder.id && row.adminFolderId===adminFolder.id));
+  assert.equal((await f.admin('/jobs/move',{ids:[a.job.id],folderId:adminFolder.id})).status,404);
+  assert.ok(f.store.read().jobs.filter(row=>[a.job.id,versionId].includes(row.id)).every(row=>row.folderId===folder.id && !row.adminFolderId));
   assert.equal((await alice('/photos/move',{ids:[a.job.id],folderId:adminFolder.id})).status,404);
   assert.equal((await alice('/photos/move',{ids:[a.job.id],folderId:''})).status,200);
-  assert.ok(f.store.read().jobs.filter(row=>[a.job.id,versionId].includes(row.id)).every(row=>!row.folderId && row.adminFolderId===adminFolder.id));
+  assert.ok(f.store.read().jobs.filter(row=>[a.job.id,versionId].includes(row.id)).every(row=>!row.folderId && !row.adminFolderId));
   assert.equal((await alice('/photos/move',{ids:[],folderId:''})).status,400);
 });
 

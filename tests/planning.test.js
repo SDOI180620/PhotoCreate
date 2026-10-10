@@ -7,6 +7,20 @@ import {DRAFT,fixtureState} from './fixtures.js';
 const signature = shot => ['garment','pose','camera','lighting','color','quality','expression','clothingState','interaction'].map(key => shot[key]?.id || '').join('|');
 const randomDraft = {...DRAFT,mode:'random',randomCount:30,randomPoolMode:'all',garmentIds:[],poseIds:[],cameraId:'',lightingId:'',colorId:'',qualityId:''};
 
+test('角色複選展開組合，隨機總張數不變，每張保存單一角色快照',()=>{
+  const state=fixtureState();state.characters.push({...state.characters[0],id:'second-character',name:'第二位角色',description:'Second character details.'});
+  const draft={...DRAFT,characterIds:['character','second-character','character'],garmentIds:['garment-a'],poseIds:['pose-standing'],copies:1};
+  const shots=buildShotPlans(state,draft);assert.equal(shots.length,2);
+  assert.deepEqual(shots.map(shot=>shot.character.id),['character','second-character']);
+  const random=buildShotPlans(state,{...draft,mode:'random',randomPoolMode:'selected',randomCount:8});assert.equal(random.length,8);
+  for(let index=0;index<8;index+=2) assert.equal(new Set(random.slice(index,index+2).map(shot=>shot.character.id)).size,2);
+  assert.equal(buildShotPlans(state,{...draft,copies:2}).length,4);
+  assert.throws(()=>buildShotPlans(state,{...draft,characterIds:[]}),/角色/);
+  assert.throws(()=>buildShotPlans(state,{...draft,characterIds:['missing']}),/角色/);
+  assert.throws(()=>buildShotPlans(state,{...draft,characterIds:'character'}),/角色/);
+  state.characters[1].description='Changed later';assert.equal(shots[1].character.description,'Second character details.');
+});
+
 test('四類攝影複選產生所有組合，每張只取各類一項，不混合互斥提詞',() => {
   const state = fixtureState();
   const draft = {...DRAFT,garmentIds:['garment-a'],poseIds:['pose-standing'],copies:1};
@@ -36,7 +50,7 @@ test('取消鏡頭不增加角度組合，無候選也可產圖；勾選後恢�
   const state=fixtureState(),draft={...DRAFT,cameraMode:'multiangle',cameraEnabled:false,garmentIds:['garment-a'],poseIds:['pose-standing'],copies:1,cameraIds:state.presets.filter(row=>row.category==='camera').slice(0,2).map(row=>row.id)};
   const [shot]=buildShotPlans(state,draft);
   assert.equal(buildShotPlans(state,draft).length,1);assert.equal(shot.cameraEnabled,false);
-  assert.deepEqual(shot.camera.angle,{horizontalAngle:0,verticalAngle:0,zoom:0});
+  assert.deepEqual(shot.camera.angle,{horizontalAngle:0,verticalAngle:0,zoom:5});
   assert.equal(buildShotPlans(state,{...draft,cameraIds:[]}).length,1);
   assert.equal(buildShotPlans(state,{...draft,cameraEnabled:true}).length,2);
   assert.throws(()=>buildShotPlans(state,{...draft,cameraEnabled:'false'}),/鏡頭開關/);

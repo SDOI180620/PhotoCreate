@@ -1,5 +1,5 @@
 import {OPTIONAL_PRESET_FIELDS,OPTIONAL_PRESET_POOL_FIELDS,PRESET_POOL_FIELDS,PRESET_SELECTION_FIELDS,OUTPUT_RATIOS,normalizePresetImport,selectedPresetIds,optionalPresetSelections} from '../shared/domain.js';
-import {cameraPreset} from '../shared/camera.js';
+import {cameraPreset,CAMERA_MAPPING_VERSION} from '../shared/camera.js';
 import {DEFAULT_DRAFT} from '../shared/draft.js';
 
 export const ASSET_KINDS = ['garments','characters','scenes'];
@@ -27,7 +27,7 @@ export function portablePresets(rows) {
   if(!Array.isArray(rows) || rows.length>LIMITS.presets) throw transferError('提詞數量超過 10,000 筆。');
   if(!rows.length) return [];
   const input=rows.map(row=>({id:idField(row.id),category:row.category,name:row.name,prompt:row.prompt,tags:tagsField(row.tags ?? []),...(row.category==='camera' ? {angle:cameraPreset(row).angle} : {})}));
-  return normalizePresetImport(input).map((row,index)=>row.category==='camera' ? {...row,mappingSource:rows[index].mappingSource==='automatic' ? 'automatic' : 'manual',mappingNote:textField(rows[index].mappingNote ?? '',2000,'角度備註')} : row);
+  return normalizePresetImport(input).map((row,index)=>row.category==='camera' ? {...row,mappingVersion:Number.isInteger(rows[index].mappingVersion) && rows[index].mappingVersion >= 1 && rows[index].mappingVersion <= CAMERA_MAPPING_VERSION ? rows[index].mappingVersion : row.mappingVersion,mappingSource:rows[index].mappingSource==='automatic' ? 'automatic' : 'manual',mappingNote:textField(rows[index].mappingNote ?? '',2000,'角度備註')} : row);
 }
 export function portableDraft(input,assets,presets) {
   if(!input || typeof input!=='object' || Array.isArray(input)) throw transferError('拍攝設定格式不正確。');
@@ -56,7 +56,8 @@ export function portableDraft(input,assets,presets) {
     if(!Array.isArray(values) || values.length>10000) throw transferError('拍攝候選格式不正確。');
     const ids=new Set(available.map(row=>row.id));return [...new Set(values.map(idField))].filter(id=>ids.has(id));
   };
-  result.characterId=input.characterId ? selected([input.characterId],assets.characters)[0] || '' : '';
+  result.characterIds=selected(input.characterIds ?? (input.characterId ? [input.characterId] : []),assets.characters);
+  result.characterId=result.characterIds[0] || '';
   result.garmentIds=selected(input.garmentIds ?? [],assets.garments);
   for(const [category,field] of Object.entries(PRESET_POOL_FIELDS)) {
     result[field]=selected(selectedPresetIds({...result,...input},category),presets.filter(row=>row.category===category));
@@ -89,7 +90,8 @@ export function validateManifest(value) {
 }
 export function remapDraft(draft,assetMap,presetMap) {
   const result=structuredClone(draft);
-  result.characterId=assetMap.get(result.characterId) || '';
+  result.characterIds=[...new Set((result.characterIds ?? (result.characterId ? [result.characterId] : [])).map(id=>assetMap.get(id)).filter(Boolean))];
+  result.characterId=result.characterIds[0] || '';
   result.garmentIds=result.garmentIds.map(id=>assetMap.get(id)).filter(Boolean);
   for(const field of Object.values(PRESET_SELECTION_FIELDS)) result[field]=result[field].map(id=>presetMap.get(id)).filter(Boolean);
   for(const category of ['camera','lighting','color','quality']) result[`${category}Id`]=result[`${category}Ids`][0] || '';

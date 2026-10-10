@@ -182,7 +182,13 @@ export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploa
       const ready = jobs.filter(job => eligible(job) && !job.stopRequestedAt && nextProductionStage(job));
       if(!ready.length) {mutateRun(run.id,row => {row.status = jobs.every(job => job.status === 'completed') ? 'completed' : 'paused';row.finishedAt = now();});onCompleted();return;}
       const stage = PRODUCTION_STAGES.find(stage => ready.some(job => nextProductionStage(job) === stage));
-      if((run.needsInitialRelease || run.stage && run.stage !== stage) && !await releaseModels(run,stage,queue)) return;
+      if(run.release || run.needsInitialRelease || run.stage && run.stage !== stage) {
+        if(run.release || run.releaseGpuMemory===true) {if(!await releaseModels(run,stage,queue)) return;}
+        else {
+          if(queue.queue_running?.length || queue.queue_pending?.length) return;
+          mutateRun(run.id,row=>{delete row.needsInitialRelease;});
+        }
+      }
       mutateRun(run.id,row => {row.stage = stage;delete row.error;});
       const uploaded = new Map();
       for(const job of ready.filter(job => nextProductionStage(job) === stage)) {
@@ -206,7 +212,7 @@ export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploa
     store.mutate(state => {
       state.pipelineRuns ||= [];
       const firstStage = PRODUCTION_STAGES.find(stage => state.jobs.some(job => ids.includes(job.id) && nextProductionStage(job) === stage));
-      state.pipelineRuns.push({id,jobIds:ids,comfyUrl:snapshot.settings.comfyUrl,status:'queued',createdAt:now(),stage:null,needsInitialRelease:firstStage !== 'base'});
+      state.pipelineRuns.push({id,jobIds:ids,comfyUrl:snapshot.settings.comfyUrl,releaseGpuMemory:snapshot.settings.releaseGpuMemory===true,status:'queued',createdAt:now(),stage:null,needsInitialRelease:firstStage !== 'base'});
       for(const job of state.jobs.filter(job => ids.includes(job.id))) {
         Object.assign(job,{executionMode:'staged',stageRunId:id,pipelineStage:nextProductionStage(job),stageWaiting:true,status:'queued',images:[],error:null,
           workflowSnapshot:job.workflowSnapshot || structuredClone(snapshot.workflow),cameraWorkflowSnapshot:job.cameraWorkflowSnapshot || structuredClone(snapshot.cameraWorkflow)});

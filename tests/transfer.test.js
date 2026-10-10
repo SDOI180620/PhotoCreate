@@ -34,6 +34,20 @@ async function exportTo(source,target) {
   const exported=await source.transfer.exportZip(),archive=source.transfer.download(exported.token),file=path.join(target.transfer.uploadDir,`${randomUUID()}.zip`);
   fs.copyFileSync(archive.path,file);archive.cleanup();return file;
 }
+
+test('角色複選經資料搬移保留所有候選，ID 衝突時逐一對應',async t=>{
+  const source=fixture(t,{source:true}),target=fixture(t,{source:true});
+  source.store.mutate(state=>{
+    state.characters.push({...state.characters[0],id:'second-person',name:'第二位角色'});
+    state.draft.characterIds=['person','second-person'];
+  });
+  target.store.mutate(state=>state.characters[0].description='Different local character.');
+  const preview=await target.transfer.prepare(await exportTo(source,target));await target.transfer.commit(preview.token,{applyDraft:true});
+  const state=target.store.read();
+  assert.equal(state.draft.characterIds.length,2);assert.notEqual(state.draft.characterIds[0],'person');
+  assert.equal(state.draft.characterId,state.draft.characterIds[0]);
+  assert.deepEqual(state.draft.characterIds.map(id=>state.characters.find(row=>row.id===id).name),['測試角色','第二位角色']);
+});
 export async function zipEntries(file) {
   const zip=await yauzl.openPromise(file,{lazyEntries:true});const result=new Map();
   try {for await(const entry of zip.eachEntry()) {const stream=await zip.openReadStreamPromise(entry),chunks=[];for await(const chunk of stream) chunks.push(chunk);result.set(entry.fileName,Buffer.concat(chunks));}} finally {zip.close();}

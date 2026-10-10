@@ -19,10 +19,6 @@ input:not([type=checkbox]),textarea,select {border:1px solid var(--color-border)
 input::placeholder,textarea::placeholder {color:var(--color-text-dim);opacity:.78}
 textarea {resize:vertical;line-height:1.75}
 input[type=checkbox] {accent-color:var(--color-primary);width:16px;height:16px;cursor:pointer}
-.shoot-camera-toggle {display:flex;align-items:flex-start;gap:10px;margin:20px 0 4px;padding:13px;border:1px solid var(--color-border);border-radius:7px;cursor:pointer}
-.shoot-camera-toggle input {flex-shrink:0;margin:2px 0}
-.shoot-camera-toggle strong {display:block;font-size:12px}
-.shoot-camera-toggle small {display:block;color:var(--color-text-dim);font-size:10px;margin-top:4px;line-height:1.6}
 select {cursor:pointer}
 label {display:block;font-size:12px;font-weight:500}
 label > input,label > select,label > textarea {display:block;margin-top:7px}
@@ -75,7 +71,14 @@ code,pre {font-family:var(--font-mono)}
 .camera-numbers > div {min-width:0}
 .camera-numbers input[type=range] {width:100%;margin:10px 0;accent-color:var(--color-primary);padding:0;min-height:22px}
 .camera-numbers select {font-size:11px;min-width:0;padding:8px 6px}
+.camera-control-options {min-width:0}
+.camera-preset-picker {margin-bottom:18px}
+.camera-preset-picker>span {display:flex;align-items:center;justify-content:space-between;gap:8px}
+.camera-preset-picker small {font-size:11px;font-weight:400;color:var(--color-text-dim)}
+.camera-preset-picker select {margin-top:8px;width:100%;min-width:0;min-height:44px}
+.camera-handle[aria-disabled=true] {cursor:default;opacity:.45}
 .camera-edit-settings {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:12px}
+@media(max-width:740px) {.camera-edit-settings {grid-template-columns:1fr}}
 .camera-editor.modal.wide {width:1000px}
 .camera-editor .form-stack {row-gap:14px}
 @media(min-width:761px) {
@@ -87,8 +90,8 @@ code,pre {font-family:var(--font-mono)}
 .camera-delete-source {display:flex;align-items:center;gap:8px;font-weight:400}
 .camera-delete-source input {margin:0}
 .camera-mapping-note {padding:10px;background:var(--color-soft);border-radius:var(--radius-sm)}
-.camera-pipeline-settings {margin:14px 0;font-size:11px}
-.camera-pipeline-settings summary {cursor:pointer;color:var(--color-primary);padding:8px 0}
+.camera-presets-settings {margin:14px 0;font-size:11px}
+.camera-presets-settings summary {cursor:pointer;color:var(--color-primary);padding:8px 0}
 .camera-workflow-summary {border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:16px;font-size:13px}
 .camera-workflow-summary .button {margin-top:10px}
 .spin {animation:spin 1s linear infinite}
@@ -248,6 +251,7 @@ code,pre {font-family:var(--font-mono)}
 .gallery-card-actions .button {padding:7px 6px;font-size:11px;min-height:36px;gap:5px}
 .gallery-card-actions.has-angle {grid-template-columns:repeat(2,minmax(0,1fr))}
 .gallery-card-actions.has-angle>.gallery-angle {grid-column:1 / -1;grid-row:2}
+.gallery-card-actions>.gallery-custom {grid-column:1 / -1}
 .gallery-card-actions.has-angle>a {grid-column:2;grid-row:1}
 .gallery-download-actions {display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .gallery-angle {min-width:0}
@@ -290,6 +294,7 @@ code,pre {font-family:var(--font-mono)}
 .customer-publish-panel p {font-size:11px;color:var(--color-text-dim);line-height:1.7;margin:5px 0}
 .customer-publish-panel small {font-size:10px;color:var(--color-text-dim)}
 .customer-publish-panel > .field-help {flex-basis:100%;margin:0}
+.customer-publish-panel > .customer-publish-reason {flex-basis:100%;margin:0;color:var(--color-error)}
 .random-mode-settings {display:grid;grid-template-columns:100px minmax(0,1fr);gap:16px;margin-top:15px}
 .random-mode-settings label {font-size:11px}
 .prompt-pool-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}

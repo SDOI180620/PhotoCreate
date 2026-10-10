@@ -1,5 +1,5 @@
 import { buildComfyPrompt, validateTemplate } from './workflow.js';
-import { normalizeCameraAngle, cameraPrompt, REFINE_PROMPT, REFINE_NEGATIVE, REFINE_STEPS } from '../shared/camera.js';
+import { normalizeCameraAngle, cameraPrompt, cameraZoomLevel, REFINE_PROMPT, REFINE_NEGATIVE, REFINE_STEPS } from '../shared/camera.js';
 import {productionStages} from '../shared/production.js';
 import {withSingleSubjectPrompt,withSingleSubjectNegative} from '../shared/subject.js';
 
@@ -85,6 +85,7 @@ export function buildCameraPipeline(template,cameraTemplate,shot,images) {
     const negativeEncoder = camera[camera[sampler].inputs.negative?.[0]];
     if(negativeEncoder?.class_type === 'TextEncodeQwenImageEditPlus' && typeof negativeEncoder.inputs.prompt === 'string') {
       negativeEncoder.inputs.prompt = withSingleSubjectNegative(negativeEncoder.inputs.prompt);
+      if(cameraZoomLevel(angle).max===10) negativeEncoder.inputs.prompt += ', wide shot, full-body framing, distant subject';
       negativeEncoder._meta = {title:'不同角度拍攝 · 負面提詞'};
     }
     camera[sampler]._meta = {title:'Qwen 2511 · 換角度'};

@@ -8,6 +8,18 @@ const inside = (root,target) => {
   return relative && !relative.startsWith('..' + path.sep) && relative !== '..' && !path.isAbsolute(relative);
 };
 
+// An unavailable saved path can belong to an installation that was moved.
+// Use the corrected directory only for the same local ComfyUI connection;
+// available historical directories keep ownership of their original files.
+export function outputDirectoryForJob(job,settings,defaultOutputDir) {
+  const saved=job.comfyOutputDir;
+  if(!saved || fs.existsSync(saved)) return saved || defaultOutputDir;
+  let recorded,current;
+  try {recorded=new URL(job.comfyUrl || settings.comfyUrl);current=new URL(settings.comfyUrl);} catch {return saved;}
+  if(recorded.origin!==current.origin || !['127.0.0.1','localhost','[::1]'].includes(current.hostname)) return saved;
+  return defaultOutputDir && fs.statSync(defaultOutputDir,{throwIfNoEntry:false})?.isDirectory() ? defaultOutputDir : saved;
+}
+
 // Delete only files recorded as this workbench's own ComfyUI outputs. Resolve
 // both lexical and real paths so traversal and linked folders cannot escape.
 export function resolveOutputFile(outputDir,image) {
@@ -51,7 +63,7 @@ export function purgeJobOutputs(state,jobs,defaultOutputDir) {
     let host;
     try {host=new URL(job.comfyUrl || state.settings.comfyUrl).hostname;} catch {continue;}
     if(!['127.0.0.1','localhost','[::1]'].includes(host)) continue;
-    const directory=job.comfyOutputDir || defaultOutputDir;
+    const directory=outputDirectoryForJob(job,state.settings,defaultOutputDir);
     if(!directory || !fs.existsSync(directory)) continue;
     for(const image of outputs(job)) {
       if(retained.has(key(image)) || (image.type || 'output')!=='output' || !/^PhotoCreate(?:[\\/]|$)/.test(String(image.subfolder || ''))) continue;

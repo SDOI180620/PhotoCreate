@@ -1,11 +1,21 @@
 import {withSingleSubjectPrompt,withSingleSubjectNegative} from './subject.js';
 
-export const DEFAULT_CAMERA_ANGLE = {horizontalAngle:0,verticalAngle:0,zoom:0};
+export const DEFAULT_CAMERA_ANGLE = {horizontalAngle:0,verticalAngle:0,zoom:5};
+export const CAMERA_FRAMING_VERSION = 3;
+export const CAMERA_MAPPING_VERSION = 3;
+export const CAMERA_MIN_VERTICAL = -70;
 export const REFINE_STEPS = 20;
 export const ORIGINAL_CAMERA = {id:'camera-original',category:'camera',name:'保留原圖鏡頭',angle:DEFAULT_CAMERA_ANGLE,prompt:'',tags:[]};
 export const CAMERA_HORIZONTAL = [[0,'正面'],[45,'右前方'],[90,'右側'],[135,'右後方'],[180,'背面'],[225,'左後方'],[270,'左側'],[315,'左前方']];
-export const CAMERA_VERTICAL = [[-90,'正下方仰拍（試驗）'],[-60,'強烈仰拍（試驗）'],[-30,'仰拍'],[0,'平視'],[30,'高角度'],[60,'俯拍']];
-export const CAMERA_ZOOM = [[0,'遠景'],[1,'全身'],[5,'中景'],[8,'特寫'],[9,'超特寫（試驗）'],[10,'極近細節（試驗）']];
+export const CAMERA_VERTICAL = [[CAMERA_MIN_VERTICAL,'極低角度仰拍（試驗）'],[-60,'強烈仰拍（試驗）'],[-30,'仰拍'],[0,'平視'],[30,'高角度'],[60,'俯拍']];
+const ZOOM_LEVELS = [
+  {max:2,value:1,label:'遠景（1–2）',tag:'wide shot',prompt:'Distant environmental framing. Move the camera far away. Show the entire person from head to feet, small within the frame, with generous surroundings visible.'},
+  {max:4,value:3,label:'全身（3–4）',tag:'wide shot',prompt:'Full-body framing. Show the entire person from head to feet, filling most of the frame, with a little space around the person.'},
+  {max:6,value:5,label:'正常取景（5–6）',tag:'medium shot',prompt:'Normal-distance framing. Show the person in a natural medium photograph, with the torso and immediate surroundings visible. Keep a balanced composition.'},
+  {max:8,value:7,label:'半身（7–8）',tag:'close-up',prompt:'Half-body framing. Move the camera closer. Frame the person from the top of the head to the waist. The head and upper body fill the frame, with the lower body outside the frame.'},
+  {max:10,value:9,label:'局部大特寫（9–10）',tag:'close-up',prompt:'Extreme close-up. Move the camera right up to the part of the person and clothing at the center of the reference photograph. Fill the entire frame with this small local detail, showing fine skin and fabric texture. The whole head, whole body and most of the room are outside the frame. Photograph the corresponding area from the requested viewing direction.'},
+];
+export const CAMERA_ZOOM = ZOOM_LEVELS.map(({value,label})=>[value,label]);
 export const REFINE_PROMPT = withSingleSubjectPrompt('Restore only sharpness and fine photographic detail in <image1>. Preserve exactly the same person, face, hairstyle, expression, pose, clothing, clothing state, objects, environment, camera viewpoint, framing, lighting and colors. Do not add, remove, replace or redesign anything. Do not change the composition.');
 export const REFINE_NEGATIVE = withSingleSubjectNegative('added objects, changed identity, changed pose, changed clothing, changed background, changed composition, text, watermark');
 
@@ -18,24 +28,50 @@ export function normalizeCameraAngle(value) {
   return {horizontalAngle,verticalAngle,zoom:Math.round(zoom * 10) / 10};
 }
 
+// Historical jobs and imported presets may still contain -90°. Clamp only
+// when loading a camera into the controls, so the shown and submitted values agree.
+export function cameraControlAngle(value) {
+  const angle = normalizeCameraAngle(value);
+  return {...angle,verticalAngle:Math.max(CAMERA_MIN_VERTICAL,angle.verticalAngle)};
+}
+
 export function cameraAngleLabel(angle) {
   const value = normalizeCameraAngle(angle);
   return `水平 ${value.horizontalAngle}° · 俯仰 ${value.verticalAngle}° · Zoom ${value.zoom.toFixed(1)}`;
 }
 
+export function cameraZoomLevel(angle) {
+  const {zoom}=normalizeCameraAngle(angle);
+  return ZOOM_LEVELS.find(level=>zoom<=level.max);
+}
+
 export function cameraPrompt(angle) {
-  const {horizontalAngle,verticalAngle,zoom} = normalizeCameraAngle(angle);
+  const {horizontalAngle,verticalAngle} = normalizeCameraAngle(angle);
   const directions = ['front view','front-right quarter view','right side view','back-right quarter view','back view','back-left quarter view','left side view','front-left quarter view'];
-  const direction = directions[Math.floor(((horizontalAngle % 360) + 22.5) / 45) % 8];
+  const directionIndex = Math.floor(((horizontalAngle % 360) + 22.5) / 45) % 8;
+  const direction = directions[directionIndex];
   const height = verticalAngle < -15 ? 'low-angle shot' : verticalAngle < 15 ? 'eye-level shot' : verticalAngle < 45 ? 'elevated shot' : 'high-angle shot';
-  const distance = zoom < 2 ? 'wide shot' : zoom < 6 ? 'medium shot' : 'close-up';
-  let prompt = `<sks> ${direction} ${height} ${distance}`;
+  const framing = cameraZoomLevel(angle);
+  let prompt = `<sks> ${direction} ${height} ${framing.tag}\n${framing.prompt}`;
+  if(directionIndex===2 || directionIndex===6) {
+    const side=directionIndex===2 ? 'right' : 'left';
+    const target=framing.max<10 ? 'the head and upper body' : 'the corresponding local detail';
+    const position=verticalAngle>0
+      ? `above ${target}, looking downward at ${verticalAngle} degrees. Show the ${side} side from above, with visible top surfaces and downward foreshortening`
+      : verticalAngle<0
+        ? `below ${target}, looking upward at ${Math.abs(verticalAngle)} degrees. Show the ${side} side from below, with upward perspective and foreshortening`
+        : `level with ${target}. Show ${framing.max<10 ? `the ${side} profile and side surfaces` : `only the ${side}-facing surfaces of the same local detail at the center of the reference photograph. Keep the framing on that same body and clothing region`}`;
+    prompt += `\nPlace the camera at the person's ${side} side and ${position}. Keep both the side direction and the requested elevation in the same view. The person keeps facing the original direction while the camera moves around them.`;
+  }
   // Match the extensions in this installation's QwenMultiangleCameraNode.
-  if(verticalAngle < -75) prompt += ". Worm's-eye view, camera directly underneath the subject, looking vertically straight up. Camera elevation -90 degrees. Show the underside from below with strong upward foreshortening.";
-  else if(verticalAngle < -45) prompt += '. Extreme low-angle view, camera far below the subject, looking steeply upward. Camera elevation -60 degrees. Strong upward perspective and foreshortening.';
-  if(zoom >= 9.5) prompt += "\nMacro close-up: camera extremely close to the subject's main focal detail. Fill the entire frame with a small part of the subject, showing fine surface details and texture. The full subject is outside the frame.";
-  else if(zoom >= 9) prompt += '\nExtreme close-up: tightly frame the face or main focal detail of the subject. The subject fills nearly the entire frame, with most of the surrounding background outside the frame.';
-  return prompt;
+  if(verticalAngle < -75) prompt += `. Worm's-eye view, camera underneath the subject, ${verticalAngle===-90 ? 'looking vertically straight up' : 'looking steeply upward'}. Camera elevation ${verticalAngle} degrees. Show the underside from below with strong upward foreshortening.`;
+  else if(verticalAngle < -45) prompt += `. Extreme low-angle view, ${framing.max===10 ? 'camera immediately below the same small local clothing detail' : 'camera far below the subject'}, looking steeply upward. Camera elevation ${verticalAngle} degrees. Strong upward perspective and foreshortening.`;
+  // The native LoRA tags group angles into broad bins. Include the requested
+  // coordinates in the text encoder too; metadata alone cannot guide the model.
+  const elevationTarget=framing.max===10 ? 'the level of the same small local detail' : 'eye level';
+  const elevation=verticalAngle===0 ? `at ${elevationTarget}` : `${Math.abs(verticalAngle)} degrees ${verticalAngle>0 ? 'above' : 'below'} ${elevationTarget}`;
+  const coordinates=`${prompt}\nRequested camera azimuth: ${horizontalAngle} degrees, ${direction}. Requested camera elevation: ${verticalAngle} degrees, ${elevation}. Keep the same person, pose, clothing and environment. Keep the person stationary, facing the original direction. Move only the camera around the person and change its distance. Keep the camera upright with no roll.`;
+  return framing.max===10 ? `${withSingleSubjectPrompt(coordinates)}\nKeep the center of that local detail at the center of the frame as the camera moves. The small clothing detail still fills all four edges of the frame at the requested angle.` : coordinates;
 }
 
 export function inferLegacyCameraAngle(preset) {
@@ -78,6 +114,13 @@ const DESIGNED_ANGLES = {
   'camera-dutch-angle':[25,35,10], 'camera-wide-full':[15,10,1],
   'camera-bust-line':[18,35,9],
 };
+function mappedZoom(preset,zoom) {
+  const name = `${preset.id || ''} ${preset.name || ''}`;
+  if(/大特寫|微距|extreme-closeup|macro|nipple-closeup/.test(name)) return Math.max(9,zoom);
+  if(/半身|half-body|half-crop|side-half/.test(name)) return 8;
+  if(/全身|camera-full/.test(name) && !/遠景|wide/.test(name)) return 3;
+  return zoom >= 9 ? 8 : zoom;
+}
 export function inferCameraAngle(preset) {
   const legacy = inferLegacyCameraAngle(preset);
   const name = preset.name || '';
@@ -93,13 +136,18 @@ export function inferCameraAngle(preset) {
     else if(/特寫|微距/.test(name)) numbers = [angle.horizontalAngle === 0 ? 20 : angle.horizontalAngle,angle.verticalAngle === 0 ? 22 : angle.verticalAngle,angle.zoom];
     else numbers = [angle.horizontalAngle,angle.verticalAngle,angle.zoom];
   }
-  return {...legacy,angle:{horizontalAngle:numbers[0],verticalAngle:numbers[1],zoom:numbers[2]}};
+  return {...legacy,angle:{horizontalAngle:numbers[0],verticalAngle:numbers[1],zoom:mappedZoom(preset,numbers[2])}};
 }
 export function upgradeCameraMapping(preset) {
-  if(preset.mappingVersion === 2) return cameraPreset(preset);
+  if(preset.mappingVersion >= CAMERA_MAPPING_VERSION) return cameraPreset(preset);
+  if(preset.mappingVersion === 2 && preset.angle) {
+    const angle = normalizeCameraAngle(preset.angle);
+    const automatic = preset.mappingSource === 'automatic';
+    return {...preset,angle:{...angle,zoom:automatic ? mappedZoom(preset,angle.zoom) : angle.zoom},mappingVersion:CAMERA_MAPPING_VERSION,mappingSource:automatic ? 'automatic' : 'manual'};
+  }
   const legacy = inferLegacyCameraAngle(preset);
-  const wasAutomatic = !preset.angle || JSON.stringify(normalizeCameraAngle(preset.angle)) === JSON.stringify(legacy.angle);
-  return wasAutomatic ? {...preset,...inferCameraAngle(preset),mappingVersion:2,mappingSource:'automatic'} : {...preset,angle:normalizeCameraAngle(preset.angle),mappingVersion:2,mappingSource:'manual'};
+  const wasAutomatic = preset.mappingSource !== 'manual' && (!preset.angle || JSON.stringify(normalizeCameraAngle(preset.angle)) === JSON.stringify(legacy.angle));
+  return wasAutomatic ? {...preset,...inferCameraAngle(preset),mappingVersion:CAMERA_MAPPING_VERSION,mappingSource:'automatic'} : {...preset,angle:normalizeCameraAngle(preset.angle),mappingVersion:CAMERA_MAPPING_VERSION,mappingSource:'manual'};
 }
 export function cameraPreset(preset) {
   return preset.angle ? {...preset,angle:normalizeCameraAngle(preset.angle)} : {...preset,...inferCameraAngle(preset)};
