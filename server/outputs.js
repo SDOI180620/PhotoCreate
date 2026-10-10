@@ -36,3 +36,31 @@ export function deleteOutputFiles(outputDir,images) {
   for(const file of files) fs.unlinkSync(file);
   return files.length;
 }
+
+// Purging a photo also clears intermediate results, but only unreferenced local
+// PhotoCreate files. Other jobs may still need an output for a saved camera shoot.
+export function purgeJobOutputs(state,jobs,defaultOutputDir) {
+  const selected=new Set(jobs.map(job=>job.id));
+  const key=image=>JSON.stringify([image.type || 'output',String(image.subfolder || '').replaceAll('\\','/'),image.filename]);
+  const outputs=job=>[...(job.images || []),...Object.values(job.stageResults || {}).flatMap(stage=>stage.images || [])];
+  const retained=new Set(state.jobs.filter(job=>!selected.has(job.id)).flatMap(job=>[
+    ...outputs(job),...[job.sourceImage,job.cameraSource?.image].filter(Boolean),
+  ]).map(key));
+  const files=new Set();
+  for(const job of jobs) {
+    let host;
+    try {host=new URL(job.comfyUrl || state.settings.comfyUrl).hostname;} catch {continue;}
+    if(!['127.0.0.1','localhost','[::1]'].includes(host)) continue;
+    const directory=job.comfyOutputDir || defaultOutputDir;
+    if(!directory || !fs.existsSync(directory)) continue;
+    for(const image of outputs(job)) {
+      if(retained.has(key(image)) || (image.type || 'output')!=='output' || !/^PhotoCreate(?:[\\/]|$)/.test(String(image.subfolder || ''))) continue;
+      const file=resolveOutputFile(directory,image);
+      if(file) files.add(file);
+    }
+  }
+  // Resolve every path before deleting any file, so invalid metadata cannot
+  // partially purge a batch or reach another folder through a junction.
+  for(const file of files) fs.unlinkSync(file);
+  return files.size;
+}

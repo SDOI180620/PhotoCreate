@@ -1,3 +1,4 @@
+import {adminFetch as fetch} from './auth-client.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -114,6 +115,16 @@ test('API 測試不改設定，綁定重新驗證；本機安裝與載入、忙�
   fixture.controls.foreignQueue=false;fixture.controls.queueError=true;assert.equal((await request('/environment/install',{directory:fixture.root})).status,502);assert.equal(environment.status(),null);
   fixture.controls.queueError=false;fixture.controls.queueOffline=true;assert.equal((await request('/environment/install',{directory:fixture.root})).status,202);assert.equal((await settleInstall(environment)).status,'completed');fixture.controls.queueOffline=false;
   assert.deepEqual((await request('/comfy/workflows',undefined,'GET')).data,[BUNDLED_WORKFLOW_PATH,BUNDLED_CAMERA_PATH]);
+  const originalWorkflow=store.read().workflow;
+  store.mutate(state=>{delete state.cameraWorkflow;delete state.settings.cameraWorkflowPath;state.cameraWorkflowError='ComfyUI 404: ';});
+  const cameraLoaded=await request('/camera-workflow/load');
+  assert.equal(cameraLoaded.status,200);assert.equal(cameraLoaded.data.name,BUNDLED_CAMERA_PATH);
+  assert.equal(store.read().settings.cameraWorkflowPath,BUNDLED_CAMERA_PATH);
+  assert.equal(store.read().cameraWorkflowError,undefined);assert.ok(store.read().cameraWorkflow);
+  assert.deepEqual(store.read().workflow,originalWorkflow);
+  const cameraBefore=store.read().cameraWorkflow,settingsBefore=store.read().settings;
+  assert.equal((await request('/camera-workflow/load',{path:'missing/camera.json'})).status,502);
+  assert.deepEqual(store.read().cameraWorkflow,cameraBefore);assert.deepEqual(store.read().settings,settingsBefore);
   fixture.controls.missingCamera=true;
   assert.equal((await request('/workflow/load',{path:BUNDLED_WORKFLOW_PATH})).data.ready,true);
   const pendingSettings=store.read().settings;

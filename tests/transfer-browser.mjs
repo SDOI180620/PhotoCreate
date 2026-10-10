@@ -1,3 +1,4 @@
+import {loginBrowser} from './auth-client.js';
 import {chromium,expect} from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -29,7 +30,7 @@ const browser=await chromium.launch({executablePath:process.env.PHOTOCREATE_BROW
 const page=await browser.newPage({viewport:{width:1440,height:1080},acceptDownloads:true});page.on('pageerror',error=>errors.push(error.message));
 fs.mkdirSync('test-results',{recursive:true});
 try {
-  await page.goto(`http://127.0.0.1:${source.server.address().port}`);
+  await loginBrowser(page,`http://127.0.0.1:${source.server.address().port}`);
   await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('53');
   await page.getByRole('button',{name:'工作流與連線設定',exact:true}).click();
   await page.getByRole('tab',{name:'資料搬移',exact:true}).click();
@@ -39,7 +40,7 @@ try {
   const download=await downloadPromise,file=path.resolve('test-results/transfer-browser.zip');await download.saveAs(file);
   assert.match(download.suggestedFilename(),/^PhotoCreate-data-.*\.zip$/);
   const url=`http://127.0.0.1:${target.server.address().port}`;
-  await page.goto(url);await page.getByRole('button',{name:'工作流與連線設定',exact:true}).click();await page.getByRole('tab',{name:'資料搬移',exact:true}).click();
+  await loginBrowser(page,url);await page.getByRole('button',{name:'工作流與連線設定',exact:true}).click();await page.getByRole('tab',{name:'資料搬移',exact:true}).click();
   await dialog.getByLabel('資料 ZIP',{exact:true}).setInputFiles({name:'bad.zip',mimeType:'application/zip',buffer:Buffer.from('invalid')});
   await expect(dialog.getByRole('alert')).toContainText('無法匯入 ZIP');
   await dialog.getByLabel('資料 ZIP',{exact:true}).setInputFiles(file);

@@ -61,8 +61,12 @@ export async function testComfyConnection({comfyUrl,workflowPath='bundled',camer
       await Promise.all([...new Set(Object.values(graph).map(node=>node.class_type))].map(schemaFor));
       const errors=checkGraphAvailability(graph,schemas);
       if(stage==='angle') {
-        const upper=structuredClone(graph),camera=Object.values(upper).find(node=>node.class_type==='QwenMultiangleCameraNode');
-        Object.assign(camera.inputs,{horizontal_angle:360,vertical_angle:60,zoom:0});errors.push(...checkGraphAvailability(upper,schemas));
+        // Generated submissions materialize camera text. Validate the source
+        // node's supported range independently of the pruned submission graph.
+        const limits=structuredClone(angle.graph),camera=Object.values(limits).find(node=>node.class_type==='QwenMultiangleCameraNode');
+        for(const values of [{horizontal_angle:133,vertical_angle:-90,zoom:10},{horizontal_angle:360,vertical_angle:60,zoom:0}]) {
+          Object.assign(camera.inputs,values);errors.push(...checkGraphAvailability(limits,schemas));
+        }
       }
       stages.push({stage,name,ready:!errors.length,errors:[...new Set(errors)]});
     }

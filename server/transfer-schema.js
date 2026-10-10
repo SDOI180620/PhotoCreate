@@ -1,4 +1,4 @@
-import {OPTIONAL_PRESET_FIELDS,PRESET_POOL_FIELDS,OUTPUT_RATIOS,normalizePresetImport,selectedPresetIds} from '../shared/domain.js';
+import {OPTIONAL_PRESET_FIELDS,OPTIONAL_PRESET_POOL_FIELDS,PRESET_POOL_FIELDS,PRESET_SELECTION_FIELDS,OUTPUT_RATIOS,normalizePresetImport,selectedPresetIds,optionalPresetSelections} from '../shared/domain.js';
 import {cameraPreset} from '../shared/camera.js';
 import {DEFAULT_DRAFT} from '../shared/draft.js';
 
@@ -32,6 +32,7 @@ export function portablePresets(rows) {
 export function portableDraft(input,assets,presets) {
   if(!input || typeof input!=='object' || Array.isArray(input)) throw transferError('拍攝設定格式不正確。');
   const result=structuredClone(DEFAULT_DRAFT);
+  if(input.cameraEnabled!==undefined) {if(typeof input.cameraEnabled!=='boolean') throw transferError('鏡頭開關須為開啟或關閉。');result.cameraEnabled=input.cameraEnabled;}
   for(const [key,options] of Object.entries({cameraMode:['multiangle','prompt'],mode:['random','combinations'],randomPoolMode:['all','selected'],aspectRatio:Object.keys(OUTPUT_RATIOS)})) {
     if(input[key]!==undefined) {if(!options.includes(input[key])) throw transferError(`拍攝設定 ${key} 無效。`);result[key]=input[key];}
   }
@@ -62,6 +63,8 @@ export function portableDraft(input,assets,presets) {
     if(category!=='pose') result[`${category}Id`]=result[field][0] || '';
   }
   for(const [category,field] of Object.entries(OPTIONAL_PRESET_FIELDS)) result[field]=input[field] ? selected([input[field]],presets.filter(row=>row.category===category))[0] || '' : '';
+  const optionalSelections=optionalPresetSelections({presets},input);
+  for(const [category,field] of Object.entries(OPTIONAL_PRESET_POOL_FIELDS)) result[field]=selected(optionalSelections[field],presets.filter(row=>row.category===category));
   return result;
 }
 export function validateManifest(value) {
@@ -88,7 +91,7 @@ export function remapDraft(draft,assetMap,presetMap) {
   const result=structuredClone(draft);
   result.characterId=assetMap.get(result.characterId) || '';
   result.garmentIds=result.garmentIds.map(id=>assetMap.get(id)).filter(Boolean);
-  for(const field of Object.values(PRESET_POOL_FIELDS)) result[field]=result[field].map(id=>presetMap.get(id)).filter(Boolean);
+  for(const field of Object.values(PRESET_SELECTION_FIELDS)) result[field]=result[field].map(id=>presetMap.get(id)).filter(Boolean);
   for(const category of ['camera','lighting','color','quality']) result[`${category}Id`]=result[`${category}Ids`][0] || '';
   for(const field of Object.values(OPTIONAL_PRESET_FIELDS)) result[field]=presetMap.get(result[field]) || '';
   return result;

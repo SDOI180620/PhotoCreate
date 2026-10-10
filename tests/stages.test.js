@@ -1,3 +1,4 @@
+import {adminFetch as fetch} from './auth-client.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -22,7 +23,8 @@ test('每階段只載入自己的模型，高清保留單一圖像 latent 與內
     assert.equal(types(graph,'KSampler').length,1);assert.equal(types(graph,'SaveImage').length,1);
     assert.equal(types(graph,'UNETLoader').length,1);
     assert.equal(types(graph,'TextEncodeQwenImage21').length,stage === 'angle' ? 0 : 1);
-    assert.equal(types(graph,'QwenMultiangleCameraNode').length,stage === 'angle' ? 1 : 0);
+    assert.equal(types(graph,'QwenMultiangleCameraNode').length,0);
+    if(stage === 'angle') assert.deepEqual(graph.angle_10._meta.cameraAngle,job.camera.angle);
     assert.equal(types(graph,'LoadImage').length,stage === 'base' ? 2 : 1);
     if(stage === 'refine') {
       assert.equal(types(graph,'TextEncodeQwenImage21')[0].inputs.prompt,REFINE_PROMPT);
@@ -32,7 +34,7 @@ test('每階段只載入自己的模型，高清保留單一圖像 latent 與內
   }
 });
 
-async function fixture(t,count = 3) {
+async function fixture(t,count = 3,cameraEnabled = true) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-stages-'));
   const outputDir = path.join(dataDir,'output');fs.mkdirSync(outputDir);
   const pending = new Set(),history = new Map(),submitted = [],events = [],cancelled = [],views = [];
@@ -46,7 +48,7 @@ async function fixture(t,count = 3) {
     if(route === '/free') {events.push('free');assert.deepEqual(JSON.parse(options.body),{unload_models:true,free_memory:true});return new Response(null,{status:200});}
     if(route === '/prompt') {
       const {prompt,prompt_id} = JSON.parse(options.body);
-      const stage = !types(prompt,'KSampler').length ? 'checkpoint' : types(prompt,'QwenMultiangleCameraNode').length ? 'angle' : prompt.refine_size ? 'refine' : 'base';
+      const stage = !types(prompt,'KSampler').length ? 'checkpoint' : prompt.angle_13 ? 'angle' : prompt.refine_size ? 'refine' : 'base';
       pending.add(prompt_id);submitted.push({id:prompt_id,stage,prompt});events.push(stage);
       if(loseReply) {loseReply = false;throw new Error('Lost reply after accepting the prompt');}
       return Response.json({prompt_id});
@@ -61,7 +63,7 @@ async function fixture(t,count = 3) {
   const server = f.app.listen(0,'127.0.0.1');await new Promise(resolve => server.once('listening',resolve));
   const request = async (route,body = {},method = 'POST') => {const response = await fetch(`http://127.0.0.1:${server.address().port}/api${route}`,{method,headers:{'content-type':'application/json'},...(method === 'GET' ? {} : {body:JSON.stringify(body)})});return {status:response.status,data:await response.json()};};
   const imageRequest = route => fetch(`http://127.0.0.1:${server.address().port}/api${route}`);
-  const jobs = (await request('/jobs',{...DRAFT,cameraMode:'multiangle',garmentIds:['garment-a'],poseIds:['pose-standing'],copies:count})).data;
+  const jobs = (await request('/jobs',{...DRAFT,cameraMode:'multiangle',cameraEnabled,garmentIds:['garment-a'],poseIds:['pose-standing'],copies:count})).data;
   const complete = id => {
     const entry = submitted.find(row => row.id === id);assert.ok(entry);
     pending.delete(id);
@@ -115,6 +117,34 @@ test('整組原圖完成才轉視角，整組角度完成才高清；兩次釋�
   assert.ok(releases.every(row => row.requestedAt && row.checkpointPromptId && row.checkpointConfirmedAt && row.memoryAfter.devices[0].vramFree > row.memoryBefore.devices[0].vramFree));
   assert.ok(f.store.read().jobs.every(job => job.images[0].subfolder.includes('_stages') === false));
   assert.equal(productionPreview(f.store.read().jobs[0]).stage,null);
+});
+
+test('不勾選鏡頭只產原圖，不同角度修復20步，完成後依勾選移除舊成果',async t => {
+  const f = await fixture(t,2,false),ids = f.jobs.map(job => job.id);
+  f.store.mutate(state => {state.cameraWorkflow = null;});
+  assert.equal((await f.request('/jobs/submit',{ids})).status,200);
+  f.submitted.forEach(row => f.complete(row.id));await f.stageRunner.tick();
+  assert.deepEqual(f.events,['base','base']);assert.equal(productionProgress(f.store.read().jobs),null);
+  assert.ok(f.store.read().jobs.every(job => job.status === 'completed' && job.images.length === 1 && Object.keys(job.stageResults).join() === 'base'));
+  const details = (await f.request('/jobs/'+ids[0]+'/prompts',{},'GET')).data;
+  assert.deepEqual(details.stages.map(row => row.id),['base']);assert.equal(details.stages[0].settings.steps,40);
+  const remake = await f.request('/jobs/remake',{ids:[ids[0]],requestId:'no-camera-remake'});
+  assert.equal(remake.status,201);assert.equal(remake.data.jobs[0].cameraEnabled,false);
+  const original=f.store.read().jobs.find(job=>job.id===ids[1]),image=original.images[0];
+  const originalFile=path.join(f.dataDir,'output',image.subfolder,image.filename);assert.ok(fs.existsSync(originalFile));
+  f.store.mutate(state=>{state.cameraWorkflow=CAMERA_TEMPLATE;});
+  const edit=await f.request('/jobs/'+ids[1]+'/angle',{requestId:'basic-photo-angle',angle:{horizontalAngle:0,verticalAngle:0,zoom:0},deleteSourceOnComplete:true});
+  assert.equal(edit.status,201);assert.equal(edit.data.job.cameraEnabled,true);
+  await f.request('/jobs/submit',{ids:[edit.data.job.id]});
+  f.complete(f.submitted.at(-1).id);await f.stageRunner.tick();
+  assert.equal(f.submitted.at(-1).stage,'angle');f.complete(f.submitted.at(-1).id);await f.stageRunner.tick();
+  f.complete(f.submitted.at(-1).id);await f.stageRunner.tick();
+  assert.equal(f.submitted.at(-1).stage,'refine');assert.equal(types(f.submitted.at(-1).prompt,'KSampler')[0].inputs.steps,20);
+  f.complete(f.submitted.at(-1).id);await f.stageRunner.tick();
+  assert.equal(f.store.read().jobs.find(job=>job.id===edit.data.job.id).status,'completed');
+  assert.ok(!fs.existsSync(originalFile),'The selected old output is removed only after its replacement completes');
+  assert.ok(f.store.read().jobs.find(job=>job.id===edit.data.job.id).sourceInput,'The saved input remains available for retrying the same camera shot');
+  assert.equal((await f.imageRequest('/jobs/'+edit.data.job.id+'/angle-source')).status,200);
 });
 
 test('暫停或失敗仍可看中間圖，讀取原階段主機；刪除成果後不再回退到中間圖',async t => {

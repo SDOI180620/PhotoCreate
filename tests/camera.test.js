@@ -1,3 +1,4 @@
+import {adminFetch as fetch} from './auth-client.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -46,6 +47,7 @@ test('新拍攝先產原圖、再換角度與修復；高清只有一張圖及�
   assert.equal(graph.refine_7.inputs.denoise,0.2);assert.deepEqual(graph.refine_7.inputs.latent_image,['refine_latent',0]);
   assert.equal(graph.refine_latent.class_type,'VAEEncode');
   assert.equal(graph.angle_13.inputs.steps,20);assert.equal(graph['7'].inputs.steps,40);
+  assert.equal(graph.refine_7.inputs.steps,20);
   for(const node of Object.values(graph)) for(const value of Object.values(node.inputs)) if(Array.isArray(value)) assert.ok(graph[String(value[0])]);
 });
 
@@ -60,7 +62,8 @@ test('已完成圖換角度只用成果，重製保留模型快照且不疊加�
   assert.equal(types(graph,'KSampler').length,2);assert.equal(types(graph,'LoadImage').length,1);
   assert.equal(types(graph,'LoadImage')[0].inputs.image,'source-result.png');
   assert.equal(types(graph,'TextEncodeQwenImage21')[0].inputs.prompt,REFINE_PROMPT);
-  assert.equal(graph.angle_9.inputs.vertical_angle,-90);assert.equal(graph.angle_9.inputs.zoom,10);
+  assert.deepEqual(graph.angle_10._meta.cameraAngle,edit.camera.angle);
+  assert.match(graph.angle_10.inputs.prompt,/Macro close-up/);
 });
 
 test('換角度请求可重试、不会重复排队，完成前保留旧图，成功后才删除',async t => {

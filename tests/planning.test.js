@@ -32,6 +32,16 @@ test('候選去重、驗證分類與數量上限，空候選不可建立',() => 
   assert.throws(()=>buildShotPlans(state,broad),/100/);
 });
 
+test('取消鏡頭不增加角度組合，無候選也可產圖；勾選後恢復所選角度',() => {
+  const state=fixtureState(),draft={...DRAFT,cameraMode:'multiangle',cameraEnabled:false,garmentIds:['garment-a'],poseIds:['pose-standing'],copies:1,cameraIds:state.presets.filter(row=>row.category==='camera').slice(0,2).map(row=>row.id)};
+  const [shot]=buildShotPlans(state,draft);
+  assert.equal(buildShotPlans(state,draft).length,1);assert.equal(shot.cameraEnabled,false);
+  assert.deepEqual(shot.camera.angle,{horizontalAngle:0,verticalAngle:0,zoom:0});
+  assert.equal(buildShotPlans(state,{...draft,cameraIds:[]}).length,1);
+  assert.equal(buildShotPlans(state,{...draft,cameraEnabled:true}).length,2);
+  assert.throws(()=>buildShotPlans(state,{...draft,cameraEnabled:'false'}),/鏡頭開關/);
+});
+
 test('隨機寫真只給角色與張數，即從全庫生成精確30張，選填預設無',() => {
   const state = fixtureState();
   const before = structuredClone(state);
@@ -57,7 +67,7 @@ test('隨機服裝依勾選範圍，可限制整組候選並避免重複直到�
   for(const row of shots) {assert(DRAFT.garmentIds.includes(row.garment.id));assert(DRAFT.poseIds.includes(row.pose.id));assert.equal(row.camera.id,DRAFT.cameraId);}
 });
 
-test('隨機選填只在啟用後加入，保留比例、快照與重製組合',() => {
+test('相容舊版隨機啟用設定，保留比例、快照與重製組合',() => {
   const state = fixtureState();
   const shots = buildShotPlans(state,{...randomDraft,aspectRatio:'9:16',randomOptional:{expression:true,clothing_state:true,interaction:true}});
   for(const shot of shots){

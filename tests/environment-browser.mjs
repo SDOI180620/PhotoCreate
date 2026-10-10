@@ -1,3 +1,4 @@
+import {loginBrowser} from './auth-client.js';
 import {chromium,expect} from '@playwright/test';
 import fs from 'node:fs';
 import {createApp} from '../server/index.js';
@@ -12,7 +13,7 @@ const browser=await chromium.launch({executablePath:process.env.PHOTOCREATE_BROW
 const page=await browser.newPage({viewport:{width:1440,height:1080}});page.on('pageerror',error=>errors.push(error.message));
 fs.mkdirSync('test-results',{recursive:true});
 try {
-  await page.goto(`http://127.0.0.1:${server.address().port}`);
+  await loginBrowser(page,`http://127.0.0.1:${server.address().port}`);
   await page.getByRole('button',{name:'工作流與連線設定',exact:true}).click();
   const dialog=page.getByRole('dialog');await expect(dialog).toBeVisible();
   const manual=dialog.locator('.environment-manual-workflow');await manual.locator('summary').click();

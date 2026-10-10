@@ -1,4 +1,5 @@
-import { cameraPreset, cameraPrompt, normalizeCameraAngle } from './camera.js';
+import { cameraPreset, cameraPrompt, normalizeCameraAngle, ORIGINAL_CAMERA, REFINE_STEPS } from './camera.js';
+import { SINGLE_SUBJECT_PROMPT, withSingleSubjectNegative } from './subject.js';
 
 export const CATEGORIES = {
   pose: { label: '動作', plural: '動作提詞' },
@@ -13,15 +14,36 @@ export const CATEGORIES = {
 
 export const OPTIONAL_PRESET_FIELDS = {expression:'expressionId',clothing_state:'clothingStateId',interaction:'interactionId'};
 export const PRESET_POOL_FIELDS = {pose:'poseIds',camera:'cameraIds',lighting:'lightingIds',color:'colorIds',quality:'qualityIds'};
+export const OPTIONAL_PRESET_POOL_FIELDS = {expression:'expressionIds',clothing_state:'clothingStateIds',interaction:'interactionIds'};
+export const PRESET_SELECTION_FIELDS = {...PRESET_POOL_FIELDS,...OPTIONAL_PRESET_POOL_FIELDS};
 
 export function selectedPresetIds(draft,category) {
-  const field = PRESET_POOL_FIELDS[category];
-  const values = draft[field] ?? (draft[`${category}Id`] ? [draft[`${category}Id`]] : []);
+  const field = PRESET_SELECTION_FIELDS[category],legacyField = OPTIONAL_PRESET_FIELDS[category] || `${category}Id`;
+  const values = draft[field] ?? (draft[legacyField] ? [draft[legacyField]] : []);
   if (!Array.isArray(values) || values.length > 10000 || values.some(id => typeof id !== 'string')) throw new Error(`${CATEGORIES[category].label}候選格式不正確。`);
   return [...new Set(values)];
 }
 
-export function getShotRecipe(state,draft) {
+// Explicit candidate lists replace the former optional-category enable switches.
+// Old drafts keep the candidates they actually used until the user changes them.
+export function optionalPresetSelections(state,draft) {
+  return Object.fromEntries(Object.entries(OPTIONAL_PRESET_POOL_FIELDS).map(([category,field])=>{
+    if(draft[field] !== undefined) {
+      if(!Array.isArray(draft[field])) throw new Error(`${CATEGORIES[category].label}候選格式不正確。`);
+      return [field,selectedPresetIds(draft,category)];
+    }
+    if(draft.mode === 'random') {
+      const enabled=draft.randomOptional?.[category] ?? false;
+      if(typeof enabled !== 'boolean') throw new Error('隨機選填設定無效。');
+      if(!enabled) return [field,[]];
+      if((draft.randomPoolMode ?? 'all') === 'all') return [field,state.presets.filter(row=>row.category===category).map(row=>row.id)];
+    }
+    return [field,selectedPresetIds(draft,category)];
+  }));
+}
+
+export function getShotRecipe(state,draft,{includeDisabledCamera=false}={}) {
+  if(draft.cameraEnabled !== undefined && typeof draft.cameraEnabled !== 'boolean') throw new Error('鏡頭開關須為勾選或取消勾選。');
   const mode = draft.mode ?? 'combinations';
   if (!['combinations','random'].includes(mode)) throw new Error('請選擇有效的拍攝模式。');
   const all = mode === 'random' && (draft.randomPoolMode ?? 'all') === 'all';
@@ -36,17 +58,16 @@ export function getShotRecipe(state,draft) {
   };
   const pools = {garment:all && !draft.garmentIds?.length ? state.garments : selectedRows(state.garments,draft.garmentIds ?? [],'服裝')};
   for (const category of Object.keys(PRESET_POOL_FIELDS)) {
+    if(category === 'camera' && draft.cameraEnabled === false && !includeDisabledCamera) {pools.camera = [ORIGINAL_CAMERA];continue;}
     const rows = state.presets.filter(row => row.category === category);
     pools[category] = all ? rows : selectedRows(rows,selectedPresetIds(draft,category),CATEGORIES[category].label);
   }
-  for (const [category,field] of Object.entries(OPTIONAL_PRESET_FIELDS)) {
+  const optionalSelections = optionalPresetSelections(state,draft);
+  for (const [category,field] of Object.entries(OPTIONAL_PRESET_POOL_FIELDS)) {
     const key = category === 'clothing_state' ? 'clothingState' : category;
-    const enabled = draft.randomOptional?.[category] ?? false;
-    if (mode === 'random' && typeof enabled !== 'boolean') throw new Error('隨機選填設定無效。');
     const rows = state.presets.filter(row => row.category === category);
-    pools[key] = mode === 'random' && !enabled ? [null] : all
-      ? rows
-      : draft[field] ? selectedRows(rows,[draft[field]],CATEGORIES[category].label) : mode === 'random' ? [] : [null];
+    const ids = optionalSelections[field];
+    pools[key] = ids.length ? selectedRows(rows,ids,CATEGORIES[category].label) : [null];
   }
   const copies = Number(draft.copies ?? 1);
   const combinationCount = Object.values(pools).reduce((total,pool) => total * BigInt(pool.length),1n);
@@ -142,6 +163,7 @@ export function composePrompt({ character, pose, expression, clothingState, inte
   const interactionPrompt = [interaction?.prompt?.trim(),sceneInteraction.trim()].filter(Boolean).join(' ');
   const paragraphs = [
     '1 girl',
+    SINGLE_SUBJECT_PROMPT,
     REFERENCE_INSTRUCTION,
     character?.description?.trim() && `Character details: ${character.description.trim()}`,
     interactionPrompt && `Scene interaction: ${interactionPrompt}`,
@@ -181,7 +203,7 @@ export function buildShotPlans(state, draft) {
   const cameraMode = draft.cameraMode ?? 'prompt';
   if(!['prompt','multiangle'].includes(cameraMode)) throw new Error('相機模式無效。');
   const angleSteps = Number(draft.angleSteps ?? 20),refineDenoise = Number(draft.refineDenoise ?? 0.2);
-  if(cameraMode === 'multiangle' && (!Number.isInteger(angleSteps) || angleSteps < 1 || angleSteps > 100 || !Number.isFinite(refineDenoise) || refineDenoise < 0.05 || refineDenoise > 0.4)) throw new Error('換角度步數須為 1–100，高清修正強度須為 0.05–0.4。');
+  if(cameraMode === 'multiangle' && draft.cameraEnabled !== false && (!Number.isInteger(angleSteps) || angleSteps < 1 || angleSteps > 100 || !Number.isFinite(refineDenoise) || refineDenoise < 0.05 || refineDenoise > 0.4)) throw new Error('換角度步數須為 1–100，高清修正強度須為 0.05–0.4。');
   const entries = Object.entries(pools);
   const append = index => {
     const selection = {};
@@ -196,8 +218,8 @@ export function buildShotPlans(state, draft) {
       id:globalThis.crypto.randomUUID(),name:[selection.garment.name,selection.pose.name,...details.map(row => row.name),...variedStyles.map(row => row.name),...(mode === 'random' ? [`${plans.length + 1}`] : copies > 1 ? [plans.length % copies + 1] : [])].join(' · '),
       character:structuredClone(character),...structuredClone(selection),
       prompt:composePrompt({character,...selection,sceneInteraction:draft.sceneInteraction,extra:draft.extra,cameraMode}),
-      ...(cameraMode === 'multiangle' ? {cameraMode,executionMode:'staged',angleSteps,refineDenoise,camera:cameraPreset(structuredClone(selection.camera))} : {}),
-      sceneInteraction:draft.sceneInteraction?.trim() || '',negative:draft.negative || '',resolution,steps,
+      ...(cameraMode === 'multiangle' ? {cameraMode,cameraEnabled:draft.cameraEnabled !== false,executionMode:'staged',angleSteps,refineSteps:REFINE_STEPS,refineDenoise,camera:cameraPreset(structuredClone(selection.camera))} : {}),
+      sceneInteraction:draft.sceneInteraction?.trim() || '',negative:withSingleSubjectNegative(draft.negative),resolution,steps,
       seed:seed === -1 ? Math.floor(Math.random() * 2 ** 48) : seed + plans.length,aspectRatio,
       ...(mode === 'random' ? {generationMode:'random'} : {}),
       ...(outputSize ? {outputWidth:outputSize.width,outputHeight:outputSize.height} : {}),

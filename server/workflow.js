@@ -1,4 +1,5 @@
 import { getOutputSize } from '../shared/domain.js';
+import {withSingleSubjectPrompt,withSingleSubjectNegative} from '../shared/subject.js';
 
 export const WORKFLOW_NAME = '02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖';
 export const WORKFLOW_PATH = `Qwen Image 2.1/${WORKFLOW_NAME}.json`;
@@ -78,8 +79,8 @@ export function buildComfyPrompt(template, shot, images) {
     graph[id] = { class_type: 'LoadImage', inputs: { image: images[kind] }, _meta: { title: `<image${index + 1}> · ${kind}` } };
     text.inputs[`images.image_${index + 1}`] = [id,0];
   });
-  text.inputs.prompt = shot.prompt;
-  text.inputs.negative_prompt = shot.negative;
+  text.inputs.prompt = withSingleSubjectPrompt(shot.prompt);
+  text.inputs.negative_prompt = withSingleSubjectNegative(shot.negative);
   text.inputs.resolution = shot.resolution;
   graph[samplerId].inputs.seed = shot.seed;
   graph[samplerId].inputs.steps = shot.steps;

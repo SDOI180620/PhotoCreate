@@ -202,7 +202,9 @@ test('已保存的三圖拍攝仍可匯出原場景，新拍攝不繼承模板�
   const shot = {...buildShotPlans(state,DRAFT)[0],scene:state.scenes[0],prompt:'saved legacy prompt'};
   const graph = buildComfyPrompt(TEMPLATE,shot,{character:'character.png',garment:'garment.png',scene:'scene.png'});
   assert.equal(graph[graph['12'].inputs['images.image_3'][0]].inputs.image,'scene.png');
-  assert.equal(graph['12'].inputs.prompt,'saved legacy prompt');
+  assert.match(graph['12'].inputs.prompt,/^saved legacy prompt\n\n/);
+  assert.match(graph['12'].inputs.prompt,/exactly one person/);
+  assert.equal(shot.prompt,'saved legacy prompt');
   assert.throws(() => buildComfyPrompt(TEMPLATE,shot,{character:'character.png',garment:'garment.png'}),/scene/);
   const fresh = buildShotPlans(state,DRAFT)[0];
   const two = buildComfyPrompt(graph,fresh,{character:'character.png',garment:'garment.png'});

@@ -1,6 +1,10 @@
+import PhotoPrompts from './PhotoPrompts.jsx';
+import Accounts from './Accounts.jsx';
+import {FolderDestination} from './PhotoFolders.jsx';
+import {checkAuthentication} from './auth-api.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Aperture, ArrowDownToLine, ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Circle, Clipboard, Clock3, Database, Download, FileJson, Film, FolderOpen, ImagePlus, Images, Layers3, Loader2, MoreHorizontal, Plus, RefreshCw, Search, Settings2, Shirt, SlidersHorizontal, Sparkles, Square, Sun, Trash2, Upload, UserRound, WandSparkles, X } from 'lucide-react';
-import { CATEGORIES, OPTIONAL_PRESET_FIELDS, OUTPUT_RATIOS, PRESET_POOL_FIELDS, selectedPresetIds, getShotRecipe, getOutputSize, composePrompt } from '../shared/domain.js';
+import { Aperture, ArrowDownToLine, ArrowRight, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Circle, Clipboard, Clock3, Database, Download, FileJson, Film, FolderOpen, ImagePlus, Images, Layers3, Loader2, MoreHorizontal, Plus, RefreshCw, Search, Settings2, Shirt, SlidersHorizontal, Sparkles, Square, Sun, Trash2, Upload, UserRound, Users, WandSparkles, X } from 'lucide-react';
+import { CATEGORIES, OPTIONAL_PRESET_FIELDS, OPTIONAL_PRESET_POOL_FIELDS, OUTPUT_RATIOS, PRESET_POOL_FIELDS, PRESET_SELECTION_FIELDS, selectedPresetIds, optionalPresetSelections, getShotRecipe, getOutputSize, composePrompt } from '../shared/domain.js';
 import { JOB_STATUS_LABELS as STATUS } from '../shared/batches.js';
 import { Empty, SearchBox } from './ui.jsx';
 import JobLibrary from './JobLibrary.jsx';
@@ -13,16 +17,17 @@ import DataTransfer from './DataTransfer.jsx';
 import {DEFAULT_DRAFT} from '../shared/draft.js';
 import {productionPreview,productionStatus} from '../shared/production.js';
 import { DEFAULT_CAMERA_ANGLE, cameraPreset, cameraPrompt, cameraAngleLabel, REFINE_PROMPT } from '../shared/camera.js';
-import { resolveCameraSource } from '../shared/camera-source.js';
+import { resolveSelectedPhotoSource } from '../shared/camera-source.js';
 import { RETRYABLE_STATUSES, STOPPABLE_STATUSES } from '../shared/batches.js';
 
 const ASSET_LABELS = {garments:{name:'服裝',title:'服裝圖庫',subtitle:'每一套服裝，都是下一組寫真的起點。',icon:Shirt},characters:{name:'角色',title:'角色參考',subtitle:'保存角色的外貌與辨識特徵。',icon:UserRound}};
-const PAGES = [{id:'studio',label:'拍攝工作檯',icon:SlidersHorizontal},{id:'garments',label:'服裝圖庫',icon:Shirt},{id:'references',label:'角色參考',icon:UserRound},{id:'presets',label:'提詞資料庫',icon:FileJson},{id:'jobs',label:'拍攝清單',icon:Layers3},{id:'gallery',label:'成果畫廊',icon:Images}];
+const PAGES = [{id:'studio',label:'拍攝工作檯',icon:SlidersHorizontal},{id:'garments',label:'服裝圖庫',icon:Shirt},{id:'references',label:'角色參考',icon:UserRound},{id:'presets',label:'提詞資料庫',icon:FileJson},{id:'jobs',label:'拍攝清單',icon:Layers3},{id:'gallery',label:'成果畫廊',icon:Images},{id:'accounts',label:'顧客帳號',icon:Users}];
 
 async function api(endpoint,options = {}) {
   const isForm = options.body instanceof FormData;
   const response = await fetch(`/api${endpoint}`,{...options,headers:{...(isForm ? {} : {'Content-Type':'application/json'}),...options.headers},body:options.body && !isForm ? JSON.stringify(options.body) : options.body});
   const result = await response.json();
+  checkAuthentication(response);
   if(!response.ok) throw new Error(result.error || '操作未完成，請再試一次。');
   return result;
 }
@@ -75,6 +80,7 @@ function AssetPicker({kind,state,draft,onSelect,onClose,onUpload,busy}) {
   const uploadRef = useRef(null);
   return <Modal title={`選擇${ASSET_LABELS[kind].name}參考圖${multi ? ' · 可多選' : ''}`} onClose={onClose} wide>
     <div className="modal-body"><div className="toolbar"><SearchBox value={query} onChange={setQuery} placeholder="搜尋名稱或標籤…"/><button className="button secondary" disabled={busy} onClick={() => uploadRef.current.click()}><Upload size={16}/>上傳圖片</button><input ref={uploadRef} hidden type="file" accept="image/png,image/jpeg,image/webp" multiple={multi} onChange={async e => {const files = Array.from(e.target.files); e.target.value=''; await onUpload(kind,files);onClose();}}/></div>
+      {multi && <div className="pool-picker-toolbar asset-bulk-toolbar"><span>符合 {rows.length} 套服裝</span><button disabled={!rows.length || rows.every(row=>values.includes(row.id))} onClick={()=>setValues(current=>[...new Set([...current,...rows.map(row=>row.id)])])}><Check size={13}/>{query.trim() ? '全選搜尋結果' : '全選'}</button><button disabled={!values.length} onClick={()=>setValues([])}>清空已選</button></div>}
       {rows.length ? <div className="picker-grid">{rows.map(row => <button key={row.id} className={`picker-card ${values.includes(row.id) ? 'selected' : ''}`} onClick={() => setValues(multi ? toggle(values,row.id) : [row.id])}><img src={row.image} alt={row.name}/><span className="selection-mark">{values.includes(row.id) && <Check size={13}/>}</span><span>{row.name}</span></button>)}</div> : <Empty title="還沒有符合的圖片" description="上傳一張參考圖，就可以開始搭配。"/>}
     </div><div className="modal-footer"><span className="muted">{multi ? `已選 ${values.filter(Boolean).length} 套服裝` : '選擇一張參考圖'}</span><button className="button primary" disabled={!values.filter(Boolean).length} onClick={() => {onSelect(values);onClose();}}>使用所選圖片<ArrowRight size={16}/></button></div>
   </Modal>;
@@ -118,21 +124,21 @@ function PresetEditor({preset,initialCategory,initialPrompt = '',onSave,onDelete
 }
 
 function AngleEditDialog({job,imageIndex = 0,sourceState,presets,onClose,onGenerate,busy,ready}) {
-  const [angle,setAngle] = useState(cameraPreset(job.camera || {}).angle);
-  const [name,setName] = useState(job.camera?.name || '自訂角度');
+  const [angle,setAngle] = useState(DEFAULT_CAMERA_ANGLE);
+  const [name,setName] = useState('自訂角度');
   const [angleSteps,setAngleSteps] = useState(job.angleSteps || 20);
   const [refineDenoise,setRefineDenoise] = useState(job.refineDenoise || 0.2);
   const [deleteSourceOnComplete,setDeleteSourceOnComplete] = useState(true);
   const requestId = useRef(crypto.randomUUID());
   const cameras = presets.filter(row => row.category === 'camera');
-  const sourceError = useMemo(() => {try {resolveCameraSource(sourceState,job,imageIndex);return '';} catch(error) {return error.message;}},[sourceState,job,imageIndex]);
-  return <Modal title="調整角度並重繪" onClose={onClose} wide className="camera-editor"><form onSubmit={event => {event.preventDefault();onGenerate({requestId:requestId.current,angle,name,angleSteps,refineDenoise,deleteSourceOnComplete,imageIndex});}}>
+  const sourceError = useMemo(() => {try {resolveSelectedPhotoSource(sourceState,job,imageIndex);return '';} catch(error) {return error.message;}},[sourceState,job,imageIndex]);
+  return <Modal title="不同角度拍攝" onClose={onClose} wide className="camera-editor"><form onSubmit={event => {event.preventDefault();onGenerate({requestId:requestId.current,angle,name,angleSteps,refineDenoise,deleteSourceOnComplete,imageIndex});}}>
     <div className="modal-body form-stack"><div className="form-grid"><label>角度名稱<input required maxLength={200} value={name} onChange={event => setName(event.target.value)}/></label><label>套用已存角度<select aria-label="套用已存角度" defaultValue="" onChange={event => {const preset = cameras.find(row => row.id === event.target.value);if(preset) {setAngle(cameraPreset(preset).angle);setName(preset.name);}}}><option value="">自訂角度</option>{cameras.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label></div>
-      {sourceError ? <p className="inline-error" role="alert">{sourceError}</p> : <p className="field-help">換角度基準：首次生成的原圖。</p>}
+      {sourceError ? <p className="inline-error" role="alert">{sourceError}</p> : <p className="field-help">拍攝來源：目前選取的照片，第 {imageIndex+1} 張。鏡頭預設 0／0／0。</p>}
       <CameraControl value={angle} onChange={setAngle} image={sourceError ? undefined : `/api/jobs/${job.id}/angle-source?index=${imageIndex}`}/>
       <div className="camera-edit-settings"><label>換角度步數<input type="number" min="1" max="100" required value={angleSteps} onChange={event => setAngleSteps(Number(event.target.value))}/></label><label>高清修正強度<input type="number" min="0.05" max="0.4" step="0.05" required value={refineDenoise} onChange={event => setRefineDenoise(Number(event.target.value))}/></label></div>
-      <p className="field-help">每次從原圖重新換角度，再修正清晰度與細節，沿用原解析度。完成後可刪除被替換的成果，原圖仍保留。</p><label className="camera-delete-source"><input type="checkbox" checked={deleteSourceOnComplete} onChange={event => setDeleteSourceOnComplete(event.target.checked)}/>完成後刪除被替換的舊成果</label>{!ready && <p className="inline-error">請先在工作流設定載入 3D 相機工作流。</p>}
-    </div><div className="modal-footer"><button type="button" className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={busy || !ready || Boolean(sourceError) || !name.trim() || !Number.isInteger(angleSteps) || angleSteps < 1 || angleSteps > 100 || refineDenoise < 0.05 || refineDenoise > 0.4}><WandSparkles size={16}/>換角度並高清重繪</button></div>
+      <p className="field-help">用你選到的這張照片拍攝不同角度，再以 20 步修正清晰度與細節，沿用原解析度。勾選下方選項時，會在新照片完成後刪除這次選取的舊成果。</p><label className="camera-delete-source"><input type="checkbox" checked={deleteSourceOnComplete} onChange={event => setDeleteSourceOnComplete(event.target.checked)}/>完成後刪除被替換的舊成果</label>{!ready && <p className="inline-error">請先在工作流設定載入 3D 相機工作流。</p>}
+    </div><div className="modal-footer"><button type="button" className="button secondary" onClick={onClose}>取消</button><button className="button primary" disabled={busy || !ready || Boolean(sourceError) || !name.trim() || !Number.isInteger(angleSteps) || angleSteps < 1 || angleSteps > 100 || refineDenoise < 0.05 || refineDenoise > 0.4}><WandSparkles size={16}/>拍攝這個角度</button></div>
   </form></Modal>;
 }
 
@@ -164,9 +170,11 @@ function PresetLibrary({state,onEdit,onImport,onJsonImport,busy}) {
   </div>;
 }
 
-function Studio({state,draft,setDraft,onPick,onUpload,onCreate,onExport,onSettings,onChoosePreset,onAddOptionalPreset,busy,saved,notify,connected}) {
+function Studio({state,draft,setDraft,onChangeMode,onApplyCustomer,onPick,onUpload,onCreate,onExport,onSettings,onChoosePreset,onAddOptionalPreset,onCreateFolder,busy,saved,notify,connected}) {
   const [previewTab,setPreviewTab] = useState('prompt');
   const [advanced,setAdvanced] = useState(false);
+  useEffect(()=>{if(draft.folderId && !(state.photoFolders || []).some(folder=>folder.id===draft.folderId)) setDraft(current=>({...current,folderId:''}));},[draft.folderId,state.photoFolders]);
+  const updateRequired = !state.features?.optionalCamera || !state.features?.optionalPresetPools;
   const random = draft.mode === 'random';
   const all = random && draft.randomPoolMode === 'all';
   const allGarments = all && !draft.garmentIds.length;
@@ -183,17 +191,16 @@ function Studio({state,draft,setDraft,onPick,onUpload,onCreate,onExport,onSettin
   const stepsValid = Number.isInteger(Number(draft.steps)) && Number(draft.steps) >= 1 && Number(draft.steps) <= 100;
   const missing = Object.entries(pools).find(([,rows]) => !rows.length)?.[0];
   const missingLabels = {garment:'服裝',pose:'動作',camera:'攝影角度',lighting:'光線',color:'色彩',quality:'畫質',expression:'表情',clothingState:'服裝狀態',interaction:'場景互動'};
-  const cameraSettingsValid = Number.isInteger(Number(draft.angleSteps)) && Number(draft.angleSteps) >= 1 && Number(draft.angleSteps) <= 100 && Number(draft.refineDenoise) >= 0.05 && Number(draft.refineDenoise) <= 0.4;
-  const valid = Boolean(cameraSettingsValid && (draft.cameraMode !== 'multiangle' || state.cameraWorkflow?.ready) && character && recipe && stepsValid && !missing && Number.isInteger(count) && count > 0 && count <= 100 && (random || Number.isInteger(copies) && copies >= 1 && copies <= 10));
+  const cameraSettingsValid = draft.cameraEnabled === false || Number.isInteger(Number(draft.angleSteps)) && Number(draft.angleSteps) >= 1 && Number(draft.angleSteps) <= 100 && Number(draft.refineDenoise) >= 0.05 && Number(draft.refineDenoise) <= 0.4;
+  const cameraWorkflowMissing = draft.cameraMode === 'multiangle' && draft.cameraEnabled !== false && !state.cameraWorkflow?.ready;
+  const valid = Boolean(!updateRequired && cameraSettingsValid && !cameraWorkflowMissing && character && recipe && stepsValid && !missing && Number.isInteger(count) && count > 0 && count <= 100 && (random || Number.isInteger(copies) && copies >= 1 && copies <= 10));
   const selectedFor = category => {
-    const ids = PRESET_POOL_FIELDS[category] ? selectedPresetIds(draft,category) : draft[OPTIONAL_PRESET_FIELDS[category]] ? [draft[OPTIONAL_PRESET_FIELDS[category]]] : [];
+    const ids = selectedPresetIds(draft,category);
     return ids.map(id => state.presets.find(row => row.id === id && row.category === category)).filter(Boolean);
   };
   const poolField = (category,optional = false) => <PresetPoolField key={category} category={category} selected={selectedFor(category)} optional={optional}
-    allCount={all ? state.presets.filter(row => row.category === category).length : undefined}
-    randomEnabled={draft.randomOptional?.[category] || false}
-    onRandomToggle={random && optional ? enabled => setDraft(current => ({...current,randomOptional:{...current.randomOptional,[category]:enabled}})) : undefined}
-    onOpen={() => onChoosePreset(category)} onClear={() => setDraft(current => ({...current,[OPTIONAL_PRESET_FIELDS[category]]:''}))}
+    allCount={all && !optional ? state.presets.filter(row => row.category === category).length : undefined}
+    onOpen={() => onChoosePreset(category)} onClear={() => setDraft(current => ({...current,[OPTIONAL_PRESET_POOL_FIELDS[category]]:[]}))}
     onAdd={() => onAddOptionalPreset(category,'')} busy={busy}/>;
   const combinations = [];
   if (!random && recipe && !missing) {
@@ -207,14 +214,16 @@ function Studio({state,draft,setDraft,onPick,onUpload,onCreate,onExport,onSettin
   return <div className="studio-layout"><div className="studio-controls">
     <div className="panel shooting-mode-panel">
       <div className="shooting-mode-tabs" role="group" aria-label="拍攝模式">
-        <button aria-pressed={!random} className={!random ? 'active' : ''} onClick={() => setDraft(current => ({...current,mode:'combinations'}))}><Layers3 size={16}/>候選組合</button>
-        <button aria-pressed={random} className={random ? 'active' : ''} onClick={() => setDraft(current => ({...current,mode:'random'}))}><WandSparkles size={16}/>隨機寫真</button>
+        <button aria-label="候選組合" aria-pressed={!random} className={!random ? 'active' : ''} onClick={() => onChangeMode('combinations')}><Layers3 size={16}/>候選組合<small>管理員測試</small></button>
+        <button aria-label="隨機寫真" aria-pressed={random} className={random ? 'active' : ''} onClick={() => onChangeMode('random')}><WandSparkles size={16}/>隨機寫真<small>顧客設定</small></button>
       </div>
-      {random ? <><p className="field-help">選角色與張數，自動搭配服裝、動作、攝影角度、光線、色彩與畫質。每張各取一項候選。</p><div className="random-mode-settings"><label>隨機張數<input aria-label="隨機張數" type="number" min={1} max={100} value={draft.randomCount} onChange={e => setDraft(current => ({...current,randomCount:e.target.value}))}/></label><label>候選範圍<select aria-label="隨機候選範圍" value={draft.randomPoolMode} onChange={e => setDraft(current => ({...current,randomPoolMode:e.target.value}))}><option value="all">全部提詞庫</option><option value="selected">僅已選候選</option></select></label></div><p className="field-help">預設 30 張。表情、服裝狀態、場景互動預設無，可各別啟用。比例與生成設定沿用下方設定。</p></> : <p className="field-help">所選候選會逐一組合；每張照片各使用一個角度、光線、色彩與畫質。組合太多時可改用隨機寫真。</p>}
+      {random ? <><p className="field-help">選定給顧客使用的服裝、動作與攝影設定，再按「套用至顧客攝影棚」。每張照片從這些候選各取一項。</p><div className="random-mode-settings"><label>測試張數<input aria-label="隨機張數" type="number" min={1} max={100} value={draft.randomCount} onChange={e => setDraft(current => ({...current,randomCount:e.target.value}))}/></label><label>候選範圍<select aria-label="隨機候選範圍" value={draft.randomPoolMode} onChange={e => setDraft(current => ({...current,randomPoolMode:e.target.value}))}><option value="all">全部提詞庫</option><option value="selected">僅已選候選</option></select></label></div><p className="field-help">表情、服裝狀態、場景互動都可複選；選了就加入搭配，清空就不使用。顧客自行選角色、張數與照片比例；你也可以建立隨機清單先測試。</p></> : <p className="field-help">供管理員測試：所選候選逐一組合，建立清單後手動生成。這裡的設定與顧客攝影棚分開保存。</p>}
       <div className="basic-generation-settings">
       <div className="output-ratio-field"><label>輸出比例<select aria-label="輸出比例" value={draft.aspectRatio || 'reference'} onChange={e => setDraft(current => ({...current,aspectRatio:e.target.value}))}>{Object.entries(OUTPUT_RATIOS).map(([id,option]) => <option key={id} value={id}>{option.label}</option>)}</select></label><p className="field-help">{outputSize ? `預計輸出 ${outputSize.width} × ${outputSize.height} px` : '輸出尺寸跟隨人物參考圖的比例。'}</p></div>
-        <div className="sampling-steps-field"><label>採樣步數<input aria-label="採樣步數" type="number" inputMode="numeric" min={1} max={100} step={1} value={draft.steps} onChange={e => setDraft(current => ({...current,steps:e.target.value}))}/></label><div className="step-shortcuts" role="group" aria-label="常用步數">{[20,30,40,60].map(value => <button key={value} aria-label={`設為 ${value} 步`} aria-pressed={Number(draft.steps) === value} onClick={() => setDraft(current => ({...current,steps:value}))}>{value} 步</button>)}</div><p className="field-help">可設 1–100 步，套用到本次所有圖片。</p>{!stepsValid && <p className="inline-error">請輸入 1–100 的整數步數。</p>}</div>
+        <div className="sampling-steps-field"><label>採樣步數<input aria-label="採樣步數" type="number" inputMode="numeric" min={1} max={100} step={1} value={draft.steps} onChange={e => setDraft(current => ({...current,steps:e.target.value}))}/></label><div className="step-shortcuts" role="group" aria-label="常用步數">{[20,30,40,60].map(value => <button key={value} aria-label={`設為 ${value} 步`} aria-pressed={Number(draft.steps) === value} onClick={() => setDraft(current => ({...current,steps:value}))}>{value} 步</button>)}</div><p className="field-help">原圖可設 1–100 步；換鏡頭後的細節修復固定 20 步。</p>{!stepsValid && <p className="inline-error">請輸入 1–100 的整數步數。</p>}</div>
       </div>
+      <label className="shoot-camera-toggle"><input aria-label="套用鏡頭角度" type="checkbox" checked={draft.cameraEnabled !== false} disabled={busy} onChange={event=>setDraft(current=>({...current,cameraMode:'multiangle',cameraEnabled:event.target.checked}))}/><span><strong>套用鏡頭角度</strong><small>{draft.cameraEnabled !== false ? '原圖 → 換角度 → 細節修復 20 步' : '只產原圖；完成後可打開照片調鏡頭。'}</small></span></label>
+      {random && <div className="customer-publish-panel"><div><strong>顧客攝影棚</strong><p>{state.customerRecipeSummary ? `目前使用 ${state.customerRecipeSummary.counts.garment} 套服裝 · ${state.customerRecipeSummary.counts.pose} 個動作 · ${state.customerRecipeSummary.counts.camera} 個角度` : '尚未套用候選設定。'}</p>{state.customerRecipeSummary && <small>上次套用：{new Date(state.customerRecipeSummary.updatedAt).toLocaleString('zh-TW')}</small>}</div><button className="button primary" disabled={busy || Boolean(error) || Boolean(missing) || !recipe || !stepsValid || !cameraSettingsValid || cameraWorkflowMissing || updateRequired} onClick={onApplyCustomer}><Check size={15}/>套用至顧客攝影棚</button><p className="field-help">套用會保存目前候選與提詞；後續修改需再次套用。角色與測試張數不會套用。</p></div>}
     </div>
     <div className="panel reference-panel">
       <SectionTitle number="01" title="搭配參考圖" description={random ? `服裝從${allGarments ? '全部圖庫' : '已選服裝'}的 ${allGarments ? state.garments.length : garments.length} 套候選隨機挑選。` : '角色與服裝，組成這次拍攝的基礎。'}><span className="tiny-label">兩張參考圖</span></SectionTitle>
@@ -225,7 +234,7 @@ function Studio({state,draft,setDraft,onPick,onUpload,onCreate,onExport,onSettin
     <div className="panel"><SectionTitle number="02" title="動作與細節" description="按「選擇提詞」或「修改提詞選擇」，搜尋與調整候選。"/><div className="prompt-pool-grid">{poolField('pose')}{Object.keys(OPTIONAL_PRESET_FIELDS).map(category => poolField(category,true))}</div>
       <label className="extra-field">場景互動補充 <span>選填</span><textarea aria-label="場景互動" rows={2} maxLength={20000} value={draft.sceneInteraction || ''} onChange={e => setDraft({...draft,sceneInteraction:e.target.value})} placeholder="也可以自由輸入，或補充已選提詞的細節…"/></label><button className="save-interaction-prompt" disabled={busy || !draft.sceneInteraction?.trim()} onClick={() => onAddOptionalPreset('interaction',draft.sceneInteraction)}><Plus size={13}/>存為互動提詞</button>
     </div>
-    <div className="panel"><SectionTitle number="03" title="攝影風格" description="可複選各類候選；每張照片會使用一組攝影設定。"/>
+    <div className="panel"><SectionTitle number="03" title="攝影風格" description="可複選各類候選；取消鏡頭勾選時略過換角度，保留候選供之後使用。"/>
       <div className="prompt-pool-grid">{['camera','lighting','color','quality'].map(category => poolField(category))}</div>
       <label className="extra-field">補充拍攝提詞 <span>選填</span><textarea rows={3} value={draft.extra} onChange={e => setDraft({...draft,extra:e.target.value})} placeholder="例如：微風吹動髮絲，表情放鬆，服裝的刺繡細節要清晰…"/></label>
       <button className="advanced-toggle" onClick={() => setAdvanced(!advanced)}><Settings2 size={14}/>進階生成設定<ChevronDown size={14} className={advanced ? 'rotated' : ''}/></button>
@@ -237,15 +246,18 @@ function Studio({state,draft,setDraft,onPick,onUpload,onCreate,onExport,onSettin
     <div className="brief-details">{random ? <span>每張隨機搭配 · 盡量使用不同組合</span> : ['camera','lighting','color'].map(key => <span key={key}>{pools[key]?.length || 0} 項{CATEGORIES[key].label}</span>)}</div>
     <div className="preview-tabs"><button className={previewTab === 'prompt' ? 'active' : ''} onClick={() => setPreviewTab('prompt')}>{random ? '提詞範例' : '提詞預覽'}</button><button className={previewTab === 'shots' ? 'active' : ''} onClick={() => setPreviewTab('shots')}>{random ? '候選範圍' : '拍攝組合'} <span>{count || 0}</span></button><button className="copy-button" title="複製完整提詞" aria-label="複製完整提詞" onClick={async () => {try {await navigator.clipboard.writeText(prompt);notify('已複製完整提詞。');} catch {notify('無法存取剪貼簿，請直接選取提詞複製。','error');}}}><Clipboard size={15}/></button></div>
     {previewTab === 'prompt' ? <div className="prompt-preview">{random && <small className="random-preview-note">這是候選提詞範例；各張隨機結果會保存於拍攝清單。</small>}<p>{prompt}</p></div> : <div className="shot-combinations">{random ? Object.entries(pools).map(([key,rows]) => <div className="pool-scope-row" key={key}><span>{missingLabels[key]}</span><strong>{rows.length === 1 && rows[0] === null ? '無' : `${rows.length} 項候選`}</strong></div>) : combinations.map((row,index) => <div className="combination" key={index}><img src={row.garment.image} alt=""/><div><strong>{row.garment.name}</strong><span>{[row.pose.name,row.camera.name,row.lighting.name,row.color.name,row.quality.name].join(' · ')}</span></div><small>× {copies}</small></div>)}{!random && recipe && Number(recipe.combinationCount) > 20 && <p className="muted">僅預覽前 20 組，全部會包含在拍攝清單。</p>}</div>}
-    <div className="preview-footer"><label className="batch-name-field">拍攝組名稱 <span>選填</span><input aria-label="拍攝組名稱" maxLength={200} value={draft.batchName || ''} onChange={e => setDraft({...draft,batchName:e.target.value})} placeholder="例如：海邊夏日寫真"/></label>
-      <div className="shoot-total"><div><span>{random ? '指定生成' : '預計建立'}</span><strong>{count || '—'}<small>張寫真</small></strong></div><div className="total-formula">{random ? '按指定張數抽取候選組合' : `${recipe ? Number(recipe.combinationCount).toLocaleString('zh-TW') : 0} 種組合 × ${copies} 張`}</div></div>
+    <div className="preview-footer"><FolderDestination folders={state.photoFolders || []} value={draft.folderId || ''} onChange={folderId=>setDraft(current=>({...current,folderId}))} onCreate={onCreateFolder} busy={busy}/><label className="batch-name-field">拍攝組名稱 <span>選填</span><input aria-label="拍攝組名稱" maxLength={200} value={draft.batchName || ''} onChange={e => setDraft({...draft,batchName:e.target.value})} placeholder="例如：海邊夏日寫真"/></label>
+      <div className="shoot-total"><div><span>{random ? '指定建立' : '預計建立'}</span><strong>{count || '—'}<small>張寫真</small></strong></div><div className="total-formula">{random ? '按指定張數抽取候選組合' : `${recipe ? Number(recipe.combinationCount).toLocaleString('zh-TW') : 0} 種組合 × ${copies} 張`}</div></div>
       <div className="readiness"><span className={character ? 'done' : ''}>{character ? <CheckCircle2 size={13}/> : <Circle size={13}/>} 角色</span><span className={pools.garment?.length ? 'done' : ''}>{pools.garment?.length ? <CheckCircle2 size={13}/> : <Circle size={13}/>} 服裝池</span></div>
       {error && <p className="inline-error">{error}</p>}{missing && <p className="inline-error">請選擇{missingLabels[missing]}候選{all ? '，可先上傳圖片或新增提詞' : ''}。</p>}
       {count > 100 && <p className="inline-error">每批最多 100 張。可減少候選，或改用隨機寫真指定張數。</p>}
       {random && (!Number.isInteger(count) || count < 1) && <p className="inline-error">請輸入 1–100 張。</p>}
-      <details className="camera-pipeline-settings"><summary>相機製作設定</summary><div className="camera-edit-settings"><label>換角度步數<input type="number" min="1" max="100" value={draft.angleSteps} onChange={event => setDraft(current => ({...current,angleSteps:Number(event.target.value)}))}/></label><label>高清修正強度<input type="number" min="0.05" max="0.4" step="0.05" value={draft.refineDenoise} onChange={event => setDraft(current => ({...current,refineDenoise:Number(event.target.value)}))}/></label></div><p className="field-help">先生成原圖，再用相機参数換角度，最後只修正清晰度。</p></details>
-      <button className="button primary create-shots" disabled={busy || !valid || random && (!connected || !state.workflow.ready)} onClick={onCreate}>{busy ? <Loader2 size={17} className="spin"/> : random ? <WandSparkles size={17}/> : <Layers3 size={17}/>} {random ? '隨機組合並生成' : '建立拍攝清單'}<ArrowRight size={17}/></button>
-      <button className="button export-shots" disabled={busy || !valid} onClick={onExport}><ArrowDownToLine size={15}/>匯出拍攝 JSON</button><p className="preview-note">{random ? connected && state.workflow.ready ? '只送出這次新建的拍攝組；每張的組合與提詞都會保存。' : '連接 ComfyUI 並載入工作流後，即可一鍵生成。' : '同一次建立會收成一組，再到組內查看或生成。'}</p>
+      {updateRequired && <p className="inline-error" role="status">更新已準備好，請重新啟動 PhotoCreate，套用新的候選選擇與鏡頭流程。</p>}
+      {cameraWorkflowMissing && <p className="inline-error" role="status">3D 相機工作流尚未就緒，請在「工作流設定」載入相機工作流。{state.cameraWorkflow?.error && `（${state.cameraWorkflow.error}）`}</p>}
+      {!cameraSettingsValid && <p className="inline-error" role="status">換角度步數須為 1–100 的整數，高清修正強度須介於 0.05–0.4。</p>}
+      <details className="camera-pipeline-settings"><summary>相機製作設定</summary><div className="camera-edit-settings"><label>換角度步數<input type="number" min="1" max="100" value={draft.angleSteps} onChange={event => setDraft(current => ({...current,angleSteps:Number(event.target.value)}))}/></label><label>高清修正強度<input type="number" min="0.05" max="0.4" step="0.05" value={draft.refineDenoise} onChange={event => setDraft(current => ({...current,refineDenoise:Number(event.target.value)}))}/></label></div><p className="field-help">{draft.cameraEnabled !== false ? '先生成原圖，再換角度，最後以 20 步修正清晰度。' : '只生成原圖，略過換角度與細節修復。'}</p></details>
+      <button className="button primary create-shots" disabled={busy || !valid} onClick={onCreate}>{busy ? <Loader2 size={17} className="spin"/> : random ? <WandSparkles size={17}/> : <Layers3 size={17}/>} {random ? '建立隨機清單' : '建立拍攝清單'}<ArrowRight size={17}/></button>
+      <button className="button export-shots" disabled={busy || !valid} onClick={onExport}><ArrowDownToLine size={15}/>匯出拍攝 JSON</button><p className="preview-note">清單建立後可先檢查提詞，再到拍攝清單按「生成」。</p>
     </div><div className="save-status"><Database size={12}/>{saved === 'saving' ? '保存中…' : saved === 'error' ? '保存失敗，請重試' : '已保存至本機 SQLite'}<button onClick={onSettings}>工作流設定<ArrowRight size={12}/></button></div>
   </aside></div>;
 }
@@ -274,6 +286,7 @@ function JobInspector({job,onClose,onExport}) {
       {job.outputsDeletedAt && <p className="muted">{job.replacedByJobId ? '舊成果已由重製版本取代。' : '這次拍攝的成果圖片已刪除。'}</p>}
       {job.error && <p className="inline-error">{job.error}</p>}
       <ShotOptions job={job} detailed/>{job.executionMode === 'staged' && <p className="field-help">製作順序：{job.jobKind === 'angle-edit' ? '轉視角 → 高清修正' : '產原圖 → 轉視角 → 高清修正'}。各階段完成後保存中間圖，暫停後可接續。</p>}
+      <PhotoPrompts job={job} api={api}/>
       <PromptBlock title="完整提詞" text={job.prompt}/>
       <PromptBlock title="負面提詞" text={job.negative || ''} compact/>
       {job.cameraMode === 'multiangle' && <details className="camera-stage-prompts"><summary>換角度與高清修正提詞</summary><PromptBlock title="換角度提詞" text={cameraPrompt(job.camera.angle)}/><PromptBlock title="高清修正提詞" text={REFINE_PROMPT}/></details>}
@@ -333,7 +346,15 @@ function SettingsModal({state,status,onSave,onLoad,onImport,onClose,onActivate,o
   </Modal>;
 }
 
-export default function App() {
+function restoredDraft(state,input = {}) {
+  const {sceneId:unusedScene,referencePrompts:unusedReferencePrompts,...draft}=input;
+  return {...structuredClone(DEFAULT_DRAFT),...draft,...optionalPresetSelections(state,draft),
+    ...Object.fromEntries(Object.entries(PRESET_POOL_FIELDS).map(([category,field])=>[field,draft[field] ?? (draft[`${category}Id`] ? [draft[`${category}Id`]] : DEFAULT_DRAFT[field])])),
+    aspectRatio:Object.hasOwn(OUTPUT_RATIOS,draft.aspectRatio) ? draft.aspectRatio : 'reference'};
+}
+const restoredModeDrafts = state => Object.fromEntries(Object.entries(state.workbenchDrafts || {}).map(([mode,draft])=>[mode,restoredDraft(state,draft)]));
+
+export default function App({accountMenu}) {
   const [state,setState] = useState(null);
   const [draft,setDraft] = useState(DEFAULT_DRAFT);
   const [page,setPage] = useState('studio');
@@ -349,31 +370,41 @@ export default function App() {
   const initialized = useRef(false);
   const saveChain = useRef(Promise.resolve());
   const draftSaveTimer = useRef(null);
+  const modeDrafts = useRef({});
   const toastTimer = useRef(null);
   const notify = (message,type = 'success') => {setToast({message,type});clearTimeout(toastTimer.current);toastTimer.current = setTimeout(() => setToast(null),6000);};
   const reload = async () => {const data = await api('/state');setState(data);return data;};
   const checkConnection = async () => {setStatus(value => ({...value,checking:true}));const result = await api('/comfy/status');setStatus({...result,checking:false});return result;};
   useEffect(() => {
-    Promise.all([api('/state'),api('/comfy/status')]).then(([data,connection]) => {const {sceneId:unusedScene,referencePrompts:unusedReferencePrompts,...savedDraft} = data.draft || {};setState(data);setDraft({...DEFAULT_DRAFT,...savedDraft,...Object.fromEntries(Object.entries(PRESET_POOL_FIELDS).map(([category,field]) => [field,savedDraft[field] ?? (savedDraft[`${category}Id`] ? [savedDraft[`${category}Id`]] : DEFAULT_DRAFT[field])])),aspectRatio:Object.hasOwn(OUTPUT_RATIOS,savedDraft.aspectRatio) ? savedDraft.aspectRatio : 'reference'});setStatus({...connection,checking:false});initialized.current = true;}).catch(error => setLoadError(error.message));
+    Promise.all([api('/state'),api('/comfy/status')]).then(([data,connection]) => {modeDrafts.current=restoredModeDrafts(data);setState(data);setDraft(restoredDraft(data,data.draft || {}));setStatus({...connection,checking:false});initialized.current = true;}).catch(error => setLoadError(error.message));
     const timer = setInterval(() => api('/comfy/status').then(result => setStatus({...result,checking:false})).catch(() => setStatus({connected:false})),20000);
     return () => {clearInterval(timer);clearTimeout(toastTimer.current);};
   },[]);
   useEffect(() => {
     if(!initialized.current) return;
+    modeDrafts.current[draft.mode]=structuredClone(draft);
     setSaved('saving');
     const timer = draftSaveTimer.current = setTimeout(() => {
-      saveChain.current = saveChain.current.catch(() => {}).then(() => api('/draft',{method:'PUT',body:draft})).then(() => setSaved('saved')).catch(error => {setSaved('error');notify(error.message,'error');});
+      const body={draft,modeDrafts:structuredClone(modeDrafts.current)};
+      saveChain.current = saveChain.current.catch(() => {}).then(() => api('/draft',{method:'PUT',body})).then(() => setSaved('saved')).catch(error => {setSaved('error');notify(error.message,'error');});
     },450);
     return () => clearTimeout(timer);
   },[draft]);
   const flushDraft = async () => {
     clearTimeout(draftSaveTimer.current);
-    saveChain.current = saveChain.current.catch(()=>{}).then(()=>api('/draft',{method:'PUT',body:draft}));
+    modeDrafts.current[draft.mode]=structuredClone(draft);
+    const body={draft,modeDrafts:structuredClone(modeDrafts.current)};
+    saveChain.current = saveChain.current.catch(()=>{}).then(()=>api('/draft',{method:'PUT',body}));
     await saveChain.current;setSaved('saved');
+  };
+  const changeMode = mode => {
+    if(mode===draft.mode) return;
+    modeDrafts.current[draft.mode]=structuredClone(draft);
+    setDraft({...structuredClone(DEFAULT_DRAFT),...structuredClone(modeDrafts.current[mode] || draft),mode});
   };
   const importedData = async result => {
     const data=await reload();
-    if(result.draftApplied) {clearTimeout(draftSaveTimer.current);setDraft({...structuredClone(DEFAULT_DRAFT),...data.draft});}
+    if(result.draftApplied) {clearTimeout(draftSaveTimer.current);modeDrafts.current=restoredModeDrafts(data);setDraft(restoredDraft(data,data.draft || {}));}
   };
   const activeJobs = submittingIds.length > 0 || state?.jobs.some(job => STOPPABLE_STATUSES.includes(job.status));
   useEffect(() => {
@@ -396,6 +427,12 @@ export default function App() {
     finally {setBusy(false);}
   }
   const safely = promise => promise?.catch(() => {});
+  const folderActions={
+    create:name=>safely(run(()=>api('/photo-folders',{method:'POST',body:{name}}),'資料夾已建立。')),
+    rename:(id,name)=>safely(run(()=>api(`/photo-folders/${id}`,{method:'PATCH',body:{name}}),'資料夾名稱已更新。')),
+    remove:id=>safely(run(()=>api(`/photo-folders/${id}`,{method:'DELETE'}),'資料夾已刪除，照片已回到未分類。')),
+    move:(ids,folderId)=>safely(run(()=>api('/jobs/move',{method:'POST',body:{ids,folderId}}),'照片與所有版本已移動。')),
+  };
   const onUpload = async (kind,fileList) => {
     const files = Array.from(fileList || []);
     if(!files.length) return;
@@ -453,25 +490,26 @@ export default function App() {
   const syncResults = () => safely(run(() => api('/jobs/sync',{method:'POST'}),'成果已更新。'));
   const exportJob = job => safely(run(async () => {downloadJson(await api(`/jobs/${job.id}/prompt`),`${job.name}.api.json`);}));
   const closeModal = () => setModal(null);
-  const currentInfo = page === 'studio' ? {title:'拍攝工作檯',subtitle:'把每一套服裝，變成一組有風格的寫真。',eyebrow:'CREATE YOUR NEXT SHOOT'} : page === 'garments' ? {...ASSET_LABELS.garments,eyebrow:'THE WARDROBE'} : page === 'references' ? {title:'角色參考',subtitle:'保存角色的外貌與辨識特徵。',eyebrow:'YOUR VISUAL REFERENCES'} : page === 'presets' ? {title:'提詞資料庫',subtitle:'收集好用的描述，讓每一次拍攝都更有方向。',eyebrow:'THE PROMPT COLLECTION'} : page === 'gallery' ? {title:'成果畫廊',subtitle:'挑選喜歡的照片，不滿意的勾選重製。',eyebrow:'REVIEW YOUR PHOTOGRAPHS'} : {title:'拍攝清單',subtitle:'每次拍攝收成一組，進入組內查看照片與生成進度。',eyebrow:'FROM BRIEF TO PHOTOGRAPH'};
+  const currentInfo = page === 'studio' ? {title:'拍攝工作檯',subtitle:'把每一套服裝，變成一組有風格的寫真。',eyebrow:'CREATE YOUR NEXT SHOOT'} : page === 'garments' ? {...ASSET_LABELS.garments,eyebrow:'THE WARDROBE'} : page === 'references' ? {title:'角色參考',subtitle:'保存角色的外貌與辨識特徵。',eyebrow:'YOUR VISUAL REFERENCES'} : page === 'presets' ? {title:'提詞資料庫',subtitle:'收集好用的描述，讓每一次拍攝都更有方向。',eyebrow:'THE PROMPT COLLECTION'} : page === 'accounts' ? {title:'顧客帳號',subtitle:'管理顧客的登入帳號，讓每位顧客保有自己的攝影棚。',eyebrow:'PhotoCreate'} : page === 'gallery' ? {title:'成果畫廊',subtitle:'挑選喜歡的照片，不滿意的勾選重製。',eyebrow:'REVIEW YOUR PHOTOGRAPHS'} : {title:'拍攝清單',subtitle:'每次拍攝收成一組，進入組內查看照片與生成進度。',eyebrow:'FROM BRIEF TO PHOTOGRAPH'};
   if(!state) return <div className="app-loading"><Aperture size={42} strokeWidth={1.1}/><h1>PhotoCreate</h1>{loadError ? <><p>{loadError}</p><button className="button primary" onClick={() => location.reload()}>重新連線</button></> : <p><Loader2 size={16} className="spin"/>正在開啟你的寫真工作檯…</p>}</div>;
-  return <div className="app-shell"><aside className="sidebar"><a href="#" className="brand" onClick={e => {e.preventDefault();setPage('studio');}}><span className="brand-icon"><Aperture size={25} strokeWidth={1.3}/></span><span>PhotoCreate<small>YOUR PRIVATE PHOTO STUDIO</small></span></a><div className="workspace-label">WORKSPACE <span>本機工作室</span></div><nav>{PAGES.map(item => <button key={item.id} aria-label={item.label} className={`nav-item ${page === item.id ? 'active' : ''}`} onClick={() => setPage(item.id)}><item.icon size={18} strokeWidth={1.6}/><span>{item.label}</span>{item.id === 'garments' && state.garments.length > 0 && <small>{state.garments.length}</small>}{item.id === 'jobs' && state.batches?.length > 0 && <small>{state.batches.length}</small>}</button>)}</nav><div className="sidebar-bottom"><div className="studio-note"><span className="note-line"/><span className="eyebrow">MADE FOR YOUR IDEAS</span><p>一張參考圖，<br/>一個新的拍攝故事。</p><Camera size={25} strokeWidth={1}/></div><button className="sidebar-settings" onClick={() => setModal({type:'settings'})}><Settings2 size={17}/>工作流與連線設定</button><div className="local-storage"><Database size={13}/><span>SQLite · 本機保存</span><span className="status-dot"/></div></div></aside>
-    <main className="main-content"><header className="topbar"><div className="breadcrumb">工作室<ChevronRight size={13}/><span>{currentInfo.title}</span></div><div className="topbar-actions"><button className="button danger-ghost stop-all" aria-label="停止全部製作" title="停止目前製作並保留已完成圖片" disabled={stopping || !state.features?.stopJobs || !activeJobs} onClick={() => stopJobs({all:true})}>{stopping ? <Loader2 size={14} className="spin"/> : <Square size={14}/>}停止製作</button><span className="workflow-chip"><Aperture size={13}/>Qwen Image 2.1</span><button className={`connection-pill ${status.connected ? 'online' : ''}`} onClick={() => setModal({type:'settings'})}><span className="status-dot"/>{status.checking ? '連線檢查中' : status.connected ? 'ComfyUI 已連線' : 'ComfyUI 未連線'}</button></div></header><div className="page-content"><div className="page-heading"><div><span className="eyebrow">{currentInfo.eyebrow}</span><h1>{currentInfo.title}<span className="heading-dot">.</span></h1><p>{currentInfo.subtitle}</p></div>{page === 'studio' && <div className="page-number"><span>STUDIO</span><strong>01 /</strong></div>}</div>
+  return <div className="app-shell"><aside className="sidebar"><a href="#" className="brand" onClick={e => {e.preventDefault();setPage('studio');}}><span className="brand-icon"><Aperture size={25} strokeWidth={1.3}/></span><span>PhotoCreate<small>YOUR PRIVATE PHOTO STUDIO</small></span></a><div className="workspace-label">WORKSPACE <span>管理工作室</span></div><nav>{PAGES.map(item => <button key={item.id} aria-label={item.label} className={`nav-item ${page === item.id ? 'active' : ''}`} onClick={() => setPage(item.id)}><item.icon size={18} strokeWidth={1.6}/><span>{item.label}</span>{item.id === 'garments' && state.garments.length > 0 && <small>{state.garments.length}</small>}{item.id === 'jobs' && state.batches?.length > 0 && <small>{state.batches.length}</small>}</button>)}</nav><div className="sidebar-bottom"><div className="studio-note"><span className="note-line"/><span className="eyebrow">MADE FOR YOUR IDEAS</span><p>一張參考圖，<br/>一個新的拍攝故事。</p><Camera size={25} strokeWidth={1}/></div><button className="sidebar-settings" onClick={() => setModal({type:'settings'})}><Settings2 size={17}/>工作流與連線設定</button><div className="local-storage"><Database size={13}/><span>SQLite · 本機保存</span><span className="status-dot"/></div></div></aside>
+    <main className="main-content"><header className="topbar"><div className="breadcrumb">工作室<ChevronRight size={13}/><span>{currentInfo.title}</span></div><div className="topbar-actions"><button className="button danger-ghost stop-all" aria-label="停止全部製作" title="停止目前製作並保留已完成圖片" disabled={stopping || !state.features?.stopJobs || !activeJobs} onClick={() => stopJobs({all:true})}>{stopping ? <Loader2 size={14} className="spin"/> : <Square size={14}/>}停止製作</button><span className="workflow-chip"><Aperture size={13}/>Qwen Image 2.1</span><button className={`connection-pill ${status.connected ? 'online' : ''}`} onClick={() => setModal({type:'settings'})}><span className="status-dot"/>{status.checking ? '連線檢查中' : status.connected ? 'ComfyUI 已連線' : 'ComfyUI 未連線'}</button>{accountMenu}</div></header><div className="page-content"><div className="page-heading"><div><span className="eyebrow">{currentInfo.eyebrow}</span><h1>{currentInfo.title}<span className="heading-dot">.</span></h1><p>{currentInfo.subtitle}</p></div>{page === 'studio' && <div className="page-number"><span>STUDIO</span><strong>01 /</strong></div>}</div>
       {!state.features?.stopJobs && <div className="workflow-warning"><Square size={18}/><span>停止功能已更新。重新啟動 PhotoCreate 後即可使用。</span></div>}
       {!state.workflow.ready && <div className="workflow-warning"><Aperture size={18}/><span>工作流尚未就緒。你可以先管理素材與建立拍攝清單。</span><button onClick={() => setModal({type:'settings'})}>載入工作流<ArrowRight size={14}/></button></div>}
-      {page === 'studio' && <Studio state={state} draft={draft} setDraft={setDraft} onPick={kind => setModal({type:'picker',kind})} onUpload={onUpload} onCreate={() => safely(run(async () => {const shots = await api('/jobs',{method:'POST',body:draft});setPage('jobs');if(draft.mode === 'random') {const result = await sendJobs(shots.map(row => row.id));const failed = result.results.filter(row => !row.ok && !row.stopped);if(failed.length) throw new Error(`已建立 ${shots.length} 張隨機寫真；${failed.length} 張送出失敗，可在組內重試。`);shots.stoppedCount = result.results.filter(row => row.stopped).length;}return shots;},shots => shots.stoppedCount ? '隨機製作已停止，已完成圖片已保留。' : draft.mode === 'random' ? `已送出 ${shots.length} 張隨機寫真。` : `已建立一組拍攝，共 ${shots.length} 張照片。`))} onExport={() => safely(run(async () => {const shots = await api('/shots/preview',{method:'POST',body:draft});downloadJson({version:1,batchName:draft.batchName || undefined,workflow:state.workflow.name,shots},'photocreate-shooting-plan.json');}))} connected={status.connected} onChoosePreset={category => setModal({type:'promptPool',category})} onSettings={() => setModal({type:'settings'})} onAddOptionalPreset={(category,initialPrompt) => setModal({type:'preset',category,initialPrompt,fromStudio:true})} busy={busy} saved={saved} notify={notify}/>}
+      {page === 'studio' && <Studio onCreateFolder={folderActions.create} state={state} draft={draft} setDraft={setDraft} onChangeMode={changeMode} onApplyCustomer={() => safely(run(() => api('/customer-recipe',{method:'PUT',body:draft}),'已套用顧客候選與提詞；管理員測試不會改動此設定。'))} onPick={kind => setModal({type:'picker',kind})} onUpload={onUpload} onCreate={() => safely(run(async () => {const shots = await api('/jobs',{method:'POST',body:draft});setPage('jobs');return shots;},shots => `已建立一組${draft.mode === 'random' ? '隨機' : ''}拍攝，共 ${shots.length} 張照片。請檢查後再生成。`))} onExport={() => safely(run(async () => {const shots = await api('/shots/preview',{method:'POST',body:draft});downloadJson({version:1,batchName:draft.batchName || undefined,workflow:state.workflow.name,shots},'photocreate-shooting-plan.json');}))} connected={status.connected} onChoosePreset={category => setModal({type:'promptPool',category})} onSettings={() => setModal({type:'settings'})} onAddOptionalPreset={(category,initialPrompt) => setModal({type:'preset',category,initialPrompt,fromStudio:true})} busy={busy} saved={saved} notify={notify}/>}
+      {page === 'accounts' && <Accounts api={api}/>}
       {page === 'garments' && <AssetLibrary kind="garments" rows={state.garments} onUpload={onUpload} onEdit={(kind,asset) => setModal({type:'asset',kind,asset})} busy={busy}/>}
       {page === 'references' && <AssetLibrary kind="characters" rows={state.characters} onUpload={onUpload} onEdit={(kind,asset) => setModal({type:'asset',kind,asset})} busy={busy}/>}
       {page === 'presets' && <PresetLibrary state={state} onEdit={(preset,category) => setModal({type:'preset',preset,category})} onImport={file => importPresets(file).catch(error => notify(error.message,'error'))} onJsonImport={() => setModal({type:'json'})} busy={busy}/>}
-      {page === 'jobs' && <JobLibrary state={state} onStop={stopJobs} stopping={stopping || !state.features?.stopJobs} submittingIds={submittingIds} onSubmit={submitJobs} onSync={() => safely(run(() => api('/jobs/sync',{method:'POST'}),'拍攝狀態已更新。'))} onExport={exportJob} onRemake={remakeJobs} onAngle={(job,imageIndex) => setModal({type:'angle-edit',job,imageIndex})} onDeleteOutputs={deleteOutputs} onDelete={job => setModal({type:'delete-job',job})} onInspect={job => setModal({type:'inspect',job})} onSettingsBatch={batch => setModal({type:'batch-settings',batch})} onExportBatch={batch => downloadJson({version:1,batch:{id:batch.id,name:batch.name,createdAt:batch.createdAt},shots:batch.jobs},`${batch.name}.json`)} busy={busy} connected={status.connected}/>}
-      {page === 'gallery' && <ResultGallery state={state} onRemake={remakeJobs} onAngle={(job,imageIndex) => setModal({type:'angle-edit',job,imageIndex})} onDeleteOutputs={deleteOutputs} onSubmit={submitJobs} onSync={syncResults} onInspect={job => setModal({type:'inspect',job})} busy={busy} connected={status.connected}/>}
+      {page === 'jobs' && <JobLibrary folderActions={folderActions} state={state} onStop={stopJobs} stopping={stopping || !state.features?.stopJobs} submittingIds={submittingIds} onSubmit={submitJobs} onSync={() => safely(run(() => api('/jobs/sync',{method:'POST'}),'拍攝狀態已更新。'))} onExport={exportJob} onRemake={remakeJobs} onAngle={(job,imageIndex) => setModal({type:'angle-edit',job,imageIndex})} onDeleteOutputs={deleteOutputs} onDelete={job => setModal({type:'delete-job',job})} onInspect={job => setModal({type:'inspect',job})} onSettingsBatch={batch => setModal({type:'batch-settings',batch})} onExportBatch={batch => downloadJson({version:1,batch:{id:batch.id,name:batch.name,createdAt:batch.createdAt},shots:batch.jobs},`${batch.name}.json`)} busy={busy} connected={status.connected}/>}
+      {page === 'gallery' && <ResultGallery folderActions={folderActions} state={state} onRemake={remakeJobs} onAngle={(job,imageIndex) => setModal({type:'angle-edit',job,imageIndex})} onDeleteOutputs={deleteOutputs} onSubmit={submitJobs} onSync={syncResults} onInspect={job => setModal({type:'inspect',job})} busy={busy} connected={status.connected}/>}
     </div><footer className="app-footer"><span>PhotoCreate Studio</span><span>每一個靈感，都值得一張好照片。</span><span>LOCAL / PRIVATE</span></footer></main>
     {modal?.type === 'picker' && <AssetPicker kind={modal.kind} state={state} draft={draft} onSelect={values => setDraft(current => modal.kind === 'garments' ? {...current,garmentIds:values} : {...current,characterId:values[0]})} onClose={closeModal} onUpload={onUpload} busy={busy}/>}
-    {modal?.type === 'promptPool' && <Modal title={`選擇${CATEGORIES[modal.category].label}提詞`} onClose={closeModal} wide><PresetPoolPicker category={modal.category} presets={state.presets} selectedIds={PRESET_POOL_FIELDS[modal.category] ? selectedPresetIds(draft,modal.category) : draft[OPTIONAL_PRESET_FIELDS[modal.category]] ? [draft[OPTIONAL_PRESET_FIELDS[modal.category]]] : []} multi={!!PRESET_POOL_FIELDS[modal.category]} randomAll={draft.mode === 'random' && draft.randomPoolMode === 'all'} api={api} busy={busy} onClose={closeModal} onAdd={() => setModal({type:'preset',category:modal.category,fromStudio:true})} onApply={values => {setDraft(current => ({...current,...(current.mode === 'random' ? {randomPoolMode:'selected'} : {}),[PRESET_POOL_FIELDS[modal.category] || OPTIONAL_PRESET_FIELDS[modal.category]]:PRESET_POOL_FIELDS[modal.category] ? values : values[0] || ''}));closeModal();}}/></Modal>}
+    {modal?.type === 'promptPool' && <Modal title={`選擇${CATEGORIES[modal.category].label}提詞 · 可複選`} onClose={closeModal} wide><PresetPoolPicker category={modal.category} presets={state.presets} selectedIds={selectedPresetIds(draft,modal.category)} optional={!!OPTIONAL_PRESET_POOL_FIELDS[modal.category]} randomAll={draft.mode === 'random' && draft.randomPoolMode === 'all' && !!PRESET_POOL_FIELDS[modal.category]} api={api} busy={busy} onClose={closeModal} onAdd={() => setModal({type:'preset',category:modal.category,fromStudio:true})} onApply={values => {setDraft(current => ({...current,...(current.mode === 'random' && PRESET_POOL_FIELDS[modal.category] ? {randomPoolMode:'selected'} : {}),[PRESET_SELECTION_FIELDS[modal.category]]:values}));closeModal();}}/></Modal>}
     {modal?.type === 'asset' && <AssetEditor kind={modal.kind} asset={modal.asset} onClose={closeModal} busy={busy} onSave={fields => safely(run(async () => {await api(`/assets/${modal.kind}/${modal.asset.id}`,{method:'PATCH',body:fields});closeModal();},'資料已保存。'))} onDelete={() => safely(run(async () => {await api(`/assets/${modal.kind}/${modal.asset.id}`,{method:'DELETE'});setDraft(current => ({...current,garmentIds:current.garmentIds.filter(id => id !== modal.asset.id),characterId:current.characterId === modal.asset.id ? '' : current.characterId}));closeModal();},'已移出圖庫。'))}/>}
-    {modal?.type === 'preset' && <PresetEditor preset={modal.preset} initialCategory={modal.category} initialPrompt={modal.initialPrompt} onClose={closeModal} busy={busy} onSave={preset => safely(run(async () => {await api('/presets',{method:'POST',body:preset});if(modal.fromStudio) setDraft(current => ({...current,...(PRESET_POOL_FIELDS[preset.category] ? {[PRESET_POOL_FIELDS[preset.category]]:[...new Set([...selectedPresetIds(current,preset.category),preset.id])]} : {[OPTIONAL_PRESET_FIELDS[preset.category]]:preset.id}),...(preset.category === 'interaction' && modal.initialPrompt ? {sceneInteraction:''} : {})}));closeModal();},modal.category === 'camera' || modal.preset?.category === 'camera' ? '角度已保存。' : '提詞已保存。'))} onDelete={() => safely(run(async () => {await api(`/presets/${modal.preset.id}`,{method:'DELETE'});setDraft(current => ({...current,...Object.fromEntries(Object.values(OPTIONAL_PRESET_FIELDS).filter(field => current[field] === modal.preset.id).map(field => [field,''])),...Object.fromEntries(Object.entries(PRESET_POOL_FIELDS).map(([category,field]) => [field,selectedPresetIds(current,category).filter(id => id !== modal.preset.id)]))}));closeModal();},'提詞已移除。'))}/>}
+    {modal?.type === 'preset' && <PresetEditor preset={modal.preset} initialCategory={modal.category} initialPrompt={modal.initialPrompt} onClose={closeModal} busy={busy} onSave={preset => safely(run(async () => {await api('/presets',{method:'POST',body:preset});if(modal.fromStudio) setDraft(current => ({...current,[PRESET_SELECTION_FIELDS[preset.category]]:[...new Set([...selectedPresetIds(current,preset.category),preset.id])],...(preset.category === 'interaction' && modal.initialPrompt ? {sceneInteraction:''} : {})}));closeModal();},modal.category === 'camera' || modal.preset?.category === 'camera' ? '角度已保存。' : '提詞已保存。'))} onDelete={() => safely(run(async () => {await api(`/presets/${modal.preset.id}`,{method:'DELETE'});setDraft(current => ({...current,...Object.fromEntries(Object.values(OPTIONAL_PRESET_FIELDS).filter(field => current[field] === modal.preset.id).map(field => [field,''])),...Object.fromEntries(Object.entries(PRESET_SELECTION_FIELDS).map(([category,field]) => [field,selectedPresetIds(current,category).filter(id => id !== modal.preset.id)]))}));closeModal();},'提詞已移除。'))}/>}
     {modal?.type === 'json' && <JsonImport onClose={closeModal} onImport={importPresets} busy={busy}/>}
-    {modal?.type === 'angle-edit' && <AngleEditDialog job={modal.job} imageIndex={modal.imageIndex} sourceState={state} presets={state.presets} onClose={closeModal} busy={busy} ready={status.connected && state.cameraWorkflow?.ready} onGenerate={options => safely(run(async () => {const created = await api(`/jobs/${modal.job.id}/angle`,{method:'POST',body:options});if(RETRYABLE_STATUSES.includes(created.job.status)) {const result = await sendJobs([created.job.id]);const failed = result.results.find(row => !row.ok && !row.stopped);if(failed) throw new Error(failed.error);}closeModal();return created;},'換角度已送出，完成後會更新畫廊。'))}/>}
+    {modal?.type === 'angle-edit' && <AngleEditDialog job={modal.job} imageIndex={modal.imageIndex} sourceState={state} presets={state.presets} onClose={closeModal} busy={busy} ready={status.connected && state.cameraWorkflow?.ready} onGenerate={options => safely(run(async () => {const created = await api(`/jobs/${modal.job.id}/angle`,{method:'POST',body:options});if(RETRYABLE_STATUSES.includes(created.job.status)) {const result = await sendJobs([created.job.id]);const failed = result.results.find(row => !row.ok && !row.stopped);if(failed) throw new Error(failed.error);}closeModal();return created;},'不同角度拍攝已送出，完成後會更新畫廊。'))}/>}
     {modal?.type === 'inspect' && <JobInspector job={state.jobs.find(row => row.id === modal.job.id) || modal.job} onClose={closeModal} onExport={exportJob}/>}
     {modal?.type === 'batch-settings' && <BatchSettings batch={modal.batch} onClose={closeModal} busy={busy} onRename={batch => setModal({type:'rename-batch',batch})} onDelete={batch => setModal({type:'delete-batch',batch})}/> }
     {modal?.type === 'rename-batch' && <BatchRename batch={modal.batch} onClose={closeModal} busy={busy} onSave={name => safely(run(async () => {await api(`/batches/${modal.batch.id}`,{method:'PATCH',body:{name}});closeModal();},'拍攝組名稱已保存。'))}/>}

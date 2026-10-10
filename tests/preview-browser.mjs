@@ -1,3 +1,4 @@
+import {loginBrowser} from './auth-client.js';
 import {chromium,expect} from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -33,7 +34,7 @@ const browser = await chromium.launch({headless:true,executablePath:process.env.
 try {
   const page = await browser.newPage({viewport:{width:1440,height:900}}),errors = [];
   page.on('pageerror',error => errors.push(error.message));
-  await page.goto(`http://127.0.0.1:${server.address().port}`);
+  await loginBrowser(page,`http://127.0.0.1:${server.address().port}`);
   await page.getByRole('button',{name:'拍攝清單',exact:true}).click();
   await expect(page.locator('.batch-cover img')).toHaveAttribute('src',`/api/jobs/${jobs[1].id}/image/0?stage=base`);
   await page.locator('.batch-cover').click();

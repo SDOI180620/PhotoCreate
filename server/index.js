@@ -8,15 +8,21 @@ import { createStore } from './store.js';
 import { createTransferManager } from './transfer.js';
 import { LIMITS } from './transfer-schema.js';
 import { workbenchAccess } from './access.js';
+import { createAuthentication } from './auth.js';
+import { createVisitorRouter } from './visitors.js';
+import { createPhotoFolders } from './photo-folders.js';
+import { photoPromptDetails } from './photo-prompts.js';
+import { createCustomerRecipe, customerProductionState, customerRecipeSummary } from './customer-recipe.js';
 import { CATEGORIES, buildShotPlans, normalizePresetImport, referenceOnlyPrompt } from '../shared/domain.js';
 import { ACTIVE_STATUSES, RETRYABLE_STATUSES, STOPPABLE_STATUSES, defaultBatchName } from '../shared/batches.js';
 import { jobUpdateFromComfy } from './job-status.js';
 import { createStageRunner } from './stage-runner.js';
 import { buildRemakePlans } from '../shared/remakes.js';
-import { resolveCameraSource } from '../shared/camera-source.js';
-import { cameraPreset, normalizeCameraAngle, cameraPrompt, REFINE_PROMPT } from '../shared/camera.js';
-import { CAMERA_WORKFLOW_PATH, validateCameraWorkflow, buildCameraPipeline, buildCameraStage } from './camera-workflow.js';
-import { deleteOutputFiles } from './outputs.js';
+import { resolveSelectedPhotoSource } from '../shared/camera-source.js';
+import { cameraPreset, normalizeCameraAngle, cameraPrompt, REFINE_PROMPT, REFINE_STEPS } from '../shared/camera.js';
+import {productionStages} from '../shared/production.js';
+import { validateCameraWorkflow, buildCameraPipeline, buildCameraStage } from './camera-workflow.js';
+import { deleteOutputFiles, purgeJobOutputs } from './outputs.js';
 import { createEnvironmentManager,defaultComfyDirectory,validateComfyDirectory,pickComfyDirectory,comfyOutputDirectory,BUNDLED_WORKFLOW_PATH,BUNDLED_CAMERA_PATH } from './environment.js';
 import { normalizeComfyUrl,testComfyConnection,publicConnectionTest } from './connection.js';
 import { WORKFLOW_NAME, WORKFLOW_PATH, convertWorkflow, validateTemplate, buildComfyPrompt, referenceKinds, workflowSummary } from './workflow.js';
@@ -37,17 +43,27 @@ const assetFields = body => {
   return {name, description, tags: tags.map(tag => tag.trim()).filter(Boolean)};
 };
 
-export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fetch, comfyOutputDir, environmentOptions = {}, directoryPicker = pickComfyDirectory } = {}) {
+export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fetch, comfyOutputDir, environmentOptions = {}, directoryPicker = pickComfyDirectory, publicUrl = process.env.PHOTOCREATE_PUBLIC_URL } = {}) {
+  const access=workbenchAccess({publicUrl});
   const store = createStore(dataDir);
+  const photoFolders=createPhotoFolders(store);
+  const authentication=createAuthentication({dataDir,publicUrl,claimLegacyStudio:(legacyOwner,ownerId)=>{
+    store.mutate(state=>{for(const collection of ['characters','jobs','batches']) for(const row of state[collection]) if(row.visitorId===legacyOwner) row.visitorId=ownerId;});
+  }});
   const environment = createEnvironmentManager({dataDir,fetchImpl,...environmentOptions});
   const transfer = createTransferManager({dataDir,store});
-  const closeStore=store.close;store.close=()=>{transfer.close();environment.close();closeStore();};
+  const closeStore=store.close;store.close=()=>{transfer.close();environment.close();authentication.close();closeStore();};
   const outputDir = () => comfyOutputDir || comfyOutputDirectory(store.read().settings);
   const app = express();
   app.disable('x-powered-by');
-  app.use(workbenchAccess());
+  app.use(access);
   app.use(express.json({limit: '10mb'}));
-  app.use('/uploads', express.static(path.join(dataDir,'uploads'),{ dotfiles: 'deny' }));
+  app.use(authentication.attach);
+  app.use('/api/auth',authentication.router);
+  app.use('/api/accounts',authentication.accountsRouter);
+  app.get('/login',(req,res,next)=>req.account ? res.redirect(req.account.role==='admin' ? '/admin' : '/') : next());
+  app.use('/admin',authentication.page);
+  app.use('/uploads',authentication.requireAdmin,express.static(path.join(dataDir,'uploads'),{ dotfiles: 'deny' }));
   const upload = multer({ storage: multer.memoryStorage(), limits: {fileSize: 25 * 1024 * 1024, files: 50} });
   let submitting = false;
   let syncing = false;
@@ -64,13 +80,36 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     }
   };
   const stopAttempts = new Map();
+  const getCustomerRecipe=()=>{
+    const state=store.read();
+    if(state.customerRecipe) return state.customerRecipe;
+    // Existing installations keep their current choices on first upgrade.
+    // Once captured, saving an operator draft never changes this recipe.
+    try {
+      const recipe=createCustomerRecipe(state,state.workbenchDrafts?.random || state.draft || {});
+      store.mutate(current=>{current.customerRecipe=recipe;});
+      return recipe;
+    } catch {return null;}
+  };
+  app.use('/api/studio',authentication.requireCustomer,createVisitorRouter({store,dataDir,
+    photoFolders,
+    getCustomerRecipe,
+    isInstalling:()=>environment.isActive(),
+    uploadCharacter:(files,visitorId)=>saveAssetUploads('characters',files,visitorId),
+    createShots,remakeShots,angleShot,queueShots,stopShots,
+    purgeOutputs:jobs=>purgeJobOutputs(store.read(),jobs,outputDir()),
+    sendImage:serveJobImage,sendAngleSource:serveAngleSource,
+  }));
+  app.use('/api',(req,res,next)=>req.method==='GET' && req.path==='/health' ? next() : authentication.requireAdmin(req,res,next));
   const publicState = () => {
+    const customerRecipe=getCustomerRecipe();
     const state = store.read();
     const workflow = workflowSummary(state.workflow,state.workflowName || WORKFLOW_NAME);
-    const cameraWorkflow = {ready:Boolean(state.cameraWorkflow),name:state.cameraWorkflowName || CAMERA_WORKFLOW_PATH,error:state.cameraWorkflowError || ''};
+    const cameraWorkflow = {ready:Boolean(state.cameraWorkflow),name:state.cameraWorkflowName || BUNDLED_CAMERA_PATH,error:state.cameraWorkflowError || ''};
     delete state.workflow;delete state.cameraWorkflow;
     state.cameraWorkflow = cameraWorkflow;
-    return {...state,workflow,features:{stopJobs:true,stagedProduction:true},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
+    state.photoFolders=photoFolders.list('admin');
+    return {...state,customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
   };
   async function comfyAt(base,endpoint,options = {}) {
     let response;
@@ -98,18 +137,20 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     return workflowSummary(graph,store.read().workflowName);
   }
 
-  async function loadCameraWorkflow(workflowPath = CAMERA_WORKFLOW_PATH) {
+  async function loadCameraWorkflow(workflowPath) {
+    const state = store.read();
+    workflowPath ||= state.settings.cameraWorkflowPath && state.settings.cameraWorkflowPath !== 'bundled' ? state.settings.cameraWorkflowPath : state.cameraWorkflowName?.endsWith('.json') ? state.cameraWorkflowName : BUNDLED_CAMERA_PATH;
     if(typeof workflowPath !== 'string' || !workflowPath.endsWith('.json') || workflowPath.includes('..')) throw fail('相機工作流路徑無效。');
-    const base = store.read().settings.comfyUrl;
+    const base = state.settings.comfyUrl;
     const ui = await comfyJson(`/userdata/${encodeURIComponent(`workflows/${workflowPath}`)}`,{},base);
     const classes = [...new Set(ui.nodes?.map(node => node.type).filter(type => !['MarkdownNote','Note'].includes(type)) || [])];
     const schemas = await Promise.all(classes.map(type => comfyJson(`/object_info/${encodeURIComponent(type)}`,{},base)));
     const graph = convertWorkflow(ui,Object.assign({},...schemas),{validate:validateCameraWorkflow});
     fs.writeFileSync(path.join(dataDir,'camera-workflow-source.json'),JSON.stringify(ui,null,2));
-    store.mutate(state => {state.cameraWorkflow = graph;state.cameraWorkflowName = workflowPath;delete state.cameraWorkflowError;});
+    store.mutate(state => {state.cameraWorkflow = graph;state.cameraWorkflowName = workflowPath;state.settings.cameraWorkflowPath = workflowPath;delete state.cameraWorkflowError;});
     return {ready:true,name:workflowPath};
   }
-  app.post('/api/camera-workflow/load',async (req,res) => res.json(await loadCameraWorkflow(req.body.path || CAMERA_WORKFLOW_PATH)));
+  app.post('/api/camera-workflow/load',async (req,res) => res.json(await loadCameraWorkflow(req.body.path)));
   app.post('/api/camera-workflow/import',(req,res) => {
     const graph = validateCameraWorkflow(req.body.workflow);
     store.mutate(state => {state.cameraWorkflow = graph;state.cameraWorkflowName = safeText(req.body.name || '相機角度',200,'名稱');delete state.cameraWorkflowError;});
@@ -118,6 +159,11 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   const jobPrompt = (state,job,images) => buildCameraPipeline(job.workflowSnapshot || state.workflow,job.cameraWorkflowSnapshot || state.cameraWorkflow,job,images);
   app.get('/api/health',(req,res) => res.json({ok:true,app:'PhotoCreate'}));
   app.get('/api/state',(req,res) => res.json(publicState()));
+  app.get('/api/photo-folders',(req,res)=>res.json(photoFolders.list('admin')));
+  app.post('/api/photo-folders',(req,res)=>res.status(201).json(photoFolders.create('admin',req.body?.name)));
+  app.patch('/api/photo-folders/:id',(req,res)=>res.json(photoFolders.rename('admin',req.params.id,req.body?.name)));
+  app.delete('/api/photo-folders/:id',(req,res)=>res.json(photoFolders.remove('admin',req.params.id)));
+  app.post('/api/jobs/move',(req,res)=>res.json(photoFolders.move('admin',req.body?.ids,req.body?.folderId)));
   app.post('/api/transfer/export',async (req,res) => res.json(await transfer.exportZip()));
   app.get('/api/transfer/export/:token',(req,res,next) => {
     const archive=transfer.download(req.params.token);
@@ -138,9 +184,18 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   });
   app.delete('/api/transfer/preview/:token',(req,res)=>{transfer.discard(req.params.token);res.json({ok:true});});
   app.put('/api/draft',(req,res) => {
-    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) throw fail('拍攝設定格式不正確。');
-    store.mutate(state => {state.draft = req.body;});
+    const draft=req.body?.draft ?? req.body,modeDrafts=req.body?.modeDrafts ?? {};
+    if (!draft || typeof draft !== 'object' || Array.isArray(draft) || !modeDrafts || typeof modeDrafts!=='object' || Array.isArray(modeDrafts)) throw fail('拍攝設定格式不正確。');
+    for(const [mode,value] of Object.entries(modeDrafts)) if(!['random','combinations'].includes(mode) || !value || typeof value!=='object' || Array.isArray(value) || value.mode!==mode) throw fail('拍攝模式設定格式不正確。');
+    store.mutate(state => {state.draft = draft;state.workbenchDrafts={...state.workbenchDrafts,...modeDrafts,[draft.mode || 'combinations']:draft};});
     res.json({ok:true});
+  });
+  app.put('/api/customer-recipe',(req,res)=>{
+    if(!req.body || typeof req.body!=='object' || Array.isArray(req.body) || req.body.mode!=='random') throw fail('請在隨機寫真中設定顧客候選。');
+    let recipe;
+    try {recipe=createCustomerRecipe(store.read(),req.body);} catch(error) {throw fail(error.message);}
+    store.mutate(state=>{state.customerRecipe=recipe;});
+    res.json(customerRecipeSummary(recipe));
   });
   app.put('/api/settings',(req,res) => {
     const comfyUrl = normalizeComfyUrl(req.body.comfyUrl);
@@ -232,26 +287,27 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     if (!kinds.includes(req.params.kind)) return next(fail('圖庫類型無效。'));
     if (Number(req.headers['content-length']) > 150 * 1024 * 1024) return next(fail('每批上傳最多 150 MB。'));
     next();
-  },upload.array('images',50), (req,res) => {
-    if (!req.files?.length) throw fail('請選擇 PNG、JPG 或 WebP 圖片。');
-    const detected = req.files.map(file => {
+  },upload.array('images',50), (req,res) => res.status(201).json(saveAssetUploads(req.params.kind,req.files)));
+  function saveAssetUploads(kind,files,visitorId) {
+    if (!files?.length) throw fail('請選擇 PNG、JPG 或 WebP 圖片。');
+    const detected = files.map(file => {
       const b = file.buffer;
       if (b.length >= 24 && b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return {ext:'.png',mime:'image/png'};
       if (b.length >= 12 && b[0] === 255 && b[1] === 216 && b[2] === 255) return {ext:'.jpg',mime:'image/jpeg'};
       if (b.length >= 12 && b.toString('ascii',0,4) === 'RIFF' && b.toString('ascii',8,12) === 'WEBP') return {ext:'.webp',mime:'image/webp'};
       throw fail('只支援有效的 PNG、JPG 或 WebP 圖片。');
     });
-    const rows = req.files.map((file,index) => {
+    const rows = files.map((file,index) => {
       const id = randomUUID();
       const fileName = `${id}${detected[index].ext}`;
       // Multer decodes filenames as latin1; browser FormData sends UTF-8.
       const originalName = /[^\x00-\x7f]/.test(file.originalname) ? Buffer.from(file.originalname,'latin1').toString('utf8') : file.originalname;
       fs.writeFileSync(path.join(dataDir,'uploads',fileName),file.buffer);
-      return { id, name: path.parse(originalName).name.slice(0,200) || '未命名', description:'',tags:[],image:`/uploads/${fileName}`,fileName,mime:detected[index].mime,createdAt:new Date().toISOString() };
+      return { id, name: path.parse(originalName).name.slice(0,200) || '未命名', description:visitorId ? 'Preserve the character identity shown in <image1>, including facial features, hair, and body proportions.' : '',tags:[],image:`/uploads/${fileName}`,fileName,mime:detected[index].mime,createdAt:new Date().toISOString(),...(visitorId ? {visitorId} : {}) };
     });
-    store.mutate(state => {state[req.params.kind].unshift(...rows);});
-    res.status(201).json(rows);
-  });
+    store.mutate(state => {state[kind].unshift(...rows);});
+    return rows;
+  }
   app.patch('/api/assets/:kind/:id',(req,res) => {
     if (!kinds.includes(req.params.kind)) throw fail('圖庫類型無效。');
     const fields = assetFields(req.body);
@@ -328,17 +384,20 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   });
 
   app.post('/api/shots/preview',(req,res) => res.json(buildShotPlans(store.read(),req.body)));
-  app.post('/api/jobs', (req,res) => {
-    const plans = buildShotPlans(store.read(),req.body);
-    if(plans.some(job => job.cameraMode === 'multiangle') && !store.read().cameraWorkflow) throw fail('請先載入 3D 相機換角度工作流。');
-    const name = safeText(req.body.batchName ?? '',200,'拍攝組名稱') || defaultBatchName(plans);
-    const batch = {id:randomUUID(),name,createdAt:new Date().toISOString()};
-    const shots = plans.map(shot => ({...shot,batchId:batch.id,status:'draft',createdAt:batch.createdAt,images:[]}));
+  function createShots(body,{visitorId,requestId,customerRecipe} = {}) {
+    const state=store.read();
+    const folderId=photoFolders.requireFolder(visitorId || 'admin',body.folderId);
+    const plans = buildShotPlans(customerRecipe ? customerProductionState(state,customerRecipe) : state,body);
+    if(plans.some(job => productionStages(job).includes('angle')) && !store.read().cameraWorkflow) throw fail('請先載入 3D 相機換角度工作流。');
+    const name = safeText(body.batchName ?? '',200,'拍攝組名稱') || defaultBatchName(plans);
+    const batch = {id:randomUUID(),name,createdAt:new Date().toISOString(),...(visitorId ? {visitorId,visitorRequestId:requestId,characterId:body.characterId,count:plans.length,aspectRatio:body.aspectRatio,cameraEnabled:body.cameraEnabled !== false,folderId} : {})};
+    const shots = plans.map(shot => ({...shot,batchId:batch.id,status:'draft',createdAt:batch.createdAt,images:[],...(visitorId ? {visitorId} : {}),...(folderId ? {[visitorId ? 'folderId' : 'adminFolderId']:folderId} : {})}));
     store.mutate(state => {state.batches.unshift(batch);state.jobs.unshift(...shots);});
-    res.status(201).json(shots);
-  });
-  app.post('/api/jobs/remake',(req,res) => {
-    const {requestId,ids,deleteSourceOnComplete = false} = req.body;
+    return shots;
+  }
+  app.post('/api/jobs', (req,res) => res.status(201).json(createShots(req.body)));
+  function remakeShots(body,{visitorId} = {}) {
+    const {requestId,ids,deleteSourceOnComplete = false} = body;
     if(typeof requestId !== 'string' || !/^[\w-]{1,120}$/.test(requestId)) throw fail('重製請求 ID 無效。');
     if(!Array.isArray(ids) || !ids.length || ids.length > 100 || ids.some(id => typeof id !== 'string')) throw fail('請選擇 1–100 張已完成的成果。');
     if(typeof deleteSourceOnComplete !== 'boolean') throw fail('刪除舊圖設定無效。');
@@ -347,37 +406,39 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     if(existing.length) {
       const requested = [...new Set(ids)].sort();
       if(JSON.stringify(existing.map(job => job.sourceJobId).sort()) !== JSON.stringify(requested) || existing.some(job => job.deleteSourceOnComplete !== deleteSourceOnComplete)) throw fail('此重製請求 ID 已用於另一組照片。',409);
-      return res.json({jobs:existing,created:false});
+      return {jobs:existing,created:false};
     }
     const createdAt = new Date().toISOString();
-    const jobs = buildRemakePlans(state,ids,{requestId,deleteSourceOnComplete}).map(shot => ({...shot,status:'draft',createdAt,images:[]}));
+    const jobs = buildRemakePlans(state,ids,{requestId,deleteSourceOnComplete}).map(shot => ({...shot,status:'draft',createdAt,images:[],...(visitorId ? {visitorId} : {})}));
     store.mutate(current => {current.jobs.unshift(...jobs);});
-    res.status(201).json({jobs,created:true});
-  });
-  app.post('/api/jobs/:id/angle',(req,res) => {
-    const {requestId,angle,name = '自訂角度',imageIndex = 0,deleteSourceOnComplete = true,angleSteps = 20,refineDenoise = 0.2} = req.body;
+    return {jobs,created:true};
+  }
+  app.post('/api/jobs/remake',(req,res) => {const result=remakeShots(req.body);res.status(result.created ? 201 : 200).json(result);});
+  function angleShot(id,body,{visitorId} = {}) {
+    const {requestId,angle,name = '自訂角度',imageIndex = 0,deleteSourceOnComplete = true,angleSteps = 20,refineDenoise = 0.2} = body;
     if(typeof requestId !== 'string' || !/^[\w-]{1,120}$/.test(requestId)) throw fail('換角度請求 ID 無效。');
     const cameraAngle = normalizeCameraAngle(angle);
     if(typeof deleteSourceOnComplete !== 'boolean' || !Number.isInteger(angleSteps) || angleSteps < 1 || angleSteps > 100 || typeof refineDenoise !== 'number' || !Number.isFinite(refineDenoise) || refineDenoise < 0.05 || refineDenoise > 0.4) throw fail('換角度製作設定無效。');
     const cameraName = safeText(name,200,'角度名稱');if(!cameraName) throw fail('請輸入角度名稱。');
-    const state = store.read(),source = state.jobs.find(job => job.id === req.params.id);
+    const state = store.read(),source = state.jobs.find(job => job.id === id);
     if(!state.cameraWorkflow || !state.workflow) throw fail('請先載入相機與 Qwen 2.1 工作流。');
     const existing = state.jobs.find(job => job.remakeRequestId === requestId);
     if(existing) {
-      if(existing.jobKind !== 'angle-edit' || existing.sourceJobId !== req.params.id || existing.sourceImageIndex !== imageIndex || JSON.stringify(existing.camera?.angle) !== JSON.stringify(cameraAngle) || existing.camera?.name !== cameraName || existing.angleSteps !== angleSteps || existing.refineDenoise !== refineDenoise || existing.deleteSourceOnComplete !== deleteSourceOnComplete) throw fail('此請求 ID 已用於另一個角度。',409);
-      return res.json({job:existing,created:false});
+      if(existing.jobKind !== 'angle-edit' || existing.sourceJobId !== id || existing.sourceImageIndex !== imageIndex || JSON.stringify(existing.camera?.angle) !== JSON.stringify(cameraAngle) || existing.camera?.name !== cameraName || existing.angleSteps !== angleSteps || existing.refineDenoise !== refineDenoise || existing.deleteSourceOnComplete !== deleteSourceOnComplete) throw fail('此請求 ID 已用於另一個角度。',409);
+      return {job:existing,created:false};
     }
     if(!source || !Number.isInteger(imageIndex) || imageIndex < 0 || !source.images?.[imageIndex]) throw fail('請選擇有成果圖的拍攝。');
-    const cameraSource = resolveCameraSource(state,source,imageIndex);
-    const [plan] = buildRemakePlans(state,[source.id],{requestId,deleteSourceOnComplete});
-    const job = {...plan,jobKind:'angle-edit',cameraMode:'multiangle',executionMode:'staged',camera:{id:`angle-${requestId}`,category:'camera',name:cameraName,angle:cameraAngle,prompt:cameraPrompt(cameraAngle),tags:[]},angleSteps,refineDenoise,
+    const cameraSource = resolveSelectedPhotoSource(state,source,imageIndex);
+    const [plan] = buildRemakePlans(state,[source.id],{requestId,deleteSourceOnComplete,cameraSource});
+    const job = {...plan,seed:cameraSource.seed ?? source.seed,jobKind:'angle-edit',cameraMode:'multiangle',cameraEnabled:true,executionMode:'staged',camera:{id:`angle-${requestId}`,category:'camera',name:cameraName,angle:cameraAngle,prompt:cameraPrompt(cameraAngle),tags:[]},angleSteps,refineSteps:REFINE_STEPS,refineDenoise,
       workflowSnapshot:structuredClone(state.workflow),cameraWorkflowSnapshot:structuredClone(state.cameraWorkflow),cameraSource,sourceImage:structuredClone(cameraSource.image),sourceImageIndex:imageIndex,sourceComfyUrl:cameraSource.comfyUrl || state.settings.comfyUrl,
-      name:`${source.garment.name} · ${cameraName} · 重製 ${plan.remakeVersion}`,prompt:`${cameraPrompt(cameraAngle)}\n\n高清修正：${REFINE_PROMPT}`,status:'draft',createdAt:new Date().toISOString(),images:[]};
+      name:`${source.garment.name} · ${cameraName} · 重製 ${plan.remakeVersion}`,prompt:`${cameraPrompt(cameraAngle)}\n\n高清修正：${REFINE_PROMPT}`,status:'draft',createdAt:new Date().toISOString(),images:[],...(visitorId ? {visitorId} : {})};
     delete job.sourceInput;
     delete job.sourceInputComfyUrl;
     store.mutate(current => current.jobs.unshift(job));
-    res.status(201).json({job,created:true});
-  });
+    return {job,created:true};
+  }
+  app.post('/api/jobs/:id/angle',(req,res) => {const result=angleShot(req.params.id,req.body);res.status(result.created ? 201 : 200).json(result);});
   const deleteOutputs = (ids,replacedByJobId = null) => {
     const state = store.read();
     const jobs = [...new Set(ids)].map(id => state.jobs.find(job => job.id === id));
@@ -389,6 +450,10 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     const selected = new Set(ids);
     const imageKey = image => JSON.stringify([image.type || 'output',String(image.subfolder || '').replaceAll('\\','/'),image.filename]);
     const retained = new Set(state.jobs.filter(job => !selected.has(job.id)).flatMap(job => job.images || []).map(imageKey));
+    const replacement = state.jobs.find(job => job.id === replacedByJobId);
+    // A basic shoot's final output is also its original camera source.
+    // Hide a replaced result while retaining the original for later angles.
+    if(replacement?.jobKind === 'angle-edit' && replacement.cameraSource?.stage === 'base') retained.add(imageKey(replacement.cameraSource.image));
     const images = jobs.flatMap(job => job.images || []).filter(image => !retained.has(imageKey(image)));
     const directories=[...new Set(jobs.map(job=>job.comfyOutputDir || outputDir()))];
     if(directories.length!==1) throw fail('這些成果位於不同的 ComfyUI 目錄，請分開刪除。');
@@ -496,27 +561,41 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
         if (current?.promptId === job.promptId) current.stopDispatchedAt = new Date().toISOString();
       });
       const [queue,history] = await Promise.all([comfyJson('/queue',{},base),comfyJson(`/history/${encodeURIComponent(job.promptId)}`,{},base)]);
-      reconcileJob(job,queue,history);
+      const current = store.read().jobs.find(row => row.id === job.id);
+      if(current?.promptId === job.promptId) reconcileJob(current,queue,history);
       return store.read().jobs.find(row => row.id === job.id);
     })();
     stopAttempts.set(key,promise);
     try {return await promise;} finally {stopAttempts.delete(key);}
   }
   const stageRunner = createStageRunner({store,comfyJson,comfyAt,uploadReference,uploadAngleSource,onCompleted:cleanupRemakes,onStop:stopRemoteJob});
-  app.post('/api/jobs/stop',async (req,res) => {
-    const {ids,batchId,all} = req.body || {};
+  function queueShots(ids) {
+    if(environment.isActive()) throw fail('攝影棚正在準備，請稍後再拍攝。',503);
+    const snapshot=store.read();
+    if(!snapshot.workflow || ids.some(id=>{const job=snapshot.jobs.find(row=>row.id===id);return job && productionStages(job).includes('angle') && !job.cameraWorkflowSnapshot && !snapshot.cameraWorkflow;})) throw fail('攝影棚尚未就緒，請稍後再試。',503);
+    if(ids.some(id=>!snapshot.jobs.some(job=>job.id===id && RETRYABLE_STATUSES.includes(job.status)))) throw fail('這張照片已在拍攝中。',409);
+    store.mutate(state=>{for(const job of state.jobs) if(ids.includes(job.id)) job.comfyOutputDir=outputDir();});
+    // Stage runs persist their queue before awaiting uploads and advance on their own timer.
+    // A visitor can leave the page while the shared GPU finishes the queued shoots.
+    stageRunner.start(ids,snapshot).catch(error=>{
+      store.mutate(state=>{for(const job of state.jobs) if(ids.includes(job.id) && !job.promptId && job.status!=='completed') Object.assign(job,{status:'failed',error:error.message});});
+    });
+  }
+  async function stopShots(body,{visitorId} = {}) {
+    const {ids,batchId,all} = body || {};
     if ([ids !== undefined,batchId !== undefined,all !== undefined].filter(Boolean).length !== 1) throw fail('請指定任務、拍攝組或全部製作。');
     const snapshot = store.read();
+    const owned = snapshot.jobs.filter(job => !visitorId || job.visitorId === visitorId && !job.visitorDeletedAt);
     let selected;
     if (all !== undefined) {
       if (all !== true) throw fail('全部停止參數無效。');
-      selected = snapshot.jobs;
+      selected = owned;
     } else if (batchId !== undefined) {
       if (typeof batchId !== 'string' || !snapshot.batches.some(batch => batch.id === batchId)) throw fail('找不到拍攝組。',404);
-      selected = snapshot.jobs.filter(job => job.batchId === batchId);
+      selected = owned.filter(job => job.batchId === batchId);
     } else {
       if (!Array.isArray(ids) || !ids.length || ids.length > 100 || ids.some(id => typeof id !== 'string')) throw fail('請選擇 1–100 個任務。');
-      selected = [...new Set(ids)].map(id => snapshot.jobs.find(job => job.id === id));
+      selected = [...new Set(ids)].map(id => owned.find(job => job.id === id));
       if (selected.some(job => !job)) throw fail('找不到拍攝任務。',404);
     }
     const targets = selected.filter(job => job.status !== 'completed' && (STOPPABLE_STATUSES.includes(job.status) || submission?.waiting.has(job.id) || submission?.currentId === job.id));
@@ -542,7 +621,11 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
       }
     }
     cleanupRemakes();
-    res.json({results,jobs:publicState().jobs});
+    return {results};
+  }
+  app.post('/api/jobs/stop',async (req,res) => {
+    const result = await stopShots(req.body);
+    res.json({...result,jobs:publicState().jobs});
   });
   app.post('/api/jobs/submit',async (req,res) => {
     if(environment.isActive()) throw fail('環境安裝進行中，請完成或暫停安裝後再生成。',409);
@@ -639,6 +722,11 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
       res.json(publicState().jobs);
     } finally { syncing = false; }
   });
+  app.get('/api/jobs/:id/prompts',(req,res) => {
+    const job=store.read().jobs.find(row=>row.id===req.params.id);
+    if(!job) throw fail('找不到這張照片。',404);
+    res.json(photoPromptDetails(store.read(),job,{apiBase:'/api'}));
+  });
   app.get('/api/jobs/:id/prompt',(req,res) => {
     const state = store.read();
     const job = state.jobs.find(row => row.id === req.params.id);
@@ -660,29 +748,30 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     const images = job.jobKind === 'angle-edit' ? {source:job.sourceInput || `PhotoCreate/angle-source-${job.id}.png`} : Object.fromEntries(referenceKinds(job).map(kind => [kind,`PhotoCreate/${job[kind].fileName}`]));
     res.json({prompt:jobPrompt(state,job,images),note:job.jobKind === 'angle-edit' ? '由工作檯送出會自動上傳原始成果圖。' : `執行前請將 ${referenceKinds(job).length} 張參考圖放進 ComfyUI/input/PhotoCreate，或直接由工作檯送出。`});
   });
-  app.get('/api/jobs/:id/angle-source',async (req,res) => {
-    const state = store.read(),job = state.jobs.find(row => row.id === req.params.id);
+  async function serveAngleSource(id,index,res) {
+    const state = store.read(),job = state.jobs.find(row => row.id === id);
     if(!job) throw fail('找不到拍攝任務。',404);
-    const index = Number(req.query.index ?? 0);
+    index = Number(index ?? 0);
     if(!Number.isInteger(index) || index < 0 || index > 99) throw fail('原圖索引無效。');
-    const source = resolveCameraSource(state,job,index),image = source.image;
+    const source = resolveSelectedPhotoSource(state,job,index),image = source.image;
     const response = await comfyAt(source.comfyUrl || state.settings.comfyUrl,`/view?${new URLSearchParams({filename:image.filename,subfolder:image.subfolder || '',type:image.type || 'output'})}`);
     res.set('Content-Type',response.headers.get('content-type') || 'image/png');
     res.send(Buffer.from(await response.arrayBuffer()));
-  });
-  app.get('/api/jobs/:id/image/:index',async (req,res) => {
-    const job = store.read().jobs.find(row => row.id === req.params.id);
-    const stage = req.query.stage;
+  }
+  app.get('/api/jobs/:id/angle-source',async (req,res) => serveAngleSource(req.params.id,req.query.index,res));
+  async function serveJobImage(id,index,{stage,download},res) {
+    const job = store.read().jobs.find(row => row.id === id);
     if(stage !== undefined && !['base','angle'].includes(stage)) throw fail('圖片階段無效。');
     const source = stage === undefined ? job : job?.stageResults?.[stage];
-    const image = job && !job.outputsDeletedAt && (stage === undefined || source?.completed) ? source?.images?.[Number(req.params.index)] : null;
+    const image = job && !job.outputsDeletedAt && (stage === undefined || source?.completed) ? source?.images?.[Number(index)] : null;
     if (!image) throw fail('找不到輸出圖片。',404);
     const query = new URLSearchParams({filename:image.filename,subfolder:image.subfolder || '',type:image.type || 'output'});
     const response = await comfyAt(source.comfyUrl || job.comfyUrl || store.read().settings.comfyUrl,`/view?${query}`);
     res.set('Content-Type',response.headers.get('content-type') || 'image/png');
-    if (req.query.download) res.attachment(path.basename(image.filename));
+    if (download) res.attachment(path.basename(image.filename));
     res.send(Buffer.from(await response.arrayBuffer()));
-  });
+  }
+  app.get('/api/jobs/:id/image/:index',async (req,res) => serveJobImage(req.params.id,req.params.index,req.query,res));
 
   if (fs.existsSync(path.join(rootDir,'dist'))) {
     app.use(express.static(path.join(rootDir,'dist')));
@@ -696,7 +785,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   store.mutate(state => {for (const job of state.jobs) if(job.status === 'submitting') {job.status = job.promptId ? 'uncertain' : 'failed';job.error = '工作檯曾中斷，請重新整理 ComfyUI 任務狀態。';}});
   // Unsubmitted drafts can adopt the corrected reference format; submitted records retain their actual prompt.
   store.mutate(state => {for (const job of state.jobs) if(job.status === 'draft' && !job.promptId && !job.apiPrompt) job.prompt = referenceOnlyPrompt(job);});
-  return {app,store,loadWorkflow,loadCameraWorkflow,stageRunner,environment,transfer};
+  return {app,store,authentication,loadWorkflow,loadCameraWorkflow,stageRunner,environment,transfer};
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -704,6 +793,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const port = Number(process.env.PHOTOCREATE_PORT || 8764);
   const host = process.env.PHOTOCREATE_HOST || '0.0.0.0';
   app.listen(port,host,() => console.log(`PhotoCreate: http://${host}:${port}`));
-  if(store.read().settings.cameraWorkflowPath!=='bundled') loadCameraWorkflow(store.read().settings.cameraWorkflowPath || CAMERA_WORKFLOW_PATH).catch(error => {store.mutate(state => {state.cameraWorkflowError = error.message;});console.log('相機工作流：' + error.message);});
+  if(store.read().settings.cameraWorkflowPath!=='bundled') loadCameraWorkflow().catch(error => {store.mutate(state => {state.cameraWorkflowError = error.message;});console.log('相機工作流：' + error.message);});
   if (!store.read().workflow) loadWorkflow(store.read().settings.workflowPath || WORKFLOW_PATH).then(() => console.log('Qwen workflow loaded: character and clothing references')).catch(error => console.log(error.message));
 }

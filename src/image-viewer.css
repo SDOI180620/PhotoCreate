@@ -1,0 +1,23 @@
+.pc-image-viewer {position:fixed;inset:0;width:calc(100vw - 32px);height:calc(100dvh - 32px);max-width:1600px;max-height:none;margin:auto;padding:0;border:1px solid #ffffff30;border-radius:12px;background:#211a2a;color:#f4eefb;box-shadow:0 25px 90px #0008;overflow:hidden}
+.pc-image-viewer::backdrop {background:#141018e6;backdrop-filter:blur(5px)}
+.pc-image-viewer[open] {display:flex;flex-direction:column}
+.pc-image-viewer button {display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:32px;min-height:34px;padding:6px 9px;border:1px solid #ffffff26;border-radius:6px;color:#eee6f6;background:transparent;font:inherit;font-size:11px;cursor:pointer}
+.pc-image-viewer button:hover,.pc-image-viewer button[aria-pressed=true] {background:#ffffff20}
+.pc-image-viewer button:disabled {opacity:.35;cursor:default}
+.pc-image-viewer button:focus-visible {outline:2px solid #c7b3ff;outline-offset:2px}
+.pc-image-viewer-header {display:flex;align-items:center;gap:18px;padding:12px 16px;border-bottom:1px solid #ffffff20}
+.pc-image-viewer-header>strong {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:500;flex:1}
+.pc-image-viewer-navigation {display:flex;align-items:center;gap:7px;flex-shrink:0}
+.pc-image-viewer-navigation>span {min-width:46px;text-align:center;font-size:11px;font-variant-numeric:tabular-nums;color:#d7c9e7}
+.pc-image-viewer-tools {display:flex;align-items:center;gap:7px}
+.pc-image-viewer-tools>span {width:45px;text-align:center;font-size:11px;color:#b8a7c7;font-variant-numeric:tabular-nums}
+.pc-image-viewer .pc-image-viewer-close {border:0;flex-shrink:0}
+.pc-image-viewer-frame {position:relative;flex:1;min-height:0;min-width:0;overflow:auto;overscroll-behavior:contain;background:#17131d;cursor:grab;touch-action:none;user-select:none}
+.pc-image-viewer-frame.is-dragging {cursor:grabbing}
+.pc-image-viewer-frame.is-loading {cursor:progress}
+.pc-image-viewer-loading {position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;color:#b5a2c6;font-size:12px}
+.pc-image-viewer-canvas {display:grid;place-items:center;width:max-content;height:max-content;min-width:100%;min-height:100%}
+.pc-image-viewer-canvas>img {display:block;max-width:none;max-height:none;object-fit:contain}
+.pc-image-viewer-frame>p {display:grid;place-items:center;height:100%;padding:20px;font-size:13px}
+.pc-image-viewer-hint {padding:9px 16px;font-size:10px;color:#b5a2c6;text-align:center;border-top:1px solid #ffffff20}
+@media(max-width:600px) {.pc-image-viewer {width:calc(100vw - 16px);height:calc(100dvh - 16px);border-radius:8px}.pc-image-viewer-header {padding:9px;gap:6px;flex-wrap:wrap}.pc-image-viewer-header>strong {order:0}.pc-image-viewer-navigation {order:2;width:100%;justify-content:center}.pc-image-viewer-tools {order:3;width:100%;justify-content:center}.pc-image-viewer-close {order:1}.pc-image-viewer-hint {font-size:9px}}

@@ -1,0 +1,88 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {buildShotPlans} from '../shared/domain.js';
+import {buildRemakePlans} from '../shared/remakes.js';
+import {createCustomerRecipe,customerDraft,customerProductionState} from '../server/customer-recipe.js';
+import {buildComfyPrompt} from '../server/workflow.js';
+import {buildCameraStage} from '../server/camera-workflow.js';
+import {SINGLE_SUBJECT_PROMPT,SINGLE_SUBJECT_NEGATIVE,withSingleSubjectPrompt,withSingleSubjectNegative} from '../shared/subject.js';
+import {cameraPrompt} from '../shared/camera.js';
+import {DRAFT,TEMPLATE,fixtureState} from './fixtures.js';
+import {CAMERA_TEMPLATE} from './camera-fixtures.js';
+
+const encoder = graph => Object.values(graph).find(node=>node.class_type==='TextEncodeQwenImage21').inputs;
+const assertSingle = (positive,negative) => {
+  assert.match(positive,/exactly one person, solo/);
+  assert.match(positive,/one subject appearing once in one camera view/);
+  assert.match(positive,/one continuous photographic scene/);
+  assert.match(positive,/Extract the identity and clothing from the reference/);
+  for(const term of ['multiple people','duplicate person','multiple views','three-view','turnaround','front side back','triptych','split screen']) assert(negative.includes(term),term);
+};
+
+test('舊的單人提詞升級後只有一份新限制，負提詞補上三視圖且不重複',()=>{
+  const legacy='A single-person photograph: exactly one person, solo, one subject appearing once in one camera view. The references may show different views of the same person; use them only for identity and clothing. Produce one photograph of one person, with no additional people, duplicate figures, reference sheet, collage, or split panels.';
+  const positive=withSingleSubjectPrompt(`A studio portrait.\n\n${legacy}`),negative=withSingleSubjectNegative('blurry, three-view');
+  assertSingle(positive,negative);assert(positive.startsWith('A studio portrait.'));
+  assert(!positive.includes('The references may show different views'));
+  assert.equal(withSingleSubjectPrompt(positive),positive);assert.equal(withSingleSubjectNegative(negative),negative);
+  assert.equal(negative.split(',').filter(term=>term.trim()==='three-view').length,1);
+});
+
+test('管理員組合與隨機產圖強調單人單視角，自訂負面提詞不取代人數限制',()=>{
+  const state=fixtureState(),before=structuredClone(state);
+  for(const mode of ['combinations','random']) for(const negative of ['','blurry, multiple people']) {
+    const shots=buildShotPlans(state,{...DRAFT,mode,randomPoolMode:'selected',randomCount:2,negative});
+    for(const shot of shots) {
+      assertSingle(shot.prompt,shot.negative);
+      assert.equal(shot.prompt.split(SINGLE_SUBJECT_PROMPT).length,2);
+      assert.equal(shot.negative.split(',').filter(term=>term.trim()==='multiple people').length,1);
+      if(negative) assert.match(shot.negative,/^blurry,/);
+      const submitted=encoder(buildComfyPrompt(TEMPLATE,shot,{character:'person.png',garment:'outfit.png'}));
+      assert.equal(submitted.prompt,shot.prompt);assert.equal(submitted.negative_prompt,shot.negative);
+    }
+  }
+  assert.deepEqual(state,before);
+});
+
+test('顧客既有設定保留服裝與動作候選，新照片仍補齊單人正負提詞',()=>{
+  const state=fixtureState(),recipe=createCustomerRecipe(state,{...DRAFT,mode:'random',randomPoolMode:'selected'});
+  // Simulate a published setup created before single-person constraints existed.
+  recipe.settings.negative='frozen quality exclusions';
+  const before=structuredClone(recipe),draft=customerDraft(recipe,{characterId:'character',count:2,aspectRatio:'9:16'});
+  const shots=buildShotPlans(customerProductionState(state,recipe),draft);
+  assert.equal(shots.length,2);
+  for(const shot of shots) {
+    assertSingle(shot.prompt,shot.negative);assert.match(shot.negative,/^frozen quality exclusions,/);
+    assert(recipe.pools.garment.some(row=>row.id===shot.garment.id));assert(recipe.pools.pose.some(row=>row.id===shot.pose.id));
+  }
+  assert.deepEqual(recipe,before);
+});
+
+test('舊清單送出及舊照片重產會補強單人，原紀錄不變且反覆重產不重複附加',()=>{
+  const source={...buildShotPlans(fixtureState(),DRAFT)[0],prompt:'Editorial portrait of a person in a blue jacket.',negative:'blurry',status:'completed',images:[{filename:'old.png'}],apiPrompt:structuredClone(TEMPLATE)};
+  const before=structuredClone(source),images={character:'person.png',garment:'outfit.png'};
+  const submitted=encoder(buildComfyPrompt(TEMPLATE,source,images));assertSingle(submitted.prompt,submitted.negative_prompt);
+  const [remake]=buildRemakePlans({jobs:[source]},[source.id],{requestId:'single-1'});
+  assertSingle(remake.prompt,remake.negative);assert(remake.prompt.startsWith(source.prompt));assert(remake.negative.startsWith(source.negative));
+  const next={...remake,status:'completed',images:[{filename:'next.png'}]};
+  const [again]=buildRemakePlans({jobs:[source,next]},[next.id],{requestId:'single-2'});
+  assert.equal(again.prompt,remake.prompt);assert.equal(again.negative,remake.negative);
+  assert.deepEqual(source,before);
+});
+
+test('原圖、鏡頭正負編碼與細節修復實際使用單人限制，保留工作流已有負面提詞',()=>{
+  const shot=buildShotPlans(fixtureState(),{...DRAFT,cameraMode:'multiangle',angleSteps:20,refineDenoise:0.2})[0];
+  const cameraTemplate=structuredClone(CAMERA_TEMPLATE);cameraTemplate['11'].inputs.prompt='camera quality exclusions';
+  const before=structuredClone(cameraTemplate);
+  const base=encoder(buildCameraStage(TEMPLATE,cameraTemplate,shot,'base',{character:'person.png',garment:'outfit.png'}));
+  assertSingle(base.prompt,base.negative_prompt);
+  const angle=buildCameraStage(TEMPLATE,cameraTemplate,shot,'angle',{source:'base.png'});
+  const sampler=Object.values(angle).find(node=>node.class_type==='KSampler');
+  const positive=angle[sampler.inputs.positive[0]].inputs.prompt;
+  const negative=angle[sampler.inputs.negative[0]].inputs.prompt;
+  assertSingle(positive,negative);assert.equal(positive,withSingleSubjectPrompt(cameraPrompt(shot.camera.angle)));
+  assert(negative.startsWith('camera quality exclusions, '));assert(negative.endsWith(SINGLE_SUBJECT_NEGATIVE));
+  const refine=encoder(buildCameraStage(TEMPLATE,cameraTemplate,shot,'refine',{source:'angle.png'}));
+  assertSingle(refine.prompt,refine.negative_prompt);assert.match(refine.prompt,/Do not change the composition/);
+  assert.deepEqual(cameraTemplate,before);
+});

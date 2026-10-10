@@ -1,0 +1,32 @@
+.photo-folders,.photo-folder-destination {--folder-accent:#6d45f5;--folder-soft:#ece5fb;--folder-text:#78658e;min-width:0;font-size:11px}
+.result-gallery .photo-folders,.shoot-preview .photo-folder-destination {--folder-accent:#365340;--folder-soft:#edf1e9;--folder-text:#657568}
+.photo-folders {position:sticky;top:var(--photo-folder-top,0px);z-index:10;margin-bottom:24px;border-bottom:1px solid #ded9e7;padding:8px 0 15px;background:var(--color-bg,#f5f4f6)}
+.pc-photos .photo-folders {background:#f5f4f6}
+.photo-folder-tabs {display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.photo-folders button,.photo-folder-destination button {display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid #dcd5e5;border-radius:6px;padding:8px 11px;color:var(--folder-text);background:transparent;font:inherit;font-size:11px;cursor:pointer}
+.photo-folders button:disabled,.photo-folder-destination button:disabled {opacity:.5;cursor:default}
+.photo-folders button:focus-visible,.photo-folder-destination button:focus-visible {outline:2px solid var(--folder-accent);outline-offset:2px}
+.photo-folder-tab>span {max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.photo-folder-tab small {font-size:10px;opacity:.7;font-variant-numeric:tabular-nums}
+.photo-folders .photo-folder-tab.selected {color:var(--folder-accent);background:var(--folder-soft);border-color:var(--folder-accent)}
+.photo-folders .photo-folder-tab.drop-target {background:var(--folder-accent);color:white;outline:2px solid var(--folder-accent);outline-offset:3px}
+.photo-folders .photo-folder-new {border-style:dashed}
+.photo-folder-actions {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.photo-folder-actions>span {margin-right:auto;color:#9c8ba9;font-size:10px}
+.photo-folders .photo-folder-actions button {border:0;padding:2px 0;font-size:10px}
+.photo-folders .photo-folder-delete {color:#a33761}
+.photo-folder-form {display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:12px;max-width:500px}
+.photo-folder-form input {flex:1;min-width:100px;width:180px;border:1px solid #dcd5e5;border-radius:5px;padding:9px;font:inherit;font-size:12px;background:#fff;color:var(--folder-text)}
+.photo-folder-form>button[type=submit] {color:white;background:var(--folder-accent);border-color:var(--folder-accent)}
+.photo-folder-form>p {width:100%;color:#a33761;font-size:10px}
+.photo-folder-move {display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--folder-soft);border-radius:7px;margin-top:12px;padding:10px 12px;color:var(--folder-text)}
+.photo-folder-move>strong {font-size:11px;font-weight:500}
+.photo-folder-move select {min-width:140px;max-width:240px;flex:1;padding:8px;border:1px solid #dcd5e5;border-radius:5px;background:#fff;color:var(--folder-text);font:inherit;font-size:11px}
+.photo-folder-destination {margin:18px 0}
+.photo-folder-destination>div:first-child {display:flex;gap:9px;align-items:flex-end}
+.photo-folder-destination label {display:flex;flex:1;min-width:0;flex-direction:column;gap:8px;font-size:11px;font-weight:500;color:var(--folder-text)}
+.photo-folder-destination select {width:100%;padding:10px;min-height:37px;border:1px solid #dcd5e5;border-radius:6px;background:white;color:var(--folder-text);font:inherit;font-size:12px}
+.photo-folder-destination .photo-folder-form {gap:6px}
+.photocreate-dragging,.photocreate-dragging * {cursor:grabbing!important;user-select:none!important}
+.photo-drag-preview {position:fixed;z-index:10000;display:flex;gap:8px;align-items:center;padding:12px 15px;border-radius:8px;background:#6d45f5;color:white;font-size:12px;pointer-events:none;box-shadow:0 5px 20px #28113d33}
+@media(max-width:740px) {.photo-folder-tabs {gap:7px}.photo-folders button {padding:7px 9px;font-size:10px}.photo-folder-tab>span {max-width:100px}.photo-folder-actions>span {width:100%;font-size:9px}.photo-folder-move {gap:8px}.photo-folder-move select {max-width:none}.photo-folder-form {gap:6px}.photo-folder-form>button {padding:8px}.photo-folders {margin-bottom:18px}}

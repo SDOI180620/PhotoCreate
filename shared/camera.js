@@ -1,9 +1,13 @@
-export const DEFAULT_CAMERA_ANGLE = {horizontalAngle:0,verticalAngle:0,zoom:5};
+import {withSingleSubjectPrompt,withSingleSubjectNegative} from './subject.js';
+
+export const DEFAULT_CAMERA_ANGLE = {horizontalAngle:0,verticalAngle:0,zoom:0};
+export const REFINE_STEPS = 20;
+export const ORIGINAL_CAMERA = {id:'camera-original',category:'camera',name:'保留原圖鏡頭',angle:DEFAULT_CAMERA_ANGLE,prompt:'',tags:[]};
 export const CAMERA_HORIZONTAL = [[0,'正面'],[45,'右前方'],[90,'右側'],[135,'右後方'],[180,'背面'],[225,'左後方'],[270,'左側'],[315,'左前方']];
 export const CAMERA_VERTICAL = [[-90,'正下方仰拍（試驗）'],[-60,'強烈仰拍（試驗）'],[-30,'仰拍'],[0,'平視'],[30,'高角度'],[60,'俯拍']];
 export const CAMERA_ZOOM = [[0,'遠景'],[1,'全身'],[5,'中景'],[8,'特寫'],[9,'超特寫（試驗）'],[10,'極近細節（試驗）']];
-export const REFINE_PROMPT = 'Restore only sharpness and fine photographic detail in <image1>. Preserve exactly the same person, face, hairstyle, expression, pose, clothing, clothing state, objects, environment, camera viewpoint, framing, lighting and colors. Do not add, remove, replace or redesign anything. Do not change the composition.';
-export const REFINE_NEGATIVE = 'added objects, changed identity, changed pose, changed clothing, changed background, changed composition, text, watermark';
+export const REFINE_PROMPT = withSingleSubjectPrompt('Restore only sharpness and fine photographic detail in <image1>. Preserve exactly the same person, face, hairstyle, expression, pose, clothing, clothing state, objects, environment, camera viewpoint, framing, lighting and colors. Do not add, remove, replace or redesign anything. Do not change the composition.');
+export const REFINE_NEGATIVE = withSingleSubjectNegative('added objects, changed identity, changed pose, changed clothing, changed background, changed composition, text, watermark');
 
 export function normalizeCameraAngle(value) {
   if(!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('相機角度格式不正確。');

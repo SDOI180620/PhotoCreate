@@ -1,3 +1,4 @@
+import {adminFetch as fetch} from './auth-client.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -16,7 +17,7 @@ import {PNG} from './fixtures.js';
 
 export const CAMERA={id:'custom-camera',category:'camera',name:'肩後仰角',prompt:'camera',tags:['自訂'],angle:{horizontalAngle:133,verticalAngle:-90,zoom:10},mappingVersion:2,mappingSource:'manual',mappingNote:'保留加強參數'};
 export const PRESETS=[CAMERA,{id:'custom-pose',category:'pose',name:'站姿',prompt:'Standing naturally.',tags:['測試']},{id:'custom-light',category:'lighting',name:'窗光',prompt:'Soft window light.',tags:[]},{id:'custom-color',category:'color',name:'自然',prompt:'Natural colors.',tags:[]},{id:'custom-quality',category:'quality',name:'高清',prompt:'Sharp photographic detail.',tags:[]}];
-export const SHOOTING={cameraMode:'multiangle',mode:'random',randomCount:30,randomPoolMode:'selected',randomOptional:{expression:false,clothing_state:false,interaction:false},characterId:'person',garmentIds:['dress'],poseIds:['custom-pose'],cameraIds:['custom-camera'],lightingIds:['custom-light'],colorIds:['custom-color'],qualityIds:['custom-quality'],steps:47,angleSteps:22,refineDenoise:0.25,aspectRatio:'16:9',resolution:2048,seed:-1,copies:1,extra:'保留衣服細節。',negative:'blurry'};
+export const SHOOTING={cameraMode:'multiangle',cameraEnabled:true,mode:'random',randomCount:30,randomPoolMode:'selected',randomOptional:{expression:false,clothing_state:false,interaction:false},characterId:'person',garmentIds:['dress'],poseIds:['custom-pose'],cameraIds:['custom-camera'],lightingIds:['custom-light'],colorIds:['custom-color'],qualityIds:['custom-quality'],steps:47,angleSteps:22,refineDenoise:0.25,aspectRatio:'16:9',resolution:2048,seed:-1,copies:1,extra:'保留衣服細節。',negative:'blurry'};
 export function seedLibrary(store,dir) {
   const asset=(id,name)=>({id,name,description:`${name}的提詞`,tags:['中文標籤'],fileName:`${id}.png`,image:`/uploads/${id}.png`,mime:'image/png',createdAt:'2026-10-09T00:00:00.000Z'});
   store.mutate(state=>{state.characters=[asset('person','測試角色')];state.garments=[asset('dress','測試服裝')];state.scenes=[asset('old-scene','舊場景')];state.presets=structuredClone(PRESETS);state.draft=structuredClone(SHOOTING);state.settings={comfyUrl:'http://private-comfy:8188',comfyDirectory:'Z:/old/machine',environmentDraft:{comfyDirectory:'private'}};state.jobs=[{id:'existing-job',name:'不可匯入任務',status:'completed',createdAt:'2026-10-09',images:[]}];});
@@ -44,6 +45,21 @@ export async function writeZip(file,entries,{symlink}={}) {
   zip.end();await writing;return file;
 }
 
+test('資料搬移不匯出訪客角色，也不將私人角色合併成公用預設',async t=> {
+  const source=fixture(t,{source:true}),target=fixture(t);
+  const person=source.store.read().characters[0];
+  source.store.mutate(state=>state.characters.push({...person,id:'source-visitor',name:'私人角色',visitorId:'a'.repeat(64)}));
+  target.store.mutate(state=>state.characters.push({...person,id:'target-visitor',visitorId:'b'.repeat(64)}));
+  fs.writeFileSync(path.join(target.dir,'uploads',person.fileName),PNG);
+  const archive=await exportTo(source,target),entries=await zipEntries(archive),manifest=JSON.parse(entries.get('photocreate.json'));
+  assert.equal(manifest.assets.characters.length,1);assert.equal(manifest.assets.characters[0].id,person.id);
+  const preview=await target.transfer.prepare(archive);assert.equal(preview.added.characters,1);
+  await target.transfer.commit(preview.token);
+  const characters=target.store.read().characters;assert.equal(characters.length,2);
+  assert.equal(characters.find(row=>row.id==='target-visitor').visitorId,'b'.repeat(64));
+  assert.equal(characters.find(row=>row.id===person.id).visitorId,undefined);
+});
+
 test('portable ZIP round trip preserves originals, prompts, enhanced angles and draft, excluding environment/tasks',async t=> {
   const source=fixture(t,{source:true}),target=fixture(t),before=target.store.read();
   const archive=await exportTo(source,target),entries=await zipEntries(archive);
@@ -61,7 +77,7 @@ test('portable ZIP round trip preserves originals, prompts, enhanced angles and 
   for(const kind of ['characters','garments','scenes']) {
     const row=state[kind][0];assert.equal(row.description,source.store.read()[kind][0].description);assert.deepEqual(row.tags,['中文標籤']);assert.deepEqual(fs.readFileSync(path.join(target.dir,'uploads',row.fileName)),PNG);
   }
-  assert.equal(state.draft.characterId,'person');assert.deepEqual(state.draft.cameraIds,[CAMERA.id]);assert.equal(state.draft.steps,47);assert.equal(state.draft.angleSteps,22);assert.equal(state.draft.refineDenoise,0.25);assert.equal(state.draft.aspectRatio,'16:9');
+  assert.equal(state.draft.cameraEnabled,true);assert.equal(state.draft.characterId,'person');assert.deepEqual(state.draft.cameraIds,[CAMERA.id]);assert.equal(state.draft.steps,47);assert.equal(state.draft.angleSteps,22);assert.equal(state.draft.refineDenoise,0.25);assert.equal(state.draft.aspectRatio,'16:9');
   assert.equal(target.store.searchPresets({q:'Standing'}).rows[0].id,'custom-pose');
   assert.equal(fs.readdirSync(path.join(target.dir,'uploads')).length,1,'Shared image data must not multiply disk usage');
   assert.deepEqual(fs.readdirSync(target.transfer.uploadDir),[]);
@@ -78,6 +94,26 @@ test('content duplicates are skipped and ID conflicts get fresh IDs with draft r
   assert.deepEqual(after.characters.find(row=>row.id===after.draft.characterId).tags,['中文標籤']);assert.deepEqual(after.presets.find(row=>row.id===after.draft.cameraIds[0]).angle,CAMERA.angle);
   const repeated=await target.transfer.prepare(await exportTo(source,target));assert.deepEqual(repeated.added,{characters:0,garments:0,scenes:0,presets:0});
   target.store.mutate(state=>{state.draft.steps=26;});await target.transfer.commit(repeated.token,{applyDraft:false});assert.equal(target.store.read().draft.steps,26);
+});
+
+test('ZIP 搬移保留三類複選，ID 衝突時重映射每一項候選',async t=> {
+  const source=fixture(t,{source:true}),target=fixture(t);
+  const pools={expression:'expressionIds',clothing_state:'clothingStateIds',interaction:'interactionIds'};
+  const rows=Object.keys(pools).flatMap(category=>[1,2].map(index=>({id:`optional-${category}-${index}`,category,name:`${category} choice ${index}`,prompt:`Neutral ${category} option ${index}.`,tags:[]})));
+  source.store.mutate(state=>{
+    state.presets.push(...rows);
+    for(const [category,field] of Object.entries(pools)) state.draft[field]=rows.filter(row=>row.category===category).map(row=>row.id);
+  });
+  target.store.mutate(state=>state.presets.push({...rows[0],prompt:'A local edit to retain.'}));
+  const preview=await target.transfer.prepare(await exportTo(source,target));
+  await target.transfer.commit(preview.token,{applyDraft:true});
+  const state=target.store.read();
+  assert.equal(state.presets.find(row=>row.id===rows[0].id).prompt,'A local edit to retain.');
+  assert.notEqual(state.draft.expressionIds[0],rows[0].id);
+  for(const [category,field] of Object.entries(pools)) {
+    assert.equal(state.draft[field].length,2);
+    assert.deepEqual(state.draft[field].map(id=>state.presets.find(row=>row.id===id).prompt),rows.filter(row=>row.category===category).map(row=>row.prompt));
+  }
 });
 
 test('commit recomputes a preview after intervening library edits without overwriting them',async t=> {

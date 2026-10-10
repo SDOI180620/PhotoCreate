@@ -67,6 +67,7 @@ export function createTransferManager({dataDir,store,now=()=>Date.now(),limits=L
   async function exportZip() {return exclusive(async()=> {
     if(exports.size>=3) throw transferError('尚有 ZIP 等待下載，請先完成下載。',409);
     const snapshot=store.read(),assets={},files=new Map(),temporary=[];let total=0;
+    for(const kind of ASSET_KINDS) snapshot[kind]=snapshot[kind].filter(row=>!row.visitorId);
     const zipPath=tempFile('.zip');temporary.push(zipPath);
     try {
       if(ASSET_KINDS.reduce((sum,kind)=>sum+snapshot[kind].length,0)>limits.assets) throw transferError('每包最多 10,000 張圖片。');
@@ -144,7 +145,7 @@ export function createTransferManager({dataDir,store,now=()=>Date.now(),limits=L
     const state=store.read(),existingAssets=new Map(),existingPresets=new Map(),assetMap=new Map(),presetMap=new Map(),newAssets={},newPresets=[],duplicates={},counts={};
     const usedAssetIds=new Set(ASSET_KINDS.flatMap(kind=>state[kind].map(row=>row.id))),usedPresetIds=new Set(state.presets.map(row=>row.id));
     const currentHashes=new Map();
-    for(const kind of ASSET_KINDS) for(const row of state[kind]) {
+    for(const kind of ASSET_KINDS) for(const row of state[kind].filter(row=>!row.visitorId)) {
       try {
         const file=registeredFile(dataDir,row);let digest=currentHashes.get(file);
         if(!digest) {digest=(await measureFile(file,limits.image,{signal:controller.signal})).sha256;currentHashes.set(file,digest);}

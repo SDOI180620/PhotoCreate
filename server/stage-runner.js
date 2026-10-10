@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {buildCameraStage} from './camera-workflow.js';
 import {jobUpdateFromComfy} from './job-status.js';
-import {PRODUCTION_STAGES,nextProductionStage} from '../shared/production.js';
+import {PRODUCTION_STAGES,productionStages,nextProductionStage} from '../shared/production.js';
 import {referenceKinds} from './workflow.js';
 
 const now = () => new Date().toISOString();
@@ -41,21 +41,22 @@ export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploa
       if(current.promptId !== job.promptId || current.stageWaiting || ['completed','stopped'].includes(current.status)) return;
       if(current.stopRequestedAt && !job.stopRequestedAt) return;
       const stage = current.pipelineStage;
+      const finalStage = productionStages(current).at(-1);
       const images = update.images || [];
       if(update.status === 'completed' && !images.length) Object.assign(update,{status:'failed',error:'此階段沒有產生圖片，請重試。'});
       if(update.status === 'completed') {
         current.stageResults ||= {};
         current.stageResults[stage] = {completed:true,images,promptId:current.promptId,comfyUrl:current.comfyUrl,finishedAt:update.finishedAt,apiPrompt:current.apiPrompt};
-        if(stage !== 'refine') Object.assign(update,{status:current.stopRequestedAt ? 'stopped' : 'queued',images:[],finishedAt:undefined});
-        current.stageWaiting = stage !== 'refine';
-      } else if(stage !== 'refine') update.images = [];
+        if(stage !== finalStage) Object.assign(update,{status:current.stopRequestedAt ? 'stopped' : 'queued',images:[],finishedAt:undefined});
+        current.stageWaiting = stage !== finalStage;
+      } else if(stage !== finalStage) update.images = [];
       Object.assign(current,update);
       if(update.finishedAt === undefined) delete current.finishedAt;
     });
   }
 
   async function previousImage(job,stage,base) {
-    const previous = job.stageResults?.[stage === 'angle' ? 'base' : 'angle'];
+    const previous = job.stageResults?.[stage === 'angle' || !productionStages(job).includes('angle') ? 'base' : 'angle'];
     const image = previous?.images?.[0];
     if(!image) throw new Error('找不到已完成階段的中間圖。');
     if(previous.comfyUrl === base) return imagePath(image);
