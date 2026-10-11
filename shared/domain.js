@@ -1,12 +1,15 @@
 import { cameraPreset, cameraPrompt, normalizeCameraAngle, ORIGINAL_CAMERA, REFINE_STEPS, CAMERA_MAPPING_VERSION } from './camera.js';
 import { SINGLE_SUBJECT_PROMPT, withSingleSubjectNegative } from './subject.js';
 import {characterProfilePrompt} from './character-profile.js';
+import {PORTRAIT_SCENE_PRESETS,PORTRAIT_POSE_PRESETS} from './portrait-scenes.js';
+import {PORTRAIT_ACTION_PRESETS} from './portrait-actions.js';
+import {BASIC_SCENE_PAIRS} from './scene-presets.js';
 
 export const CATEGORIES = {
   pose: { label: '動作', plural: '動作提詞' },
   expression: { label: '表情', plural: '表情提詞' },
   clothing_state: { label: '服裝狀態', plural: '服裝狀態提詞' },
-  interaction: { label: '場景互動', plural: '場景互動提詞' },
+  interaction: { label: '場景', plural: '場景提詞' },
   camera: { label: '攝影角度', plural: '攝影與構圖' },
   lighting: { label: '光線', plural: '光線設定' },
   color: { label: '色彩', plural: '色彩風格' },
@@ -105,15 +108,15 @@ export const DEFAULT_PRESETS = [
   { id: 'pose-leaning', category: 'pose', name: '倚牆凝視', prompt: 'Leaning lightly against a wall with one shoulder, arms relaxed, chin slightly raised, a calm gaze toward the camera.', tags: ['倚靠', '時尚'] },
   { id: 'pose-profile', category: 'pose', name: '側身整理髮絲', prompt: 'Three-quarter profile, gently brushing hair behind one ear, soft expression, relaxed natural hands.', tags: ['側身', '日常'] },
   { id: 'pose-over-shoulder', category: 'pose', name: '背身回頭', prompt: 'Standing with the back turned slightly to the camera, looking over one shoulder, relaxed posture, showing the back details of the garment.', tags: ['背身', '回眸'] },
-  { id: 'interaction-bed', category: 'interaction', name: '在床上', prompt: 'On a bed, naturally positioned on the mattress with realistic contact between the body and the bedding.', tags: ['床', '室內'] },
+  BASIC_SCENE_PAIRS.find(row=>row.scene.id==='interaction-bed').scene,
   { id: 'expression-smile', category: 'expression', name: '微笑', prompt: 'A gentle natural smile, relaxed lips and warm eyes.', tags: ['微笑', '自然'] },
   { id: 'expression-calm', category: 'expression', name: '沉穩神情', prompt: 'A composed facial expression, relaxed eyebrows and lips, a steady calm gaze.', tags: ['沉穩', '平靜'] },
   { id: 'expression-laugh', category: 'expression', name: '開懷笑容', prompt: 'A spontaneous joyful laugh, bright eyes and naturally lifted cheeks.', tags: ['笑容', '開心'] },
   { id: 'clothing-state-neat', category: 'clothing_state', name: '整齊穿著', prompt: 'The garment is worn neatly, with its seams, collar and hem naturally aligned.', tags: ['整齊', '穿著'] },
   { id: 'clothing-state-folds', category: 'clothing_state', name: '自然皺褶', prompt: 'Natural fabric folds and slight wrinkles follow the body posture, preserving the garment design and material.', tags: ['皺褶', '布料'] },
   { id: 'clothing-state-breeze', category: 'clothing_state', name: '衣襬隨風', prompt: 'A gentle breeze subtly lifts the garment hem, with realistic fabric movement and the original garment design preserved.', tags: ['微風', '動態'] },
-  { id: 'interaction-window', category: 'interaction', name: '靠窗戶', prompt: 'Beside a window, gently resting a hand on the windowsill and interacting naturally with the window.', tags: ['窗戶', '室內'] },
-  { id: 'interaction-railing', category: 'interaction', name: '倚著欄杆', prompt: 'Beside a railing, gently resting a hand or forearm on it with natural posture and realistic contact.', tags: ['欄杆', '倚靠'] },
+  BASIC_SCENE_PAIRS.find(row=>row.scene.id==='interaction-window').scene,
+  BASIC_SCENE_PAIRS.find(row=>row.scene.id==='interaction-railing').scene,
   { id: 'camera-portrait', category: 'camera', name: '85mm 人像', prompt: 'Eye-level portrait, 85mm lens, medium shot from the waist up, natural perspective, softly blurred background.', tags: ['半身', '85mm'] },
   { id: 'camera-full', category: 'camera', name: '50mm 全身', prompt: 'Full-body photograph, 50mm lens, eye-level camera, complete outfit visible from head to toe, balanced composition.', tags: ['全身', '50mm'] },
   { id: 'camera-low', category: 'camera', name: '低角度時尚', prompt: 'Slightly low camera angle, 50mm lens, three-quarter body framing, clean editorial composition, realistic proportions.', tags: ['低角度', '時尚'] },
@@ -128,6 +131,10 @@ export const DEFAULT_PRESETS = [
   { id: 'color-mono', category: 'color', name: '黑白寫真', prompt: 'Elegant black-and-white photographic rendering, rich tonal transitions, controlled contrast, distinct fabric textures.', tags: ['黑白', '經典'] },
   { id: 'quality-editorial', category: 'quality', name: '高清寫真', prompt: 'High-resolution professional editorial photograph, photorealistic face, natural skin texture and fine fabric detail, anatomically coherent hands, crisp eyes, coherent perspective, polished photographic finish, no text or watermark.', tags: ['高清', '寫真'] },
   { id: 'quality-candid', category: 'quality', name: '生活感紀實', prompt: 'High-quality candid lifestyle photograph, natural expression, realistic skin pores, authentic clothing texture, subtle imperfections, lifelike lighting, no text or watermark.', tags: ['自然', '紀實'] },
+  ...PORTRAIT_SCENE_PRESETS,
+  ...PORTRAIT_POSE_PRESETS,
+  ...BASIC_SCENE_PAIRS.flatMap(row=>row.pose ? [row.pose] : []),
+  ...PORTRAIT_ACTION_PRESETS,
 ];
 
 export function normalizePresetImport(input) {
@@ -167,15 +174,14 @@ export function referenceOnlyPrompt(shot) {
   return prompt;
 }
 
-export function composePrompt({ character, pose, expression, clothingState, interaction, camera, lighting, color, quality, sceneInteraction = '', extra = '', cameraMode }) {
+export function composePrompt({ character, characterPromptSettings, characterMeasurementsPrompt, pose, expression, clothingState, interaction, camera, lighting, color, quality, sceneInteraction = '', extra = '', cameraMode }) {
   const interactionPrompt = [interaction?.prompt?.trim(),sceneInteraction.trim()].filter(Boolean).join(' ');
   const paragraphs = [
-    '1 girl',
     SINGLE_SUBJECT_PROMPT,
     REFERENCE_INSTRUCTION,
     character?.description?.trim() && `Character details: ${character.description.trim()}`,
-    characterProfilePrompt(character),
-    interactionPrompt && `Scene interaction: ${interactionPrompt}`,
+    characterMeasurementsPrompt ?? characterProfilePrompt(character,characterPromptSettings),
+    interactionPrompt && `Scene: ${interactionPrompt}`,
     pose?.prompt && `Pose: ${pose.prompt}`,
     expression?.prompt?.trim() && `Facial expression: ${expression.prompt.trim()}`,
     clothingState?.prompt?.trim() && `Clothing state: ${clothingState.prompt.trim()}`,
@@ -193,7 +199,7 @@ export function buildShotPlans(state, draft) {
   if (mode === 'combinations' && (!Number.isInteger(copies) || copies < 1 || copies > 10)) throw new Error('每組張數須為 1–10。');
   if (mode === 'random' && (!Number.isInteger(count) || count < 1 || count > 100)) throw new Error('隨機張數須為 1–100。');
   if (count > 100) throw new Error('每批最多 100 張，請減少候選組合，或改用隨機寫真指定張數。');
-  const labels = {character:'角色',garment:'服裝',pose:'動作',camera:'攝影角度',lighting:'光線',color:'色彩',quality:'畫質',expression:'表情',clothingState:'服裝狀態',interaction:'場景互動'};
+  const labels = {character:'角色',garment:'服裝',pose:'動作',camera:'攝影角度',lighting:'光線',color:'色彩',quality:'畫質',expression:'表情',clothingState:'服裝狀態',interaction:'場景'};
   for (const [key,pool] of Object.entries(pools)) if (!pool.length) throw new Error(`請至少選擇一個${labels[key]}候選，或在隨機模式使用全部圖庫與提詞。`);
   const resolution = Number(draft.resolution ?? 1536);
   const steps = Number(draft.steps ?? 40);
@@ -204,7 +210,7 @@ export function buildShotPlans(state, draft) {
   if (!Number.isInteger(steps) || steps < 1 || steps > 100) throw new Error('採樣步數須為 1–100。');
   if (!Number.isSafeInteger(seed) || seed < -1 || seed > 2 ** 48 - 100) throw new Error('Seed 須為 -1 或有效的正整數。');
   if (draft.extra !== undefined && (typeof draft.extra !== 'string' || draft.extra.length > 20000)) throw new Error('補充描述最多 20,000 字。');
-  if (draft.sceneInteraction !== undefined && (typeof draft.sceneInteraction !== 'string' || draft.sceneInteraction.length > 20000)) throw new Error('場景互動最多 20,000 字。');
+  if (draft.sceneInteraction !== undefined && (typeof draft.sceneInteraction !== 'string' || draft.sceneInteraction.length > 20000)) throw new Error('場景補充最多 20,000 字。');
   if (draft.negative !== undefined && (typeof draft.negative !== 'string' || draft.negative.length > 20000)) throw new Error('負面提詞最多 20,000 字。');
   const plans = [];
   const cameraMode = draft.cameraMode ?? 'prompt';
@@ -221,10 +227,12 @@ export function buildShotPlans(state, draft) {
     }
     const details = [selection.expression,selection.clothingState,selection.interaction].filter(Boolean);
     const variedStyles = ['camera','lighting','color','quality'].filter(key => pools[key].length > 1).map(key => selection[key]);
+    const characterMeasurementsPrompt=characterProfilePrompt(selection.character,state.settings?.characterPrompts);
     plans.push({
       id:globalThis.crypto.randomUUID(),name:[...(pools.character.length>1 ? [selection.character.name] : []),selection.garment.name,selection.pose.name,...details.map(row => row.name),...variedStyles.map(row => row.name),...(mode === 'random' ? [`${plans.length + 1}`] : copies > 1 ? [plans.length % copies + 1] : [])].join(' · '),
       ...structuredClone(selection),
-      prompt:composePrompt({...selection,sceneInteraction:draft.sceneInteraction,extra:draft.extra,cameraMode}),
+      characterMeasurementsPrompt,
+      prompt:composePrompt({...selection,characterMeasurementsPrompt,sceneInteraction:draft.sceneInteraction,extra:draft.extra,cameraMode}),
       ...(cameraMode === 'multiangle' ? {cameraMode,cameraEnabled:draft.cameraEnabled !== false,executionMode:'staged',angleSteps,refineSteps:REFINE_STEPS,refineDenoise,camera:cameraPreset(structuredClone(selection.camera))} : {}),
       sceneInteraction:draft.sceneInteraction?.trim() || '',negative:withSingleSubjectNegative(draft.negative),resolution,steps,
       seed:seed === -1 ? Math.floor(Math.random() * 2 ** 48) : seed + plans.length,aspectRatio,

@@ -330,6 +330,7 @@ code,pre {font-family:var(--font-mono)}
 .step-shortcuts button[aria-pressed="true"] {border-color:var(--color-primary);background:var(--color-soft)}
 @media(max-width:760px) {.basic-generation-settings {grid-template-columns:1fr;gap:16px}}
 .pool-picker-body > .field-help {margin-top:0}
+.filter-tabs.pool-review-filters {margin:14px 0 12px}
 .pool-picker-toolbar {display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:15px 0;font-size:11px;color:var(--color-text-dim)}
 .pool-picker-toolbar > span {margin-right:auto}
 .pool-picker-toolbar button {display:flex;align-items:center;gap:4px;font-size:11px;color:var(--color-primary)}

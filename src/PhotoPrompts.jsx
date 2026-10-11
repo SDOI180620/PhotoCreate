@@ -3,7 +3,7 @@ import {Check,Copy,Loader2,ArrowUpRight} from 'lucide-react';
 import ImageViewer from './ImageViewer.jsx';
 import PhotoSettings from './PhotoSettings.jsx';
 
-const selectionLabels={character:'角色',garment:'服裝',pose:'動作',expression:'表情',clothingState:'服裝狀態',interaction:'場景互動',camera:'鏡位',lighting:'光線',color:'色彩',quality:'畫質'};
+const selectionLabels={character:'角色',garment:'服裝',pose:'動作',expression:'表情',clothingState:'服裝狀態',interaction:'場景',camera:'鏡位',lighting:'光線',color:'色彩',quality:'畫質'};
 const parameterLabels={seed:'Seed',steps:'步數',cfg:'CFG',denoise:'修正強度',sampler_name:'採樣器',scheduler:'排程'};
 async function copyText(text) {
   if(navigator.clipboard?.writeText) {await navigator.clipboard.writeText(text);return;}

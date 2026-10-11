@@ -66,6 +66,146 @@ async function fixture(t) {
 }
 const upload=async(client,name)=>{const form=new FormData();form.append('image',new Blob([PNG],{type:'image/png'}),name+'.png');return client.request('/characters',form);};
 
+test('顧客可編輯自己的角色與三視圖，保留拍攝快照且拒絕他人與共用角色修改',async t=>{
+  const f=await fixture(t),alice=f.visitor(),bob=f.visitor(),official=(await alice.request('/state')).data.characters[0];
+  const character=(await upload(alice,'personal')).data;
+  const originalFile=f.store.read().characters.find(row=>row.id===character.id).fileName;
+  const shoot=await alice.request('/shoots',{characterId:character.id,count:1,requestId:randomUUID()});
+  await alice.request('/jobs/stop',{all:true});
+  const snapshot=structuredClone(f.store.read().jobs.find(row=>row.id===shoot.data.jobs[0].id));
+  const edited=await alice.request(`/characters/${character.id}`,{name:' 新角色 ',cupSize:'D',heightCm:'172.5'},'PATCH');
+  assert.equal(edited.status,200);assert.equal(edited.data.name,'新角色');assert.equal(edited.data.cupSize,'D');assert.equal(edited.data.heightCm,172.5);assert.equal(edited.data.id,character.id);
+  const before=structuredClone(f.store.read().characters.find(row=>row.id===character.id));
+  for(const body of [{name:''},{name:'x'.repeat(201)},{name:7},{cupSize:'AA'},{heightCm:0},{name:'不能部分保存',heightCm:'bad'},{visitorId:'other'},{fileName:'outside.png'}]) {
+    assert.equal((await alice.request(`/characters/${character.id}`,body,'PATCH')).status,400);
+    assert.deepEqual(f.store.read().characters.find(row=>row.id===character.id),before);
+  }
+  assert.equal((await bob.request(`/characters/${character.id}`,{name:'other'},'PATCH')).status,404);
+  assert.equal((await alice.request(`/characters/${official.id}`,{name:'shared'},'PATCH')).status,404);
+  const replacement=Buffer.concat([PNG,Buffer.from('confirmed-three-view')]),form=new FormData();
+  form.append('image',new Blob([replacement],{type:'image/png'}),'three-view.png');form.append('name','三視圖角色');form.append('cupSize','C');form.append('heightCm','165');
+  const converted=await alice.request(`/characters/${character.id}`,form,'PATCH');assert.equal(converted.status,200);
+  const saved=f.store.read().characters.find(row=>row.id===character.id);
+  assert.equal(saved.name,'三視圖角色');assert.equal(saved.cupSize,'C');assert.equal(saved.heightCm,165);assert.notEqual(saved.fileName,originalFile);
+  assert.deepEqual(fs.readFileSync(path.join(f.dataDir,'uploads',originalFile)),PNG);
+  assert.deepEqual((await alice.request(`/characters/${character.id}/image`)).data,replacement);
+  assert.deepEqual(f.store.read().jobs.find(row=>row.id===snapshot.id),snapshot);
+  const next=await alice.request('/shoots',{characterId:character.id,count:1,requestId:randomUUID()});assert.equal(next.status,202);
+  const updatedJob=f.store.read().jobs.find(row=>row.id===next.data.jobs[0].id);assert.equal(updatedJob.character.fileName,saved.fileName);assert.match(updatedJob.prompt,/height 165 cm; breast size C cup/);
+  const cleared=await alice.request(`/characters/${character.id}`,{cupSize:'',heightCm:''},'PATCH');assert.equal(cleared.status,200);assert.equal(cleared.data.cupSize,undefined);assert.equal(cleared.data.heightCm,undefined);
+});
+
+test('顧客直接永久刪除照片會清理版本與實體產出，確認前不刪除且保護他人引用',async t=>{
+  const f=await fixture(t),alice=f.visitor(),bob=f.visitor(),character=(await alice.request('/state')).data.characters[0];
+  const created=await alice.request('/shoots',{characterId:character.id,count:1,requestId:randomUUID()}),foreign=await bob.request('/shoots',{characterId:character.id,count:1,requestId:randomUUID()});
+  const id=created.data.jobs[0].id,other=foreign.data.jobs[0].id,version=randomUUID(),image=filename=>({filename,subfolder:'PhotoCreate/test-output',type:'output'});
+  assert.equal((await alice.request(`/jobs/${id}`,{permanent:true},'DELETE')).status,409);
+  await alice.request('/jobs/stop',{all:true});await bob.request('/jobs/stop',{all:true});
+  const file=name=>path.join(f.outputDir,'PhotoCreate','test-output',name);
+  for(const name of ['delete-original.png','delete-stage.png','delete-version.png','keep-shared.png']) fs.writeFileSync(file(name),PNG);
+  f.store.mutate(state=>{
+    const job=state.jobs.find(row=>row.id===id);Object.assign(job,{status:'completed',images:[image('delete-original.png'),image('keep-shared.png')],stageResults:{base:{images:[image('delete-stage.png')],completed:true}}});
+    state.jobs.push({...structuredClone(job),id:version,rootJobId:id,remakeVersion:1,images:[image('delete-version.png')],stageResults:{}});
+    Object.assign(state.jobs.find(row=>row.id===other),{status:'completed',images:[image('keep-shared.png')],stageResults:{}});
+  });
+  await alice.request('/gallery',{jobId:version,imageIndex:0,folderId:''});
+  const before=structuredClone(f.store.read().jobs);
+  assert.equal((await alice.request('/photos/delete',{ids:[id,other],permanent:true})).status,404);assert.deepEqual(f.store.read().jobs,before);assert(fs.existsSync(file('delete-original.png')));
+  const deleted=await alice.request('/photos/delete',{ids:[id],permanent:true});assert.equal(deleted.status,200);assert.equal(deleted.data.count,2);assert.equal(deleted.data.deletedFiles,3);
+  for(const name of ['delete-original.png','delete-stage.png','delete-version.png']) assert(!fs.existsSync(file(name)),name);
+  assert(fs.existsSync(file('keep-shared.png')));assert.equal((await alice.request('/state')).data.gallery.length,0);assert.equal((await alice.request(`/jobs/${id}/restore`,{})).status,404);
+  assert.deepEqual(f.store.read().jobs,before.filter(row=>row.id===other));
+  const single=await bob.request(`/jobs/${other}`,{permanent:true},'DELETE');assert.equal(single.status,200);assert.equal(single.data.deletedFiles,1);assert(!fs.existsSync(file('keep-shared.png')));
+});
+
+test('永久刪除顧客資料夾清理全部版本與回收照片，拍攝中及檔案清理失敗保留資料',async t=>{
+  const f=await fixture(t),alice=f.visitor(),bob=f.visitor(),character=(await alice.request('/state')).data.characters[0];
+  const folder=(await alice.request('/folders',{name:'旅行'})).data,empty=(await alice.request('/folders',{name:'空資料夾'})).data;
+  const shoot=await alice.request('/shoots',{characterId:character.id,count:2,folderId:folder.id,requestId:randomUUID()}),ids=shoot.data.jobs.map(job=>job.id);
+  assert.equal((await alice.request(`/folders/${folder.id}`,{deletePhotos:true},'DELETE')).status,409);assert((await alice.request('/state')).data.folders.some(row=>row.id===folder.id));
+  assert.equal((await bob.request(`/folders/${folder.id}`,{deletePhotos:true},'DELETE')).status,404);
+  await alice.request('/jobs/stop',{all:true});
+  const file=path.join(f.outputDir,'PhotoCreate','test-output','folder-result.png');fs.writeFileSync(file,PNG);
+  f.store.mutate(state=>{const job=state.jobs.find(row=>row.id===ids[0]);Object.assign(job,{status:'completed',images:[{filename:'folder-result.png',subfolder:'PhotoCreate/test-output',type:'output'}]});state.jobs.find(row=>row.id===ids[1]).visitorDeletedAt=new Date().toISOString();});
+  await alice.request('/gallery',{jobId:ids[0],imageIndex:0,folderId:''});
+  f.store.mutate(state=>{state.jobs.find(row=>row.id===ids[0]).comfyUrl='https://remote.example';});
+  assert.equal((await alice.request(`/folders/${folder.id}`,{deletePhotos:true},'DELETE')).status,400);assert(fs.existsSync(file));assert.equal((await alice.request('/state')).data.gallery.length,1);
+  f.store.mutate(state=>{state.jobs.find(row=>row.id===ids[0]).comfyUrl='http://127.0.0.1:8188';});
+  const deleted=await alice.request(`/folders/${folder.id}`,{deletePhotos:true},'DELETE');assert.equal(deleted.status,200);assert.equal(deleted.data.count,2);assert.equal(deleted.data.deletedFiles,1);assert(!fs.existsSync(file));
+  const state=(await alice.request('/state')).data;assert.equal(state.jobs.length,0);assert.equal(state.trash.length,0);assert.equal(state.gallery.length,0);assert(!state.folders.some(row=>row.id===folder.id));
+  assert.equal((await alice.request(`/folders/${empty.id}`,{deletePhotos:true},'DELETE')).status,200);
+});
+
+test('撤除已發布的服裝狀態分類項目，同步移除顧客舊提詞並更新發布時間',async t=>{
+  const f=await fixture(t),alice=f.visitor();
+  const draft={...DRAFT,mode:'random',randomPoolMode:'selected',cameraEnabled:false,clothingStateIds:['clothing-state-neat','clothing-state-breeze']};
+  const publish=await fetch(f.base+'/api/customer-recipe',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(draft)});assert.equal(publish.status,200);
+  f.store.mutate(state=>{state.customerRecipe.updatedAt='2020-01-01T00:00:00.000Z';state.draft=draft;state.workbenchDrafts={random:draft,combinations:{...draft,mode:'combinations'}};});
+  const oldPreset=f.store.read().presets.find(row=>row.id==='clothing-state-neat');
+  const move=await fetch(f.base+'/api/presets',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...oldPreset,category:'pose'})});assert.equal(move.status,200);
+  assert.deepEqual(f.store.read().customerRecipe.pools.clothingState.map(row=>row.id),['clothing-state-breeze'],'Withdrawn clothing prompts must leave the published pool immediately');
+  assert.notEqual(f.store.read().customerRecipe.updatedAt,'2020-01-01T00:00:00.000Z');
+  assert.deepEqual(f.store.read().draft.clothingStateIds,['clothing-state-breeze']);
+  assert.deepEqual((await alice.request('/state')).data.presets.filter(row=>row.category==='clothing_state').map(row=>row.id),['clothing-state-breeze']);
+  const other=f.store.read().presets.find(row=>row.id==='clothing-state-breeze');
+  const imported=await fetch(f.base+'/api/presets/import',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify([{...other,category:'interaction'}])});assert.equal(imported.status,200);
+  assert.deepEqual(f.store.read().customerRecipe.pools.clothingState,[]);
+  assert.ok(Object.values(f.store.read().workbenchDrafts).every(row=>row.clothingStateIds.length===0));
+  const next=await alice.request('/shoots',{characterId:'character',count:1,requestId:randomUUID()});assert.equal(next.status,202);
+  const photo=f.store.read().jobs.find(row=>row.id===next.data.jobs[0].id);
+  assert.equal(photo.clothingState,null);assert.ok(!photo.prompt.includes(oldPreset.prompt));assert.ok(!photo.prompt.includes(other.prompt));
+});
+
+test('刪除已發布服裝狀態後重新發布清理結果，保留其他未發布編輯及原照片快照',async t=>{
+  const f=await fixture(t),alice=f.visitor();
+  const draft={...DRAFT,mode:'random',randomPoolMode:'selected',cameraEnabled:false,clothingStateIds:['clothing-state-neat']};
+  assert.equal((await fetch(f.base+'/api/customer-recipe',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(draft)})).status,200);
+  const state=(await alice.request('/state')).data;
+  const shoot=await alice.request('/shoots',{characterId:state.characters[0].id,count:1,requestId:randomUUID()});assert.equal(shoot.status,202);
+  const original=structuredClone(f.store.read().jobs[0]);
+  f.store.mutate(state=>{state.customerRecipe.updatedAt='2020-01-01T00:00:00.000Z';state.presets.find(row=>row.id==='pose-standing').prompt='Unpublished pose edit';});
+  assert.equal((await fetch(f.base+'/api/presets/clothing-state-neat',{method:'DELETE'})).status,200);
+  const after=f.store.read();
+  assert.deepEqual(after.customerRecipe.pools.clothingState,[]);
+  assert.notEqual(after.customerRecipe.updatedAt,'2020-01-01T00:00:00.000Z','Deleting a published choice must republish the cleaned configuration');
+  assert.notEqual(after.customerRecipe.pools.pose.find(row=>row.id==='pose-standing').prompt,'Unpublished pose edit');
+  assert.deepEqual(after.jobs[0],original);
+  assert.equal((await alice.request('/state')).data.presets.some(row=>row.id==='clothing-state-neat'),false);
+});
+
+test('顧客每次最多拍攝 12 張，非法數量不能建立照片或送出產圖',async t=>{
+  const f=await fixture(t),alice=f.visitor(),state=(await alice.request('/state')).data;
+  assert.equal(state.maxCount,12);
+  for(const count of [0,13,24,25,1.5,'12',null]) {
+    const result=await alice.request('/shoots',{characterId:state.characters[0].id,count,requestId:randomUUID()});
+    assert.equal(result.status,400,JSON.stringify(count));assert.match(result.data.error,/1–12/);
+  }
+  assert.equal(f.store.read().jobs.length,0);assert.equal(f.prompts.length,0);
+  const created=await alice.request('/shoots',{characterId:state.characters[0].id,count:12,requestId:randomUUID()});
+  assert.equal(created.status,202);assert.equal(created.data.jobs.length,12);
+});
+
+test('顧客可一次暫停整組或全部自己的拍攝，保留完成照片及其他顧客任務',async t=>{
+  const f=await fixture(t),alice=f.visitor(),bob=f.visitor();
+  const character=(await alice.request('/state')).data.characters[0].id;
+  const shoot=async(client,count)=>client.request('/shoots',{characterId:character,count,requestId:randomUUID()});
+  const first=await shoot(alice,12),second=await shoot(alice,2),foreign=await shoot(bob,1);
+  assert.equal(first.status,202);assert.equal(second.status,202);assert.equal(foreign.status,202);
+  const ids=first.data.jobs.map(row=>row.id),other=foreign.data.jobs[0].id,batchId=first.data.jobs[0].batchId;
+  f.store.mutate(state=>{for(const job of state.jobs.filter(row=>ids.slice(0,2).includes(row.id))) {job.status='completed';job.images=[{filename:'finished.png',type:'output'}];}});
+  const completed=f.store.read().jobs.filter(row=>ids.slice(0,2).includes(row.id)),foreignBefore=structuredClone(f.store.read().jobs.find(row=>row.id===other));
+  const pause=await alice.request('/jobs/stop',{batchId});assert.equal(pause.status,200);
+  assert.equal(pause.data.results.length,10);assert.ok(pause.data.results.every(row=>row.ok && row.status==='stopped'));
+  assert.deepEqual(f.store.read().jobs.filter(row=>ids.slice(0,2).includes(row.id)),completed);
+  assert.deepEqual(f.store.read().jobs.find(row=>row.id===other),foreignBefore);
+  assert.equal((await bob.request('/jobs/stop',{batchId})).status,404);
+  assert.equal((await alice.request('/jobs/stop',{all:true,ids:[other]})).status,400);
+  const all=await alice.request('/jobs/stop',{all:true});assert.equal(all.status,200);assert.equal(all.data.results.length,2);
+  assert.ok(all.data.results.every(row=>row.ok && row.status==='stopped'));
+  assert.deepEqual(f.store.read().jobs.find(row=>row.id===other),foreignBefore);
+  assert.deepEqual((await alice.request('/jobs/stop',{all:true})).data.results,[]);
+});
+
 test('玩家自訂拍攝可選已開放的官方提詞及三種比例，完整原提詞與角色參考保留',async t=>{
   const f=await fixture(t),alice=f.visitor();
   f.store.mutate(state=>{
@@ -80,7 +220,7 @@ test('玩家自訂拍攝可選已開放的官方提詞及三種比例，完整�
   assert.equal(original.status,'completed');
   const publish=await fetch(f.base+'/api/customer-recipe',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({...DRAFT,mode:'random',randomPoolMode:'selected',cameraEnabled:false,garmentIds:['garment-b'],poseIds:['pose-sitting'],expressionIds:['expression-calm'],clothingStateIds:['clothing-state-breeze'],interactionIds:['interaction-window'],lightingIds:['light-golden'],colorIds:['color-film'],qualityIds:['quality-candid']})});
   assert.equal(publish.status,200);
-  const selections=[['pose','pose','pose-sitting','Pose and action','Pose'],['clothingState','clothingState','clothing-state-breeze','Clothing state','Clothing state'],['scene','interaction','interaction-window','Scene','Scene interaction'],['expression','expression','expression-calm','Facial expression','Facial expression'],['lighting','lighting','light-golden','Lighting','Lighting'],['color','color','color-film','Color treatment','Color treatment'],['quality','quality','quality-candid','Photographic quality','Photographic quality']];
+  const selections=[['pose','pose','pose-sitting','Pose and action','Pose'],['clothingState','clothingState','clothing-state-breeze','Clothing state','Clothing state'],['scene','interaction','interaction-window','Scene','Scene'],['expression','expression','expression-calm','Facial expression','Facial expression'],['lighting','lighting','light-golden','Lighting','Lighting'],['color','color','color-film','Color treatment','Color treatment'],['quality','quality','quality-candid','Photographic quality','Photographic quality']];
   const offered=(await alice.request('/state')).data;
   assert.deepEqual(offered.presets.map(row=>row.id).sort(),selections.map(row=>row[2]).sort());
   assert.equal(offered.jobs.find(row=>row.id===original.id).aspectRatio,'9:16');
@@ -290,6 +430,26 @@ test('刪除提詞與服裝同步清理兩種草稿及顧客候選，舊頁面�
   assert.equal((await alice.request('/state')).data.ready,false);
 });
 
+test('刪除衣服與官方角色同步發布移除候選，保留顧客角色與照片快照',async t=>{
+  const f=await fixture(t),alice=f.visitor();
+  const personal=(await upload(alice,'保留個人角色')).data;
+  f.store.mutate(state=>state.characters.push({...state.characters.find(row=>row.id==='character'),id:'character-other',name:'另一個官方角色'}));
+  const published={...DRAFT,mode:'random',characterIds:['character','character-other'],garmentIds:['garment-a','garment-b'],cameraEnabled:false};
+  assert.equal((await fetch(f.base+'/api/customer-recipe',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(published)})).status,200);
+  const shoot=await alice.request('/shoots',{characterId:'character',count:1,cameraEnabled:false,requestId:randomUUID()});assert.equal(shoot.status,202);
+  await alice.request('/jobs/stop',{all:true});
+  const snapshot=structuredClone(f.store.read().jobs.find(row=>row.id===shoot.data.jobs[0].id)),before=f.store.read().customerRecipe;
+  f.store.mutate(state=>{state.garments.find(row=>row.id==='garment-b').description='UNPUBLISHED_WARDROBE_CHANGE';state.presets.find(row=>row.id==='quality-editorial').prompt='UNPUBLISHED_PROMPT_CHANGE';state.draft.characterIds=['character','character-other'];});
+  const garment=await fetch(f.base+'/api/assets/garments/garment-a',{method:'DELETE'});assert.equal(garment.status,200);assert.equal((await garment.json()).customerRecipeUpdated,true);
+  const character=await fetch(f.base+'/api/assets/characters/character',{method:'DELETE'});assert.equal(character.status,200);assert.equal((await character.json()).customerRecipeUpdated,true);
+  const after=f.store.read();assert.deepEqual(after.customerRecipe.pools.garment.map(row=>row.id),['garment-b']);assert.deepEqual(after.customerRecipe.characterIds,['character-other']);
+  assert.deepEqual(after.customerRecipe.pools.garment[0],before.pools.garment.find(row=>row.id==='garment-b'));assert.deepEqual(after.customerRecipe.pools.quality,before.pools.quality);
+  assert.deepEqual(after.draft.characterIds,['character-other']);assert.deepEqual(after.jobs.find(row=>row.id===snapshot.id),snapshot);
+  const customer=(await alice.request('/state')).data;assert.deepEqual(customer.characters.map(row=>row.id).sort(),['character-other',personal.id].sort());assert.deepEqual(customer.garments.map(row=>row.id),['garment-b']);
+  assert.equal((await alice.request('/characters/character/image')).status,404);assert.equal((await alice.request('/garments/garment-a/image')).status,404);
+  assert.equal((await alice.request(`/jobs/${snapshot.id}/character-reference`)).status,200);
+});
+
 test('管理員勾選預設角色並套用後，顧客只可選已開放角色，自己的上傳與舊照片仍保留',async t=>{
   const f=await fixture(t),alice=f.visitor();
   const personal=(await upload(alice,'Private character')).data;
@@ -400,7 +560,7 @@ test('刪除精選分類夾保留照片；回收、還原與永久刪除同步�
   const f=await fixture(t),alice=f.visitor(),character=(await alice.request('/state')).data.characters[0];
   const shoot=await alice.request('/shoots',{characterId:character.id,count:1,requestId:randomUUID()}),id=shoot.data.jobs[0].id;
   assert.equal((await alice.request('/gallery',{jobId:id})).status,409);
-  await alice.request('/jobs/stop',{ids:[id]});f.store.mutate(state=>Object.assign(state.jobs.find(row=>row.id===id),{status:'completed',images:[{filename:'selected.png',type:'output'}]}));
+  await alice.request('/jobs/stop',{ids:[id]});fs.writeFileSync(path.join(f.outputDir,'PhotoCreate','test-output','selected.png'),PNG);f.store.mutate(state=>Object.assign(state.jobs.find(row=>row.id===id),{status:'completed',images:[{filename:'selected.png',subfolder:'PhotoCreate/test-output',type:'output'}]}));
   for(const imageIndex of [-1,0.5,'0',1]) assert.equal((await alice.request('/gallery',{jobId:id,imageIndex})).status,409);
   const folder=(await alice.request('/gallery/folders',{name:'旅行'})).data;
   assert.equal((await alice.request('/gallery/folders',{name:' 旅行 '})).status,409);
@@ -505,7 +665,7 @@ test('本人能查看照片實際提詞，其他訪客無法查看',async t=>{
   const [base,angle,refine]=details.data.stages;
   const submittedBase=f.store.read().jobs.find(row=>row.id===id).stageResults.base.apiPrompt['12'].inputs;
   assert.equal(base.positive,submittedBase.prompt);assert.equal(base.negative,submittedBase.negative_prompt);
-  assert.match(base.positive,/^Actual submitted portrait prompt\n\n/);assert.match(base.positive,/exactly one person/);
+  assert.match(base.positive,/^Actual submitted portrait prompt\n\n/);assert.match(base.positive,/exactly ONE person/);
   assert.match(base.negative,/^Actual submitted negative prompt, /);assert.equal(angle.negative,SINGLE_SUBJECT_NEGATIVE);
   assert.equal(angle.positive,withSingleSubjectPrompt(cameraPrompt({horizontalAngle:90,verticalAngle:0,zoom:5})));
   assert.equal(refine.positive,REFINE_PROMPT);assert.equal(refine.negative,REFINE_NEGATIVE);
@@ -598,6 +758,8 @@ test('回收區批次永久刪除僅刪除自己的回收版本，保留其他�
   assert.equal(prompts.stages[0].image,null);assert.equal(prompts.stages[0].positive,null);assert.match(prompts.stages[0].label,/已永久刪除/);
   assert.equal((await alice.request(`/jobs/${liveId}/angle-source`)).status,200);
   assert.equal((await bob.request('/state')).data.jobs[0].id,other);
+  const lastReference=await alice.request(`/jobs/${liveId}`,{permanent:true},'DELETE');assert.equal(lastReference.status,200);assert.equal(lastReference.data.deletedFiles,2);
+  assert(!fs.existsSync(path.join(f.outputDir,'PhotoCreate','test-output','source.png')));assert(!fs.existsSync(path.join(f.outputDir,'PhotoCreate','test-output','live.png')));
 });
 
 test('永久刪除前先驗證所有輸出路徑，不允許目錄穿越或部分刪除',async t=>{
@@ -638,12 +800,12 @@ test('兩種管理模式各自保存草稿；未套用與無效設定不覆蓋�
   assert.equal(invalid.status,400);assert.deepEqual(f.store.read().customerRecipe,before);
 });
 
-test('兩位訪客的角色與成果隔離；選單只公開官方標題，隱藏工作流與完整提詞',async t=>{
+test('兩位訪客的角色與成果隔離；選單只公開官方標題與分類，隱藏工作流與完整提詞',async t=>{
   const f=await fixture(t),alice=f.visitor(),bob=f.visitor();
   const initial=await alice.request('/state');assert.equal(initial.status,200);assert.match(alice.sessionHeaders.get('set-cookie'),/HttpOnly; SameSite=Lax/);assert.match(initial.headers.get('cache-control'),/no-store/);
   assert.equal(initial.data.ready,true);assert.equal(initial.data.jobs.length,0);assert.equal(initial.data.settings,undefined);
   assert.ok(initial.data.presets.length>0);
-  for(const row of initial.data.presets) assert.deepEqual(Object.keys(row).sort(),['category','id','name']);
+  for(const row of initial.data.presets) assert.deepEqual(Object.keys(row).sort(),['category','groupIds','id','name']);
   const a=await upload(alice,'Alice'),b=await upload(bob,'Bob');assert.equal(a.status,201);assert.equal(b.status,201);
   assert.notEqual(alice.cookie,bob.cookie);
   assert.equal((await alice.request(a.data.image.replace('/api/studio',''))).status,200);

@@ -7,6 +7,7 @@ import { createApp } from '../server/index.js';
 import { createStore } from '../server/store.js';
 import { PNG, TEMPLATE } from './fixtures.js';
 import { CAMERA_TEMPLATE } from './camera-fixtures.js';
+import { SINGLE_SUBJECT_PROMPT } from '../shared/subject.js';
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-test-browser-'));
 const comfyOutputDir = path.join(dataDir,'comfy-output');
@@ -186,7 +187,7 @@ try {
   await page.locator('.filter-tabs').getByRole('button',{name:/服裝狀態/}).click();
   await page.getByRole('textbox',{name:'搜尋名稱、標籤或提詞…'}).fill('捲袖');
   await expect(page.getByRole('heading',{name:'自然捲袖測試',exact:true})).toBeVisible();
-  await page.locator('.filter-tabs').getByRole('button',{name:/場景互動/}).click();
+  await page.locator('.filter-tabs').getByRole('button',{name:/場景/}).click();
   await page.getByRole('textbox',{name:'搜尋名稱、標籤或提詞…'}).fill('窗邊');
   await page.getByRole('heading',{name:'窗邊自然倚靠',exact:true}).click();
   await expect(page.getByRole('dialog').getByRole('combobox',{name:'分類',exact:true})).toHaveValue('interaction');
@@ -215,10 +216,10 @@ try {
   await expect(page.locator('.prompt-preview')).toContainText(`Character details: ${characterPrompt}`);
   await expect(page.locator('.prompt-preview')).not.toContainText(whiteGarmentPrompt);
   await expect(page.locator('.prompt-preview')).toContainText('clothing from <image2>');
-  await expect(page.getByRole('textbox',{name:'場景互動',exact:true})).toHaveValue('');
+  await expect(page.getByRole('textbox',{name:'場景',exact:true})).toHaveValue('');
   await expect(page.locator('.prompt-preview')).not.toContainText('Picture 3');
   await expect(page.locator('.prompt-preview')).not.toContainText('Environment:');
-  await expect(page.locator('.prompt-preview')).not.toContainText('Scene interaction:');
+  await expect(page.locator('.prompt-preview')).not.toContainText('Scene:');
   const expressionPicker = page.getByRole('group',{name:'表情提詞',exact:true});
   const clothingStatePicker = page.getByRole('group',{name:'服裝狀態提詞',exact:true});
   await expect(expressionPicker).toContainText('已選：無');
@@ -254,29 +255,29 @@ try {
   await expect(clothingStatePicker).toContainText('已選：自然捲袖測試');
   await expect(page.locator('.prompt-preview')).toContainText('Facial expression: A gentle gaze with relaxed eyes.');
   await expect(page.locator('.prompt-preview')).toContainText('Clothing state: Sleeves rolled neatly to the elbows.');
-  const interactionPicker = page.getByRole('group',{name:'場景互動提詞',exact:true});
+  const interactionPicker = page.getByRole('group',{name:'場景提詞',exact:true});
   await expect(interactionPicker).toContainText('已選：無');
   await expect(page.locator('.pool-option')).toHaveCount(0);
-  await page.getByRole('button',{name:'選擇場景互動提詞',exact:true}).click();
+  await page.getByRole('button',{name:'選擇場景提詞',exact:true}).click();
   await expect(page.getByRole('dialog').locator('.pool-option')).toHaveCount(8);
-  await page.getByRole('button',{name:'場景互動下一頁',exact:true}).click();
+  await page.getByRole('button',{name:'場景下一頁',exact:true}).click();
   await expect(page.getByRole('dialog').locator('.pool-option')).toHaveCount(4);
-  await page.getByRole('dialog').getByRole('textbox',{name:'搜尋場景互動名稱、標籤、提詞…',exact:true}).fill('窗邊');
+  await page.getByRole('dialog').getByRole('textbox',{name:'搜尋場景名稱、標籤、提詞…',exact:true}).fill('窗邊');
   await page.getByRole('dialog').getByRole('button',{name:'窗邊自然倚靠',exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:/^使用所選提詞/}).click();
-  await expect(page.locator('.prompt-preview')).toContainText('Scene interaction: Beside a window, resting a hand on the windowsill and looking outside.');
-  await page.getByRole('button',{name:'清除場景互動提詞',exact:true}).click();
-  await expect(page.locator('.prompt-preview')).not.toContainText('Scene interaction:');
-  await page.getByRole('textbox',{name:'場景互動',exact:true}).fill('Sitting on a bed near a window.');
-  await page.getByRole('button',{name:'存為互動提詞',exact:true}).click();
+  await expect(page.locator('.prompt-preview')).toContainText('Scene: Beside a window, resting a hand on the windowsill and looking outside.');
+  await page.getByRole('button',{name:'清除場景提詞',exact:true}).click();
+  await expect(page.locator('.prompt-preview')).not.toContainText('Scene:');
+  await page.getByRole('textbox',{name:'場景',exact:true}).fill('Sitting on a bed near a window.');
+  await page.getByRole('button',{name:'存為場景提詞',exact:true}).click();
   await expect(page.getByRole('dialog').getByRole('combobox',{name:'分類',exact:true})).toHaveValue('interaction');
   await expect(page.getByRole('dialog').getByRole('textbox',{name:'提詞內容',exact:true})).toHaveValue('Sitting on a bed near a window.');
   await page.getByRole('dialog').getByRole('textbox',{name:'提詞名稱',exact:true}).fill('床邊自由寫真');
   await page.getByRole('button',{name:'保存提詞',exact:true}).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.getByRole('textbox',{name:'場景互動',exact:true})).toHaveValue('');
+  await expect(page.getByRole('textbox',{name:'場景',exact:true})).toHaveValue('');
   await expect(interactionPicker).toContainText('床邊自由寫真');
-  await expect(page.locator('.prompt-preview')).toContainText('Scene interaction: Sitting on a bed near a window.');
+  await expect(page.locator('.prompt-preview')).toContainText('Scene: Sitting on a bed near a window.');
   await page.screenshot({path:'test-results/two-references-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   if(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('Mobile workbench horizontal overflow.');
@@ -299,7 +300,7 @@ try {
   await expect(page.getByRole('dialog').locator('.shot-settings')).toContainText('9:16');
   await expect(page.getByRole('dialog').locator('.shot-settings')).toContainText('1152 × 2048 px');
   await expect(page.getByRole('dialog').locator('.inspect-prompt').first()).not.toContainText('Picture 3');
-  await expect(page.getByRole('dialog').locator('.inspect-prompt').first()).toContainText('Scene interaction: Sitting on a bed near a window.');
+  await expect(page.getByRole('dialog').locator('.inspect-prompt').first()).toContainText('Scene: Sitting on a bed near a window.');
   const inspector = page.getByRole('dialog');
   const fullPromptText = await inspector.locator('.inspect-prompt').first().textContent();
   await inspector.getByRole('button',{name:'複製完整提詞',exact:true}).click();
@@ -345,9 +346,9 @@ try {
   await clothingStatePicker.getByRole('button',{name:'清除服裝狀態提詞',exact:true}).click();
   await expect(page.locator('.prompt-preview')).not.toContainText('Facial expression:');
   await expect(page.locator('.prompt-preview')).not.toContainText('Clothing state:');
-  await page.getByRole('button',{name:'清除場景互動提詞',exact:true}).click();
-  await page.getByRole('textbox',{name:'場景互動',exact:true}).fill('');
-  await expect(page.locator('.prompt-preview')).not.toContainText('Scene interaction:');
+  await page.getByRole('button',{name:'清除場景提詞',exact:true}).click();
+  await page.getByRole('textbox',{name:'場景',exact:true}).fill('');
+  await expect(page.locator('.prompt-preview')).not.toContainText('Scene:');
   await page.getByRole('textbox',{name:'拍攝組名稱',exact:true}).fill('100 張測試組');
   for(const name of ['漫步瞬間','倚牆凝視','側身整理髮絲']) await choosePrompt('動作',name);
   await page.getByRole('button',{name:'進階生成設定',exact:true}).click();
@@ -466,7 +467,7 @@ try {
   const optionCardJobId = await optionCard.getAttribute('data-job-id');
   await optionCard.getByRole('button',{name:'詳細',exact:true}).click();
   const galleryDetails = page.getByRole('dialog');
-  for(const label of ['角色','服裝','動作','表情','服裝狀態','場景互動','攝影角度','光線','色彩','畫質']) await expect(galleryDetails.locator('.shot-option dt').filter({hasText:new RegExp(`^${label}$`)})).toBeVisible();
+  for(const label of ['角色','服裝','動作','表情','服裝狀態','場景','攝影角度','光線','色彩','畫質']) await expect(galleryDetails.locator('.shot-option dt').filter({hasText:new RegExp(`^${label}$`)})).toBeVisible();
   await expect(galleryDetails.locator('.option-expression dd')).toHaveText('溫柔眼神測試');
   await expect(galleryDetails.locator('.option-clothing-state dd')).toHaveText('自然捲袖測試');
   await expect(galleryDetails.locator('.option-interaction dd')).toHaveText('床邊自由寫真');
@@ -595,7 +596,7 @@ try {
   await page.reload();
   await page.getByRole('button',{name:'隨機寫真',exact:true}).click();
   await expect(page.getByRole('spinbutton',{name:'隨機張數',exact:true})).toHaveValue('30');
-  for(const name of ['表情','服裝狀態','場景互動']) {
+  for(const name of ['表情','服裝狀態','場景']) {
     await expect(page.getByRole('checkbox',{name:`隨機使用${name}`,exact:true})).toHaveCount(0);
     await expect(page.getByRole('button',{name:`選擇${name}提詞`,exact:true})).toBeEnabled();
   }
@@ -656,7 +657,7 @@ try {
     if(!job.prompt.includes('<image1>') || !job.prompt.includes('<image2>') || job.prompt.includes(whiteGarmentPrompt) || job.prompt.includes(blackGarmentPrompt)) throw new Error('Random prompts must use native image references and omit garment notes.');
     if(job.steps !== 27 || (job.stageResults?.base?.apiPrompt || job.apiPrompt)['7'].inputs.steps !== 27) throw new Error('Random mode must use the visible sampling steps.');
     if(job.generationMode !== 'random' || job.expression || job.clothingState || job.interaction) throw new Error('Random optional prompts must be off by default.');
-    if(job.outputWidth !== 1152 || job.outputHeight !== 2048 || !job.prompt.startsWith('1 girl\n\n')) throw new Error('Random shots must preserve output dimensions and character prefix.');
+    if(job.outputWidth !== 1152 || job.outputHeight !== 2048 || !job.prompt.startsWith(`${SINGLE_SUBJECT_PROMPT}\n\n`)) throw new Error('Random shots must preserve output dimensions and single-person instructions.');
   }
   if(new Set(randomJobs.map(row=>[row.garment.id,row.pose.id,row.camera.id,row.lighting.id,row.color.id,row.quality.id].join('|'))).size !== 30) throw new Error('Random mode repeated an available combination.');
   await expect(page.locator('.batch-card').first()).toContainText('隨機30張測試');

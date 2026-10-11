@@ -14,7 +14,7 @@ const imagePath = image => {
 
 // Persist both stage outputs and stable prompt IDs. Every model change has a
 // cohort barrier; no later stage is queued while an earlier prompt is unconfirmed.
-export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploadAngleSource,onCompleted,onStop,preparePrompt = prompt => prompt}) {
+export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploadAngleSource,onCompleted,onStop,hasStoredImage=()=>false,preparePrompt = prompt => prompt}) {
   let busy = false,closed = false,current = null,timer = null;
   const jobsFor = run => store.read().jobs.filter(job => run.jobIds.includes(job.id) && job.stageRunId === run.id);
   const eligible = job => ['queued','submitting','running','stopping','uncertain'].includes(job.status);
@@ -59,7 +59,7 @@ export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploa
     const previous = job.stageResults?.[stage === 'angle' || !productionStages(job).includes('angle') ? 'base' : 'angle'];
     const image = previous?.images?.[0];
     if(!image) throw new Error('找不到已完成階段的中間圖。');
-    if(previous.comfyUrl === base) return imagePath(image);
+    if(previous.comfyUrl === base && !hasStoredImage(previous.comfyUrl,image)) return imagePath(image);
     const cached = job.stageInputs?.[stage];
     if(cached?.comfyUrl === base) return cached.image;
     const response = await comfyAt(previous.comfyUrl,`/view?${new URLSearchParams({filename:image.filename,subfolder:image.subfolder || '',type:image.type || 'output'})}`);
@@ -158,7 +158,7 @@ export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploa
     busy = true;
     try {
       let run;
-      for(const candidate of store.read().pipelineRuns || []) {
+      for(const candidate of store.read(state => state.pipelineRuns || [])) {
         if(!['active','queued'].includes(candidate.status)) continue;
         const members = jobsFor(candidate);
         if(members.some(eligible)) {run = candidate;break;}
@@ -225,5 +225,5 @@ export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploa
   timer = setInterval(() => {advance().catch(() => {});},1500);timer.unref();
   const close = store.close;
   store.close = () => {closed = true;clearInterval(timer);close();};
-  return {start,tick:advance,reconcile,waiting,sending,processing:id=>current?.id===id,hasWork:() => store.read().pipelineRuns?.some(run => ['active','queued'].includes(run.status)) || false};
+  return {start,tick:advance,reconcile,waiting,sending,processing:id=>current?.id===id,hasWork:() => store.read(state => state.pipelineRuns?.some(run => ['active','queued'].includes(run.status)) || false)};
 }

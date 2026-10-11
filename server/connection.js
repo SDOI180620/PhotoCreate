@@ -55,7 +55,7 @@ export async function testComfyConnection({comfyUrl,workflowPath='bundled',camer
   try {
     const stats=await comfyJson('/system_stats',{},url);
     [base,angle]=await Promise.all([read(workflowPath,'base'),read(cameraWorkflowPath,'angle')]);
-    const shot={id:'environment-check',cameraMode:'multiangle',camera:{angle:{horizontalAngle:133,verticalAngle:-90,zoom:10}},angleSteps:20,refineDenoise:0.2,steps:40,seed:1,resolution:1536,aspectRatio:'16:9',outputWidth:2048,outputHeight:1152,prompt:'1 girl\n\nPhotographic portrait.',negative:'blurry'};
+    const shot={id:'environment-check',cameraMode:'multiangle',camera:{angle:{horizontalAngle:133,verticalAngle:-90,zoom:10}},angleSteps:20,refineDenoise:0.2,steps:40,seed:1,resolution:1536,aspectRatio:'16:9',outputWidth:2048,outputHeight:1152,prompt:'Photographic portrait.',negative:'blurry'};
     for(const [stage,name,images] of [['base','原圖',{character:'PhotoCreate/check-character.png',garment:'PhotoCreate/check-garment.png'}],['angle','換角度',{source:'PhotoCreate/check-original.png'}],['refine','高清修正',{source:'PhotoCreate/check-angle.png'}]]) {
       const graph=buildCameraStage(base.graph,angle.graph,shot,stage,images);
       await Promise.all([...new Set(Object.values(graph).map(node=>node.class_type))].map(schemaFor));

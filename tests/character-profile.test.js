@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
-import {characterProfile,characterProfilePrompt,CUP_SIZES} from '../shared/character-profile.js';
+import {characterProfile,characterProfilePrompt,CUP_SIZES,cupSizeDescription} from '../shared/character-profile.js';
 import {buildShotPlans} from '../shared/domain.js';
 import {customPhotoPrompt,normalizePhotoCustomization} from '../shared/photo-customization.js';
 import {buildComfyPrompt} from '../server/workflow.js';
@@ -18,8 +18,20 @@ test('角色尺寸 A–Z 與公分獨立選填；空白不產生外觀限制，�
   assert.deepEqual(characterProfile({cupSize:'',heightCm:null}),{});
   assert.deepEqual(characterProfile({cupSize:'F',heightCm:'168.5'}),{cupSize:'F',heightCm:168.5});
   assert.equal(characterProfilePrompt({}),'');
-  assert.equal(characterProfilePrompt({cupSize:'F',heightCm:168.5}),'Character measurements: height 168.5 cm; breast size F cup.');
+  assert.equal(characterProfilePrompt({cupSize:'F',heightCm:168.5}),'Character measurements: height 168.5 cm; breast size F cup (large bust).');
   for(const input of [{cupSize:'AA'},{cupSize:'f'},{cupSize:false},{heightCm:-1},{heightCm:0},{heightCm:1001},{heightCm:Infinity},{heightCm:true},{heightCm:[]},{heightCm:'1e2'},{heightCm:'168 cm'}]) assert.throws(()=>characterProfile(input));
+});
+
+test('Cup 同時帶入字母與大小描述，A/B/C/DF/GZ 分級清楚，身高單獨填寫也保留',()=>{
+  for(const [cups,label,prompt] of [['A','微小胸部','very small bust'],['B','小胸部','small bust'],['C','中等胸部','medium bust'],['DEF','大胸部','large bust'],['GHIJKLMNOPQRSTUVWXYZ','巨大胸部','huge bust']]) {
+    for(const cup of cups) {
+      assert.deepEqual(cupSizeDescription(cup),{label,prompt});
+      assert.equal(characterProfilePrompt({cupSize:cup,heightCm:145}),`Character measurements: height 145 cm; breast size ${cup} cup (${prompt}).`);
+    }
+  }
+  assert.equal(characterProfilePrompt({heightCm:173}),'Character measurements: height 173 cm.');
+  assert.equal(characterProfilePrompt({cupSize:'B'}),'Character measurements: breast size B cup (small bust).');
+  assert.equal(cupSizeDescription(''),undefined);
 });
 
 test('角色尺寸進入原圖及自訂拍攝提詞，未填角色保留既有提詞',()=>{
@@ -35,7 +47,7 @@ test('角色尺寸進入原圖及自訂拍攝提詞，未填角色保留既有�
   const settings=normalizePhotoCustomization({useOriginal:{pose:false},changes:{pose:'Standing beside a tree.'}});
   assert.match(customPhotoPrompt(settings,shot),/height 168 cm; breast size F cup/);
   assert.match(customPhotoPrompt(settings,{...shot,jobKind:'angle-edit'}),/height 168 cm; breast size F cup/);
-  assert.equal(baseline.prompt,shot.prompt.replace('\n\nCharacter measurements: height 168 cm; breast size F cup.',''));
+  assert.equal(baseline.prompt,shot.prompt.replace('\n\nCharacter measurements: height 168 cm; breast size F cup (large bust).',''));
 });
 
 test('批次角色每張保留獨立資料；編輯可保留或清除尺寸，錯誤上傳不寫入圖片',async t=>{

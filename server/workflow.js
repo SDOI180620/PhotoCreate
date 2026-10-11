@@ -61,6 +61,7 @@ export function validateTemplate(graph) {
 }
 
 export function referenceKinds(shot) {
+  if(shot.jobKind==='character-turnaround') return ['character'];
   if(shot.jobKind==='photo-edit') return ['character',...(shot.garment?.fileName ? ['garment'] : [])];
   return ['character','garment',...(shot.scene ? ['scene'] : [])];
 }
@@ -80,8 +81,8 @@ export function buildComfyPrompt(template, shot, images) {
     graph[id] = { class_type: 'LoadImage', inputs: { image: images[kind] }, _meta: { title: `<image${index + 1}> · ${kind}` } };
     text.inputs[`images.image_${index + 1}`] = [id,0];
   });
-  text.inputs.prompt = withSingleSubjectPrompt(shot.prompt);
-  text.inputs.negative_prompt = withSingleSubjectNegative(shot.negative);
+  text.inputs.prompt = shot.jobKind==='character-turnaround' ? shot.prompt : withSingleSubjectPrompt(shot.prompt);
+  text.inputs.negative_prompt = shot.jobKind==='character-turnaround' ? shot.negative : withSingleSubjectNegative(shot.negative);
   text.inputs.resolution = shot.resolution;
   graph[samplerId].inputs.seed = shot.seed;
   graph[samplerId].inputs.steps = shot.steps;

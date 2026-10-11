@@ -1,0 +1,524 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "pose-portrait-action-plush-hug",
+      "category": "pose",
+      "name": "胸前抱娃娃",
+      "prompt": "An adult person stands with both forearms wrapped around one soft plush toy at mid-torso. The toy rests against the body, with both hands visible on its sides and both feet grounded.",
+      "tags": [
+        "寫真",
+        "道具",
+        "娃娃",
+        "抱物",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-plush-shoulder",
+      "category": "pose",
+      "name": "娃娃靠肩",
+      "prompt": "An adult person stands holding one plush toy against a shoulder, with one palm supporting its base and the other hand stabilizing its back. Keep the elbows below shoulder height and the weight balanced.",
+      "tags": [
+        "寫真",
+        "道具",
+        "娃娃",
+        "抱物",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-plush-overhead",
+      "category": "pose",
+      "name": "雙手舉娃娃",
+      "prompt": "An adult person stands holding one plush toy above the head with both hands, one on either side of the toy. Keep the elbows slightly bent, the toy separate from the head and both feet on the ground.",
+      "tags": [
+        "寫真",
+        "道具",
+        "娃娃",
+        "舉物",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-plush-side-seated",
+      "category": "pose",
+      "name": "抱娃娃側坐",
+      "prompt": "An adult person sits slightly sideways on a seat, holding one plush toy on the lap with both forearms around it. Keep both feet supported on the ground and the seated weight resting on the seat.",
+      "tags": [
+        "寫真",
+        "道具",
+        "娃娃",
+        "抱物",
+        "坐姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-book-page-turn",
+      "category": "pose",
+      "name": "坐著翻書",
+      "prompt": "An adult person sits with one open book resting across the lap. One hand supports the lower edge while the other lifts a single page to turn it; the head is angled toward the pages and both feet are grounded.",
+      "tags": [
+        "寫真",
+        "道具",
+        "看書",
+        "翻頁",
+        "坐姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-book-seated-reading",
+      "category": "pose",
+      "name": "坐著看書",
+      "prompt": "An adult person sits upright with one open book held above the lap, one hand supporting each lower corner. The head angles downward toward the pages, with the elbows close to the body and both feet supported.",
+      "tags": [
+        "寫真",
+        "道具",
+        "看書",
+        "坐姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-book-standing-hold",
+      "category": "pose",
+      "name": "站姿捧書",
+      "prompt": "An adult person stands holding one closed book vertically against the lower torso, with both hands around its lower corners. Keep the shoulders level, the elbows close to the body and the weight evenly supported.",
+      "tags": [
+        "寫真",
+        "道具",
+        "書本",
+        "捧物",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-book-under-arm",
+      "category": "pose",
+      "name": "腋下夾書",
+      "prompt": "An adult person stands with one closed book tucked securely between an upper arm and the side of the torso. That hand supports the lower edge of the book while the free hand rests beside the opposite thigh.",
+      "tags": [
+        "寫真",
+        "道具",
+        "書本",
+        "夾物",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-apple-bite",
+      "category": "pose",
+      "name": "小口吃蘋果",
+      "prompt": "An adult person stands holding one apple in one hand and taking a small bite from its upper edge. Keep the apple visibly in contact with the mouth, the other hand beside the body and the stance balanced.",
+      "tags": [
+        "寫真",
+        "道具",
+        "水果",
+        "蘋果",
+        "吃東西"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-apple-offer",
+      "category": "pose",
+      "name": "單手遞蘋果",
+      "prompt": "An adult person stands extending one forearm slightly forward, with one whole apple resting securely in that palm. Keep the elbow softly bent, the other hand by the side and both feet grounded.",
+      "tags": [
+        "寫真",
+        "道具",
+        "水果",
+        "蘋果",
+        "遞物"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-banana-bite",
+      "category": "pose",
+      "name": "小口吃香蕉",
+      "prompt": "An adult person stands holding one partially peeled banana upright in one hand and taking a small bite from the exposed end. The peel remains attached and hangs below the holding hand; the free arm rests by the side.",
+      "tags": [
+        "寫真",
+        "道具",
+        "水果",
+        "香蕉",
+        "吃東西"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-banana-peel",
+      "category": "pose",
+      "name": "雙手剝香蕉",
+      "prompt": "An adult person stands with one hand holding the lower part of a single banana while the other hand pulls one strip of peel downward. Keep the fruit and its attached peel intact, with both elbows close to the torso.",
+      "tags": [
+        "寫真",
+        "道具",
+        "水果",
+        "香蕉",
+        "剝皮"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-single-peace",
+      "category": "pose",
+      "name": "單手比耶",
+      "prompt": "An adult person stands with one hand raised beside the shoulder, the index and middle fingers forming a V and the other fingers folded into the palm. Keep the other arm by the side and both feet grounded.",
+      "tags": [
+        "寫真",
+        "可愛",
+        "手勢",
+        "比耶",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-double-peace",
+      "category": "pose",
+      "name": "雙手比耶",
+      "prompt": "An adult person stands with both hands raised beside the head, each index and middle finger forming a V while the remaining fingers are folded. Keep the elbows bent below shoulder level and the stance balanced.",
+      "tags": [
+        "寫真",
+        "可愛",
+        "手勢",
+        "比耶",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-hand-heart",
+      "category": "pose",
+      "name": "雙手大愛心",
+      "prompt": "An adult person stands joining both hands in front of the upper torso, with the thumbs forming the lower point and the curved index fingers forming the top of a single heart. Keep the elbows lowered and both feet grounded.",
+      "tags": [
+        "寫真",
+        "可愛",
+        "手勢",
+        "愛心",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-finger-heart",
+      "category": "pose",
+      "name": "單手指愛心",
+      "prompt": "An adult person stands raising one hand to shoulder height, with the thumb and index finger crossing to form a small finger heart. Keep the remaining fingers naturally folded and the free hand beside the body.",
+      "tags": [
+        "寫真",
+        "可愛",
+        "手勢",
+        "愛心",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-cat-paw-hands",
+      "category": "pose",
+      "name": "貓爪手勢",
+      "prompt": "An adult person stands with both elbows bent and both hands loosely curled in front of the upper torso, palms angled downward in a small paw-like gesture. Keep the wrists gently bent and the weight balanced through both feet.",
+      "tags": [
+        "寫真",
+        "可愛",
+        "手勢",
+        "貓爪",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-rabbit-ear-hands",
+      "category": "pose",
+      "name": "頭頂兔耳手勢",
+      "prompt": "An adult person stands raising both hands just above the head, with each index and middle finger extended upward like rabbit ears and the remaining fingers folded. Keep a clear gap between the hands and a stable stance.",
+      "tags": [
+        "寫真",
+        "可愛",
+        "手勢",
+        "兔耳",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-hands-behind-back",
+      "category": "pose",
+      "name": "站姿雙手背後",
+      "prompt": "An adult person stands with both hands loosely clasped behind the lower back, the torso slightly inclined forward from the hips and one toe placed just ahead of the supporting foot. Keep both feet in contact with the ground.",
+      "tags": [
+        "寫真",
+        "可愛",
+        "站姿",
+        "背手",
+        "前傾"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-tiptoe-wave",
+      "category": "pose",
+      "name": "踮腳抬手招呼",
+      "prompt": "An adult person stands with both heels lifted slightly while the toes stay firmly grounded. One hand is raised to shoulder height with an open palm for a small wave; the other arm rests by the side.",
+      "tags": [
+        "寫真",
+        "可愛",
+        "手勢",
+        "踮腳",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-side-s-curve",
+      "category": "pose",
+      "name": "側身 S 曲線",
+      "prompt": "An adult person stands at a three-quarter side angle with the weight on the rear leg, the nearer knee softened and the pelvis angled slightly opposite the shoulders. One hand rests on the waist and the other beside the thigh, forming a gentle S-shaped body line.",
+      "tags": [
+        "寫真",
+        "性感",
+        "曲線",
+        "側身",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-back-turn-waist",
+      "category": "pose",
+      "name": "背身回眸扶腰",
+      "prompt": "An adult person stands with the back turned three-quarters away and the head turned over one shoulder. One hand rests on the waist and the other beside the thigh; keep the hips angled and both feet securely grounded.",
+      "tags": [
+        "寫真",
+        "性感",
+        "回眸",
+        "扶腰",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-single-hand-hair-waist",
+      "category": "pose",
+      "name": "單手束髮扭腰",
+      "prompt": "An adult person stands with one hand gathering the hair at the nape and the other resting on the waist. Turn the shoulders slightly opposite the hips, with a gentle back arch and the weight supported on one leg.",
+      "tags": [
+        "寫真",
+        "性感",
+        "束髮",
+        "扭腰",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-both-hands-hair",
+      "category": "pose",
+      "name": "雙手束髮挺身",
+      "prompt": "An adult person stands with both hands gathering the hair behind the head and the elbows open to the sides. Keep the torso lengthened with a gentle back arch, one knee softened and both feet supported.",
+      "tags": [
+        "寫真",
+        "性感",
+        "束髮",
+        "伸展",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-hands-waist-step",
+      "category": "pose",
+      "name": "雙手扶腰跨步",
+      "prompt": "An adult person stands with both hands resting on the waist and one foot placed diagonally forward. Shift the weight onto the rear leg, angle the pelvis slightly and keep the forward knee softly bent.",
+      "tags": [
+        "寫真",
+        "性感",
+        "扶腰",
+        "跨步",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-wall-side-arch",
+      "category": "pose",
+      "name": "扶牆側身拱背",
+      "prompt": "An adult person stands sideways beside a vertical support with one palm resting against it at shoulder height and the other hand on the waist. Keep a gentle back arch, one hip angled outward and both feet firmly grounded.",
+      "tags": [
+        "寫真",
+        "性感",
+        "倚靠",
+        "拱背",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-overhead-stretch",
+      "category": "pose",
+      "name": "高舉雙臂伸展",
+      "prompt": "An adult person stands with both arms extended overhead, one hand lightly holding the opposite wrist. Lengthen the torso with a gentle back arch, soften one knee and keep both feet on the ground.",
+      "tags": [
+        "寫真",
+        "性感",
+        "伸展",
+        "曲線",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-rail-torso-twist",
+      "category": "pose",
+      "name": "扶欄扭身",
+      "prompt": "An adult person stands beside a waist-high support, one hand resting on its top and the other on the waist. Turn the shoulders slightly away from the hips while keeping the pelvis balanced and both feet grounded.",
+      "tags": [
+        "寫真",
+        "性感",
+        "扶欄",
+        "扭身",
+        "站姿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-seated-crossed-legs",
+      "category": "pose",
+      "name": "側坐交疊腿",
+      "prompt": "An adult person sits slightly sideways on a seat with one knee crossed over the other and the lower foot resting on the ground. One hand rests on the upper knee and the other on the seat beside the hip; keep the torso gently lengthened.",
+      "tags": [
+        "寫真",
+        "性感",
+        "坐姿",
+        "交疊腿",
+        "側身"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-seat-edge-lean",
+      "category": "pose",
+      "name": "椅邊扶膝前傾",
+      "prompt": "An adult person sits near the front edge of a seat with both feet grounded and both palms resting on the knees. Incline the torso forward from the hips with a gentle lower-back curve, keeping the neck aligned with the torso.",
+      "tags": [
+        "寫真",
+        "性感",
+        "坐姿",
+        "前傾",
+        "扶膝"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-seated-waist-twist",
+      "category": "pose",
+      "name": "側坐扭腰扶椅",
+      "prompt": "An adult person sits sideways on a chair with one hand holding the backrest and the other resting on the nearer knee. Turn the torso slightly toward the backrest while keeping the seated weight supported and both feet on the ground.",
+      "tags": [
+        "寫真",
+        "性感",
+        "坐姿",
+        "扭腰",
+        "扶椅"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-reverse-chair-seat",
+      "category": "pose",
+      "name": "椅背反坐",
+      "prompt": "An adult person sits facing the backrest of a chair, one grounded foot on each side of the seat, with both forearms resting across the top of the backrest. Keep the torso lengthened and the knees comfortably bent beside the chair.",
+      "tags": [
+        "寫真",
+        "性感",
+        "坐姿",
+        "反坐",
+        "扶椅"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-upright-kneeling",
+      "category": "pose",
+      "name": "跪坐直身",
+      "prompt": "An adult person kneels with the hips resting lightly above the heels and both hands placed on the thighs. Keep the torso upright with a gentle back arch, the knees comfortably together and the lower legs supported by the surface.",
+      "tags": [
+        "寫真",
+        "性感",
+        "跪坐",
+        "挺身",
+        "曲線"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-side-folded-kneeling",
+      "category": "pose",
+      "name": "側跪收腿",
+      "prompt": "An adult person kneels with both lower legs folded toward one side and the weight supported beside the heels. One palm rests on the surface beside the hip and the other hand on the upper thigh, with the torso turned slightly toward the bent legs.",
+      "tags": [
+        "寫真",
+        "性感",
+        "跪坐",
+        "側身",
+        "收腿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-one-knee-upright",
+      "category": "pose",
+      "name": "單膝跪地挺身",
+      "prompt": "An adult person kneels on one knee with the opposite foot planted forward and that knee bent at a comfortable angle. One hand rests on the forward thigh and the other on the waist; keep the torso upright with a gentle back arch.",
+      "tags": [
+        "寫真",
+        "性感",
+        "跪姿",
+        "挺身",
+        "扶腰"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-side-lying-bent-legs",
+      "category": "pose",
+      "name": "側躺曲腿",
+      "prompt": "An adult person lies on one side with the lower forearm supporting the upper torso and both legs stacked with softly bent knees. The upper hand rests on the outer hip, with the lower hip and forearm clearly supported by the horizontal surface.",
+      "tags": [
+        "寫真",
+        "性感",
+        "側躺",
+        "曲腿",
+        "曲線"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-prone-bent-knees",
+      "category": "pose",
+      "name": "俯臥屈膝",
+      "prompt": "An adult person lies on the front with both forearms supported beneath the shoulders and the upper torso gently raised. Bend both knees so the lower legs angle upward, keeping the hips and thighs resting on the horizontal surface.",
+      "tags": [
+        "寫真",
+        "性感",
+        "俯臥",
+        "屈膝",
+        "撐身"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-supine-one-knee",
+      "category": "pose",
+      "name": "仰躺單腿屈膝",
+      "prompt": "An adult person lies on the back with one knee bent and that foot resting on the surface while the other leg remains extended. One arm bends beside the head and the other hand rests on the waist; keep the shoulders and pelvis supported.",
+      "tags": [
+        "寫真",
+        "性感",
+        "仰躺",
+        "屈膝",
+        "扶腰"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-reclined-arm-support",
+      "category": "pose",
+      "name": "半躺手臂後撐",
+      "prompt": "An adult person sits in a reclined posture with both palms planted behind the hips, the elbows softly bent and the torso gently arched. Extend both legs forward with the ankles loosely crossed, keeping the hips supported by the surface.",
+      "tags": [
+        "寫真",
+        "性感",
+        "半躺",
+        "撐身",
+        "交疊腿"
+      ]
+    },
+    {
+      "id": "pose-portrait-action-supported-raised-leg",
+      "category": "pose",
+      "name": "抬腿扶椅側身",
+      "prompt": "An adult person stands beside a low seat with one foot resting securely on it and the other foot on the ground. One hand holds the backrest for support while the other rests on the raised knee; angle the hips slightly and keep a balanced torso.",
+      "tags": [
+        "寫真",
+        "性感",
+        "站姿",
+        "抬腿",
+        "扶椅"
+      ]
+    }
+  ]
+}

@@ -1,4 +1,57 @@
+export const DEFAULT_TURNAROUND_PROMPT = 'Create a clean character turnaround sheet from the character shown in <image1>. Show exactly three full-body views of the SAME character, arranged left to right: front view, a strict side profile, and back view. This is one character shown from three directions. Preserve the facial identity, hairstyle, hair color, skin tone, distinctive features, outfit design, accessories, materials and colors from the reference. Apply the supplied height and Cup measurements consistently to all three views. Use a neutral standing pose with relaxed arms slightly separated from the torso. Keep identical body proportions, scale, posture and clothing across the views. Show the complete figure from head to toe in every view, align the feet along a common baseline, and leave even spacing between figures without overlap. Use an eye-level orthographic presentation with minimal perspective, soft even lighting, a plain neutral background and clear details. No captions, view labels, text or watermark.';
+
 export const CUP_SIZES = Array.from({length:26},(_,index)=>String.fromCharCode(65+index));
+
+const CUP_DESCRIPTIONS = [
+  {cups:'A',label:'微小胸部',prompt:'very small bust'},
+  {cups:'B',label:'小胸部',prompt:'small bust'},
+  {cups:'C',label:'中等胸部',prompt:'medium bust'},
+  {cups:'DEF',label:'大胸部',prompt:'large bust'},
+  {cups:'GHIJKLMNOPQRSTUVWXYZ',label:'巨大胸部',prompt:'huge bust'},
+];
+
+export const CHARACTER_HEIGHT_RANGES = [
+  {id:'below140',label:'140 cm 以下',bounds:'身高 < 140 cm',min:0,max:140,prompt:'very short stature'},
+  {id:'140to150',label:'140–150 cm',bounds:'140 ≤ 身高 < 150 cm',min:140,max:150,prompt:'short stature'},
+  {id:'150to160',label:'150–160 cm',bounds:'150 ≤ 身高 < 160 cm',min:150,max:160,prompt:'moderately short stature'},
+  {id:'160to170',label:'160–170 cm',bounds:'160 ≤ 身高 < 170 cm',min:160,max:170,prompt:'average height'},
+  {id:'170plus',label:'170 cm 以上',bounds:'身高 ≥ 170 cm',min:170,max:Infinity,prompt:'tall stature'},
+];
+
+export const CHARACTER_PROMPT_MAX_LENGTH = 4000;
+
+export function defaultCharacterPromptSettings() {
+  return {
+    turnaroundPrompt:DEFAULT_TURNAROUND_PROMPT,
+    heightPrompts:Object.fromEntries(CHARACTER_HEIGHT_RANGES.map(row=>[row.id,row.prompt])),
+    cupPrompts:Object.fromEntries(CUP_SIZES.map(cup=>[cup,cupSizeDescription(cup).prompt])),
+  };
+}
+
+export function normalizeCharacterPromptSettings(input) {
+  if(!input || typeof input!=='object' || Array.isArray(input)) throw new Error('角色提詞設定格式不正確。');
+  const normalize=(value,keys,label)=>{
+    if(!value || typeof value!=='object' || Array.isArray(value)) throw new Error(`${label}提詞設定格式不正確。`);
+    return Object.fromEntries(keys.map(key=>{
+      if(!Object.hasOwn(value,key) || typeof value[key]!=='string' || value[key].length>CHARACTER_PROMPT_MAX_LENGTH) throw new Error(`${label} ${key} 的提詞須為文字，最多 ${CHARACTER_PROMPT_MAX_LENGTH} 字。`);
+      return [key,value[key].trim()];
+    }));
+  };
+  const turnaroundPrompt=input.turnaroundPrompt===undefined ? DEFAULT_TURNAROUND_PROMPT : input.turnaroundPrompt;
+  if(typeof turnaroundPrompt!=='string' || !turnaroundPrompt.trim() || turnaroundPrompt.length>CHARACTER_PROMPT_MAX_LENGTH) throw new Error(`三視圖提詞須為非空白文字，最多 ${CHARACTER_PROMPT_MAX_LENGTH} 字。`);
+  return {turnaroundPrompt:turnaroundPrompt.trim(),heightPrompts:normalize(input.heightPrompts,CHARACTER_HEIGHT_RANGES.map(row=>row.id),'身高'),cupPrompts:normalize(input.cupPrompts,CUP_SIZES,'Cup')};
+}
+
+export function characterHeightRange(heightCm) {
+  if(typeof heightCm!=='number' || !Number.isFinite(heightCm) || heightCm<=0 || heightCm>1000) return;
+  return CHARACTER_HEIGHT_RANGES.find(row=>heightCm>=row.min && heightCm<row.max);
+}
+
+export function cupSizeDescription(cupSize) {
+  if(!CUP_SIZES.includes(cupSize)) return;
+  const {label,prompt}=CUP_DESCRIPTIONS.find(row=>row.cups.includes(cupSize));
+  return {label,prompt};
+}
 
 export function characterProfile(input={}) {
   if(!input || typeof input!=='object' || Array.isArray(input)) throw new Error('角色資料格式不正確。');
@@ -10,10 +63,12 @@ export function characterProfile(input={}) {
   return {...(cup ? {cupSize:cup} : {}),...(cm===null ? {} : {heightCm:cm})};
 }
 
-export function characterProfilePrompt(character) {
+export function characterProfilePrompt(character,promptSettings) {
   const {cupSize,heightCm}=characterProfile(character || {});
-  const values=[heightCm!==undefined && `height ${heightCm} cm`,cupSize && `breast size ${cupSize} cup`].filter(Boolean);
-  return values.length ? `Character measurements: ${values.join('; ')}.` : '';
+  const cupPrompt=cupSize && (promptSettings?.cupPrompts?.[cupSize] ?? cupSizeDescription(cupSize).prompt).trim();
+  const heightRange=characterHeightRange(heightCm),heightPrompt=heightRange && promptSettings?.heightPrompts?.[heightRange.id]?.trim();
+  const values=[heightCm!==undefined && `height ${heightCm} cm`,cupSize && `breast size ${cupSize} cup${cupPrompt ? ` (${cupPrompt})` : ''}`].filter(Boolean);
+  return [values.length && `Character measurements: ${values.join('; ')}.`,heightPrompt && `Height appearance: ${heightPrompt}`].filter(Boolean).join('\n');
 }
 
 export function uploadedCharacterProfiles(raw,count) {

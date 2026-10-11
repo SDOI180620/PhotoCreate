@@ -74,9 +74,11 @@ try {
     const row=await savePreset(category,name);
     assert.equal(savedIds.has(row.id),false,'New presets must have distinct IDs');savedIds.add(row.id);
     await page.locator('.preset-library .filter-tabs').getByRole('button',{name:new RegExp(`^${label}`)}).click();
+    await page.locator('.preset-library').getByRole('textbox',{name:'搜尋名稱、標籤或提詞…',exact:true}).fill(name);
     await page.locator('.preset-card').filter({has:page.getByRole('heading',{name,exact:true})}).click();
     const updated=await savePreset(category,`${name}（更新）`);
     assert.equal(updated.id,row.id,'Editing must preserve the preset ID');
+    await page.locator('.preset-library').getByRole('textbox',{name:'搜尋名稱、標籤或提詞…',exact:true}).fill('');
   }
   await page.getByRole('button',{name:'拍攝工作檯',exact:true}).click();
   await page.getByRole('button',{name:'隨機寫真',exact:true}).click();
@@ -95,11 +97,12 @@ try {
   await page.getByRole('dialog').getByRole('button',{name:'新增提詞',exact:true}).click();
   const poolRow=await savePreset('pose','候選視窗新增測試');
   await expect.poll(()=>store.read().draft.poseIds?.includes(poolRow.id)).toBe(true);
-  await page.getByRole('textbox',{name:'場景互動',exact:true}).fill('站在窗邊調整窗簾');
-  await page.getByRole('button',{name:'存為互動提詞',exact:true}).click();
-  await expect(page.getByRole('dialog').getByRole('textbox',{name:'提詞內容',exact:true})).toHaveValue('站在窗邊調整窗簾');
+  await page.getByRole('textbox',{name:'場景',exact:true}).fill('室內窗邊與半透明窗簾');
+  await page.getByRole('button',{name:'存為場景提詞',exact:true}).click();
+  await expect(page.getByRole('dialog').getByRole('textbox',{name:'提詞內容',exact:true})).toHaveValue('室內窗邊與半透明窗簾');
+  await expect(page.getByRole('dialog')).toContainText('人物的站姿、坐姿、手勢及互動請放在「動作」');
   await savePreset('interaction','補充存為提詞測試');
-  await expect(page.getByRole('textbox',{name:'場景互動',exact:true})).toHaveValue('');
+  await expect(page.getByRole('textbox',{name:'場景',exact:true})).toHaveValue('');
   await page.setViewportSize({width:390,height:844});
   await page.getByRole('group',{name:CATEGORIES.expression.plural,exact:true}).getByRole('button',{name:'新增提詞',exact:true}).click();
   await page.getByRole('dialog').getByRole('textbox',{name:'提詞名稱',exact:true}).fill('手機也能新增表情');

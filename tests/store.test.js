@@ -11,9 +11,10 @@ test('SQLite 中文短詞、英文全文、分類、分頁與索引更新',t => 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-test-store-'));
   let store = createStore(dir);
   t.after(() => {store.close();});
+  const existingTurnPoses=store.searchPresets({q:'回眸',category:'pose'}).total;
   const rows = Array.from({length:125},(_,i) => ({id:`bulk-${i}`,category:'pose',name:`海邊回眸 ${i}`,prompt:'Turning near the seaside, natural shoulder posture.',tags:['夕陽','回眸']}));
   store.mutate(state => {state.presets.push(...rows);state.draft = {extra:'保留衣服細節'};});
-  assert.equal(store.searchPresets({q:'回眸',category:'pose',limit:24}).total,127);
+  assert.equal(store.searchPresets({q:'回眸',category:'pose',limit:24}).total,125+existingTurnPoses);
   assert.equal(store.searchPresets({q:'seaside',category:'pose',limit:24,offset:24}).rows.length,24);
   assert.equal(store.searchPresets({q:'海邊回',category:'pose'}).total,125);
   assert.equal(store.searchPresets({q:'seaside 夕陽'}).total,125);
@@ -21,9 +22,9 @@ test('SQLite 中文短詞、英文全文、分類、分頁與索引更新',t => 
   assert.equal(store.searchPresets({q:'" OR *'}).total,0);
   store.mutate(state => {const row = state.presets.find(row => row.id === 'bulk-0');row.name = '森林漫步';row.prompt = 'Forest walk';row.tags = ['森林'];});
   assert.equal(store.searchPresets({q:'海邊回'}).total,124);
-  assert.equal(store.searchPresets({q:'Forest walk'}).total,1);
+  assert.equal(store.searchPresets({q:'Forest walk',category:'pose'}).total,1);
   store.mutate(state => {state.presets = state.presets.filter(row => row.id !== 'bulk-0');});
-  assert.equal(store.searchPresets({q:'Forest walk'}).total,0);
+  assert.equal(store.searchPresets({q:'Forest walk',category:'pose'}).total,0);
   store.mutate(state => {state.garments.unshift({id:'older',name:'舊服裝',tags:[]});});
   store.mutate(state => {state.garments.unshift({id:'newer',name:'新服裝',tags:[]});});
   assert.throws(() => store.mutate(state => {state.presets[0].name = 'bad';throw new Error('rollback');}),/rollback/);
@@ -52,7 +53,7 @@ test('舊版 SQLite 清單自動分組，重開後保留名稱、歸屬與生成
   assert.ok(store.read().jobs.every(job => job.batchId === batchId));
 });
 
-test('既有提詞庫只補入一次場景互動範例，保留自訂內容與刪除結果',t => {
+test('既有提詞庫只補入一次場景範例，保留自訂內容與刪除結果',t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-test-interactions-'));
   let store = createStore(dir);
   t.after(() => store.close());

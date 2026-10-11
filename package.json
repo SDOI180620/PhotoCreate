@@ -9,15 +9,22 @@
     "start": "node --env-file-if-exists=.env.local server/index.js",
     "test": "node --test tests/*.test.js",
     "test:ui": "node tests/browser-smoke.mjs",
+    "test:customer-controls-ui": "node tests/customer-shoot-controls-browser.mjs",
+    "test:playback-ui": "node tests/gallery-playback-browser.mjs",
     "test:environment-ui": "node tests/environment-browser.mjs",
     "test:transfer-ui": "node tests/transfer-browser.mjs",
     "test:character-memory-ui": "node tests/character-memory-browser.mjs",
+    "test:character-prompts-ui": "node tests/character-prompt-settings-browser.mjs",
+    "test:character-configs-ui": "node tests/character-prompt-profiles-browser.mjs",
+    "test:character-turnarounds-ui": "node tests/character-turnarounds-browser.mjs",
     "test:camera-ui": "node tests/camera-angle-browser.mjs",
     "test:preset-ui": "node tests/preset-editor-browser.mjs",
     "test:preset-photos-ui": "node tests/preset-photos-browser.mjs",
     "test:preset-review-ui": "node tests/preset-review-browser.mjs",
     "test:gallery-ui": "node tests/gallery-layout-browser.mjs",
-    "test:photo-selection-ui": "node tests/photo-selection-browser.mjs"
+    "test:loading-ui": "node tests/image-loading-browser.mjs",
+    "test:photo-selection-ui": "node tests/photo-selection-browser.mjs",
+    "test:folder-loading-ui": "node tests/photo-folders-on-demand-browser.mjs"
   },
   "engines": {
     "node": ">=24.0.0"
@@ -28,6 +35,7 @@
     "multer": "^2.0.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "sharp": "^0.35.5",
     "yauzl": "^3.4.0",
     "yazl": "^3.3.1"
   },

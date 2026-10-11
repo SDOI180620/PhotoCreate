@@ -10,7 +10,7 @@ export default function ShotOptions({job,presets = [],onOpenPreset,detailed = fa
     ['pose','動作',job.pose?.name],
     ['expression','表情',job.expression?.name],
     ['clothing-state','服裝狀態',job.clothingState?.name],
-    ['interaction','場景互動',interaction],
+    ['interaction','場景',interaction],
     ['camera','攝影角度',job.camera?.name],
     ['lighting','光線',job.lighting?.name],
     ['color','色彩',job.color?.name],

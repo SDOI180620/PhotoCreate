@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {buildShotPlans} from '../shared/domain.js';
+import {SINGLE_SUBJECT_PROMPT} from '../shared/subject.js';
 import {buildRemakePlans} from '../shared/remakes.js';
 import {DRAFT,fixtureState} from './fixtures.js';
 
@@ -64,7 +65,7 @@ test('隨機寫真只給角色與張數，即從全庫生成精確30張，選填
   for(const shot of shots){
     assert.equal(shot.character.id,'character');assert.equal(shot.generationMode,'random');
     assert.equal(shot.expression,null);assert.equal(shot.clothingState,null);assert.equal(shot.interaction,null);
-    assert(shot.prompt.startsWith('1 girl\n\n'));assert.doesNotMatch(shot.prompt,/Facial expression:|Clothing state:|Scene interaction:|Picture 3/);
+    assert(shot.prompt.startsWith(`${SINGLE_SUBJECT_PROMPT}\n\n`));assert.doesNotMatch(shot.prompt,/Facial expression:|Clothing state:|Scene:|Picture 3/);
   }
   for(const key of ['garment','pose','camera','lighting','color','quality']) assert(new Set(shots.map(row=>row[key].id)).size>1,key);
   assert.deepEqual(state,before);
@@ -86,7 +87,7 @@ test('相容舊版隨機啟用設定，保留比例、快照與重製組合',() 
   const shots = buildShotPlans(state,{...randomDraft,aspectRatio:'9:16',randomOptional:{expression:true,clothing_state:true,interaction:true}});
   for(const shot of shots){
     assert(shot.expression && shot.clothingState && shot.interaction);
-    assert.match(shot.prompt,/Facial expression:.*\n\nClothing state:/s);assert.match(shot.prompt,/Scene interaction:/);
+    assert.match(shot.prompt,/Facial expression:.*\n\nClothing state:/s);assert.match(shot.prompt,/Scene:/);
     assert.equal(shot.outputWidth,1152);assert.equal(shot.outputHeight,2048);
   }
   const source = {...shots[0],batchId:'random-batch',status:'completed',images:[{filename:'test.png'}]};

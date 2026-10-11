@@ -66,6 +66,7 @@ try {
       const scenario=cases[index];
       if(surface==='admin') await page.locator(`[data-job-id="admin-${scenario.name}"] .gallery-angle`).click();
       else {
+        await page.locator('#photos').getByRole('button',{name:'資料夾 全部照片',exact:true}).click();
         await page.locator(`.pc-photo-card:has(img[src*="/jobs/customer-${scenario.name}/image"])`).click();
         await page.getByRole('button',{name:/^不同角度拍攝/}).click();
       }
@@ -123,6 +124,7 @@ try {
       const usesTextClothing=['text','maid-text'].includes(kind);
       if(surface==='admin') await page.locator('[data-job-id="admin-numbers"] .gallery-custom').click();
       else {
+        await page.locator('#photos').getByRole('button',{name:'資料夾 全部照片',exact:true}).click();
         await page.locator('.pc-photo-card:has(img[src*="/jobs/customer-numbers/image"])').click();
         if(kind==='original') {
           const settings=page.getByRole('region',{name:'本張使用的提詞',exact:true});
@@ -227,7 +229,7 @@ try {
     const officialFields=[['動作','pose','pose-sitting'],['服裝狀態','clothingState','clothing-state-breeze'],['場景','scene','interaction-window'],['表情','expression','expression-calm'],['光線','lighting','light-golden'],['色彩','color','color-film'],['畫質','quality','quality-candid']];
     for(const [name,aspectRatio,official] of [['official-portrait','9:16',true],['square','1:1',false],['landscape','16:9',false]]) {
       if(surface==='admin') await page.locator('[data-job-id="admin-numbers"] .gallery-custom').click();
-      else {await page.locator('.pc-photo-card:has(img[src*="/jobs/customer-numbers/image"])').click();await page.getByRole('button',{name:/^自訂拍攝/}).click();}
+      else {await page.locator('#photos').getByRole('button',{name:'資料夾 全部照片',exact:true}).click();await page.locator('.pc-photo-card:has(img[src*="/jobs/customer-numbers/image"])').click();await page.getByRole('button',{name:/^自訂拍攝/}).click();}
       const dialog=page.getByRole('dialog',{name:'自訂拍攝',exact:true}),original=store.read().jobs.find(job=>job.id===`${surface}-numbers`);
       if(official) {
         for(const [label,,id] of officialFields) {
@@ -291,6 +293,7 @@ try {
       await page.getByRole('button',{name:'成果畫廊',exact:true}).click();
       await page.locator('[data-job-id="admin-numbers"] .gallery-angle').click();
     } else {
+      await page.locator('#photos').getByRole('button',{name:'資料夾 全部照片',exact:true}).click();
       await page.locator('.pc-photo-card:has(img[src*="/jobs/customer-numbers/image"])').click();
       await page.getByRole('button',{name:/^不同角度拍攝/}).click();
     }
@@ -320,6 +323,7 @@ try {
         state.jobs.push({...structuredClone(original),id:'customer-numbers-version',rootJobId:original.id,sourceJobId:original.id,remakeVersion:1});
       });
       await page.reload();await page.getByRole('button',{name:'回收區',exact:true}).click();
+      await page.locator('#photos').getByRole('button',{name:'資料夾 全部照片',exact:true}).click();
       await expect(page.locator('.pc-trash-card')).toHaveCount(3);
       await page.getByRole('button',{name:'全選回收區照片',exact:true}).click();
       await expect(page.locator('.pc-trash-card input:checked')).toHaveCount(3);

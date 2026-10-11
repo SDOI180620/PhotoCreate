@@ -42,4 +42,11 @@
 .photo-garment-picker span {display:block;font-size:10px;line-height:1.5;margin:6px 2px;overflow-wrap:anywhere}
 .photo-customization button:focus-visible,.photo-customization textarea:focus-visible,.photo-customization select:focus-visible {outline:2px solid #8966b3;outline-offset:2px}
 .photo-customization button:disabled {opacity:.5;cursor:default}
+.photo-catalog-trigger {display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px 13px;border:1px solid #ded6e8;border-radius:8px;background:#fff;color:#674297;text-align:left;font:inherit;cursor:pointer}
+.photo-catalog-trigger>span {min-width:0}
+.photo-catalog-trigger small {display:block;font-size:10px;line-height:1.6;color:#95859f;margin-bottom:3px}
+.photo-catalog-trigger strong {display:block;font-size:13px;line-height:1.6;font-weight:600;overflow-wrap:anywhere}
+.photo-catalog-trigger svg {flex:none}
+.photo-catalog-trigger:hover {background:#faf8fc;border-color:#b9a0df}
+.photo-catalog-choice>.photo-customization-help {margin:7px 0 0}
 @media(max-width:470px) {.photo-garment-picker {grid-template-columns:repeat(2,minmax(0,1fr))}.photo-settings-list {grid-template-columns:minmax(0,1fr)}.photo-ratio-options {grid-template-columns:repeat(2,minmax(0,1fr))}}

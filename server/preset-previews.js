@@ -77,7 +77,7 @@ export function createPresetPreviews({dataDir,store,outputDir,comfyJson,comfyAt,
       sessions.set(record.id,{...record,closedAt:clock(),touchedAt:clock(),promptIds:[...new Set(record.promptIds)]});
     }
   }
-  const memoryStore={read:()=>structuredClone(memory),mutate:callback=>{
+  const memoryStore={read:(select=value=>value)=>structuredClone(select(memory)),mutate:callback=>{
     const next=structuredClone(memory),result=callback(next);
     for(const job of next.jobs) if(job.promptId && !UUID.test(job.promptId)) throw fail('ComfyUI 臨時任務識別碼無效。');
     Object.assign(memory,next);

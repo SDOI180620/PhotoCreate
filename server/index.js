@@ -5,13 +5,16 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { createStore } from './store.js';
+import {createImagePreviews} from './image-previews.js';
+import {createPhotoStorage,angleInputImage} from './photo-storage.js';
+import {createBackupManager} from './backups.js';
 import { createTransferManager } from './transfer.js';
 import { LIMITS } from './transfer-schema.js';
 import { workbenchAccess } from './access.js';
 import { createAuthentication } from './auth.js';
 import { createVisitorRouter } from './visitors.js';
 import { createPhotoFolders } from './photo-folders.js';
-import { belongsToStudio,operatorState } from './studio-ownership.js';
+import { belongsToStudio,operatorState,jobSummary } from './studio-ownership.js';
 import { photoPromptDetails } from './photo-prompts.js';
 import { createCustomerRecipe, customerProductionState, customerRecipeSummary } from './customer-recipe.js';
 import { CATEGORIES, buildShotPlans, getOutputSize, normalizePresetImport, referenceOnlyPrompt } from '../shared/domain.js';
@@ -19,6 +22,10 @@ import { ACTIVE_STATUSES, RETRYABLE_STATUSES, STOPPABLE_STATUSES, defaultBatchNa
 import { jobUpdateFromComfy } from './job-status.js';
 import { createStageRunner } from './stage-runner.js';
 import {createPresetPreviews,relatedPresetPhotos} from './preset-previews.js';
+import {createCharacterTurnarounds,characterTurnaroundRouter} from './character-turnarounds.js';
+import {createCharacterPromptProfiles} from './character-prompt-profiles.js';
+import {createGalleryMusic} from './gallery-music.js';
+import {DEFAULT_PIANO_CAPTION} from '../shared/gallery-music.js';
 import { buildRemakePlans } from '../shared/remakes.js';
 import { resolveSelectedPhotoSource } from '../shared/camera-source.js';
 import { PHOTO_CUSTOMIZATION_VERSION,PHOTO_CHANGE_FIELDS,PHOTO_PRESET_CATEGORIES,normalizePhotoCustomization,customPhotoPrompt,clothingDescription } from '../shared/photo-customization.js';
@@ -27,7 +34,7 @@ import { CAMERA_FRAMING_VERSION, cameraPreset, normalizeCameraAngle, cameraPromp
 import {productionStages} from '../shared/production.js';
 import {characterProfile,uploadedCharacterProfiles} from '../shared/character-profile.js';
 import { validateCameraWorkflow, buildCameraPipeline, buildCameraStage } from './camera-workflow.js';
-import { deleteOutputFiles, purgeJobOutputs, outputDirectoryForJob } from './outputs.js';
+import { purgeJobOutputs,resolveOutputFile,outputDirectoryForJob } from './outputs.js';
 import { createEnvironmentManager,defaultComfyDirectory,validateComfyDirectory,pickComfyDirectory,comfyOutputDirectory,BUNDLED_WORKFLOW_PATH,BUNDLED_CAMERA_PATH } from './environment.js';
 import { normalizeComfyUrl,testComfyConnection,publicConnectionTest } from './connection.js';
 import { WORKFLOW_NAME, WORKFLOW_PATH, convertWorkflow, validateTemplate, buildComfyPrompt, referenceKinds, workflowSummary } from './workflow.js';
@@ -48,30 +55,51 @@ const assetFields = body => {
   return {name, description, tags: tags.map(tag => tag.trim()).filter(Boolean)};
 };
 
-export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fetch, comfyOutputDir, environmentOptions = {}, presetPreviewOptions = {}, directoryPicker = pickComfyDirectory, publicUrl = process.env.PHOTOCREATE_PUBLIC_URL } = {}) {
+export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fetch, comfyOutputDir, environmentOptions = {}, presetPreviewOptions = {}, characterTurnaroundOptions = {}, musicOptions = {}, photoStorageOptions = {}, directoryPicker = pickComfyDirectory, publicUrl = process.env.PHOTOCREATE_PUBLIC_URL } = {}) {
   const access=workbenchAccess({publicUrl});
   const store = createStore(dataDir);
+  const imagePreviews=createImagePreviews();
+  const photoStorage=createPhotoStorage({dataDir,store,defaultOutputDir:comfyOutputDir,intervalMs:fetchImpl===fetch ? 1500 : 0,
+    loadImage:async(base,image)=>Buffer.from(await (await comfyAt(base,`/view?${new URLSearchParams({filename:image.filename,subfolder:image.subfolder || '',type:image.type || 'output'})}`)).arrayBuffer()),...photoStorageOptions});
+  const characterPromptProfiles=createCharacterPromptProfiles(store);
   const photoFolders=createPhotoFolders(store);
   const authentication=createAuthentication({dataDir,publicUrl,claimLegacyStudio:(legacyOwner,ownerId)=>{
     store.mutate(state=>{for(const collection of ['characters','jobs','batches']) for(const row of state[collection]) if(row.visitorId===legacyOwner) row.visitorId=ownerId;});
   }});
   const environment = createEnvironmentManager({dataDir,fetchImpl,...environmentOptions});
   const transfer = createTransferManager({dataDir,store});
-  const closeStore=store.close;store.close=()=>{transfer.close();environment.close();authentication.close();closeStore();};
-  const outputDir = () => comfyOutputDir || comfyOutputDirectory(store.read().settings);
+  let activeWrites=0;
+  const backups=createBackupManager({dataDir,photoStorage,assertIdle:()=>{
+    assertEnvironmentIdle();if(activeWrites || transfer.isBusy() || syncing) throw fail('請先完成資料保存、搬移或拍攝更新，再建立完整備份。',409);
+  }});
+  const closeStore=store.close;store.close=()=>{backups.close();photoStorage.close();imagePreviews.clear();transfer.close();environment.close();authentication.close();closeStore();};
+  const outputDir = () => comfyOutputDir || comfyOutputDirectory(store.read(state=>state.settings));
   const app = express();
   app.disable('x-powered-by');
   app.use(access);
   app.use(express.json({limit: '10mb'}));
+  app.use((req,res,next)=>{
+    if(['GET','HEAD'].includes(req.method) || !req.path.startsWith('/api/') || req.path==='/api/auth/logout') return next();
+    if(backups.isBusy()) return next(fail('正在建立完整備份，請稍後再修改資料。',409));
+    if(req.path!=='/api/backups/export') {
+      activeWrites++;let finished=false;
+      const release=()=>{if(!finished) {finished=true;activeWrites--;}};
+      res.once('finish',release);res.once('close',release);
+    }
+    next();
+  });
   app.use(authentication.attach);
   app.use('/api/auth',authentication.router);
   app.use('/api/accounts',authentication.accountsRouter);
   app.get('/login',(req,res,next)=>req.account ? res.redirect(req.account.role==='admin' ? '/admin' : '/') : next());
   app.use('/admin',authentication.page);
-  app.use('/uploads',authentication.requireAdmin,(req,res,next)=>{
-    const state=operatorState(store.read()),fileName=req.path.slice(1);
-    const references=[...state.characters,...state.garments,...state.scenes,...state.jobs.flatMap(job=>[job.character,job.garment,job.scene])];
-    if(!references.some(row=>row && belongsToStudio(row) && row.fileName===fileName)) return next(fail('找不到圖片。',404));
+  app.use('/uploads',authentication.requireAdmin,async(req,res,next)=>{
+    const fileName=req.path.slice(1);
+    const allowed=store.read(state=>[...state.characters,...state.garments,...state.scenes,
+      ...state.jobs.filter(job=>belongsToStudio(job)).flatMap(job=>[job.character,job.garment,job.scene])]
+      .some(row=>row && belongsToStudio(row) && row.fileName===fileName));
+    if(!allowed) return next(fail('找不到圖片。',404));
+    if(req.query.thumbnail!==undefined && !req.query.download) return imagePreviews.send(res,{key:`upload:${fileName}`,file:path.join(dataDir,'uploads',fileName),size:req.query.thumbnail});
     next();
   },express.static(path.join(dataDir,'uploads'),{ dotfiles: 'deny' }));
   const upload = multer({ storage: multer.memoryStorage(), limits: {fileSize: 25 * 1024 * 1024, files: 50} });
@@ -80,8 +108,10 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   let submission = null;
   let pickingDirectory = false;
   let presetPreviews;
+  let characterTurnarounds;
+  let galleryMusic;
   const assertEnvironmentIdle = () => {
-    if(environment.isActive() || submitting || presetPreviews?.hasWork() || store.read().jobs.some(job=>ACTIVE_STATUSES.includes(job.status))) throw fail('請先暫停環境安裝與拍攝，再切換環境。',409);
+    if(environment.isActive() || submitting || presetPreviews?.hasWork() || characterTurnarounds?.hasWork() || galleryMusic?.hasWork() || store.read().jobs.some(job=>ACTIVE_STATUSES.includes(job.status))) throw fail('請先完成或暫停環境安裝、拍攝、角色轉圖與音樂製作，再切換環境。',409);
   };
   const rememberOutputLocations = state => {
     const directory=outputDir();
@@ -92,8 +122,9 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   };
   const stopAttempts = new Map();
   const getCustomerRecipe=()=>{
+    const existing=store.read(state=>state.customerRecipe);
+    if(existing) return existing;
     const state=store.read();
-    if(state.customerRecipe) return state.customerRecipe;
     // Existing installations keep their current choices on first upgrade.
     // Once captured, saving an operator draft never changes this recipe.
     try {
@@ -103,36 +134,47 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     } catch {return null;}
   };
   app.use('/api/studio',authentication.requireCustomer,createVisitorRouter({store,dataDir,
+    getCharacterTurnarounds:()=>characterTurnarounds,
+    getGalleryMusic:()=>galleryMusic,
     photoFolders,
     getCustomerRecipe,
-    isInstalling:()=>environment.isActive(),
+    isInstalling:()=>environment.isActive() || galleryMusic?.hasWork(),
     uploadCharacter:(files,visitorId,profiles)=>saveAssetUploads('characters',files,visitorId,profiles),
     createShots,remakeShots,angleShot,customShot,queueShots,stopShots,
-    purgeOutputs:jobs=>purgeJobOutputs(store.read(),jobs,outputDir()),
-    sendImage:serveJobImage,sendAngleSource:serveAngleSource,sendCharacterReference:serveCharacterReference,
+    purgeOutputs:(jobs,requireLocal=false)=>purgeOwnedOutputs(store.read(),jobs,requireLocal),
+    sendImage:serveJobImage,sendAngleSource:serveAngleSource,sendCharacterReference:serveCharacterReference,sendAssetImage:serveAssetImage,
   }));
   app.use('/api',(req,res,next)=>req.method==='GET' && req.path==='/health' ? next() : authentication.requireAdmin(req,res,next));
+  app.use('/api/character-turnarounds',characterTurnaroundRouter(()=>characterTurnarounds,()=>'admin'));
   const publicState = () => {
     const customerRecipe=getCustomerRecipe();
-    const state = operatorState(store.read());
-    const workflow = workflowSummary(state.workflow,state.workflowName || WORKFLOW_NAME);
-    const cameraWorkflow = {ready:Boolean(state.cameraWorkflow),name:state.cameraWorkflowName || BUNDLED_CAMERA_PATH,error:state.cameraWorkflowError || ''};
-    delete state.workflow;delete state.cameraWorkflow;
-    state.cameraWorkflow = cameraWorkflow;
+    const state = store.read(current=>{
+      const own=operatorState(current),{workflow,cameraWorkflow,...view}=own;
+      return {...view,jobs:own.jobs.map(jobSummary),workflow:workflowSummary(workflow,own.workflowName || WORKFLOW_NAME),
+        cameraWorkflow:{ready:Boolean(cameraWorkflow),name:own.cameraWorkflowName || BUNDLED_CAMERA_PATH,error:own.cameraWorkflowError || ''}};
+    });
+    const workflow=state.workflow;
     state.photoFolders=photoFolders.list('admin');
-    return {...state,customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true,characterPools:true,characterProfile:1,gpuMemoryControl:true,presetPreviews:1,presetPreviewRatios:1,presetReview:1,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
+    return {...state,customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,imagePreviews:1,managedPhotos:1,fullBackups:1,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true,characterPools:true,characterProfile:1,characterPromptSettings:1,characterPromptProfiles:1,characterTurnaround:1,gpuMemoryControl:true,presetPreviews:1,presetPreviewRatios:1,presetReview:1,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
   };
-  const adminJob=(id,state=store.read())=>{
-    const job=state.jobs.find(row=>row.id===id && belongsToStudio(row));
+  const adminJob=(id,state)=>{
+    const job=state ? state.jobs.find(row=>row.id===id && belongsToStudio(row))
+      : store.read(current=>current.jobs.find(row=>row.id===id && belongsToStudio(row)));
     if(!job) throw fail('找不到你的拍攝任務。',404);
     return job;
   };
   const adminJobs=ids=>{const state=store.read();return ids.map(id=>adminJob(id,state));};
   async function comfyAt(base,endpoint,options = {}) {
+    const imageQuery=endpoint.startsWith('/view?') ? new URLSearchParams(endpoint.slice(6)) : null;
+    const image=imageQuery && {filename:imageQuery.get('filename'),subfolder:imageQuery.get('subfolder') || '',type:imageQuery.get('type') || 'output'};
+    const saved=image && photoStorage.find(base,image);
+    if(saved) return new Response(await fs.promises.readFile(saved.file),{headers:{'content-type':saved.mime}});
     let response;
     try { response = await fetchImpl(`${base}${endpoint}`,{...options,signal: AbortSignal.timeout(30000)}); }
     catch (error) { throw Object.assign(fail(`無法連接 ComfyUI（${base}）：${error.message}`,502),{connectionUnavailable:['ECONNREFUSED','ENOTFOUND','EHOSTUNREACH'].includes(error.cause?.code || error.code)}); }
     if (!response.ok) {
+      const archived=image && photoStorage.find(base,image);
+      if(archived) return new Response(await fs.promises.readFile(archived.file),{headers:{'content-type':archived.mime}});
       const text = await response.text();
       let message = text;
       try { const data = JSON.parse(text); message = [data.error?.message || data.error, ...Object.entries(data.node_errors || {}).map(([id,detail]) => `節點 ${id}: ${detail.errors?.map(e => e.details || e.message).join('; ')}`)].filter(Boolean).join(' · ') || text; } catch { /* upstream text response */ }
@@ -141,6 +183,19 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     return response;
   }
   const comfyJson = async (endpoint,options = {},base = store.read().settings.comfyUrl) => (await comfyAt(base,endpoint,options)).json();
+  function purgeOwnedOutputs(state,jobs,requireLocal=false) {
+    const removeManaged=photoStorage.preparePurge(state,jobs);
+    const partition=managed=>jobs.map(job=>{
+      const keep=(image,base=job.comfyUrl || state.settings.comfyUrl)=>Boolean(photoStorage.find(base,image))===managed;
+      return {...job,images:(job.images || []).filter(image=>keep(image)),
+        stageResults:Object.fromEntries(Object.entries(job.stageResults || {}).map(([stage,result])=>[stage,{...result,images:(result.images || []).filter(image=>keep(image,result.comfyUrl || job.comfyUrl || state.settings.comfyUrl))}])),
+        sourceImage:job.sourceImage && keep(job.sourceImage,job.sourceComfyUrl || job.comfyUrl || state.settings.comfyUrl) ? job.sourceImage : undefined,
+        cameraSource:job.cameraSource && keep(job.cameraSource.image,job.cameraSource.comfyUrl || job.sourceComfyUrl || job.comfyUrl || state.settings.comfyUrl) ? job.cameraSource : undefined};
+    });
+    const legacy=purgeJobOutputs(state,partition(false),outputDir(),{requireLocal});
+    const rawManaged=purgeJobOutputs(state,partition(true),outputDir());
+    return legacy+rawManaged+removeManaged();
+  }
   async function loadWorkflow(workflowPath = WORKFLOW_PATH) {
     if (typeof workflowPath !== 'string' || !workflowPath.endsWith('.json') || workflowPath.includes('..')) throw fail('工作流路徑無效。');
     const base = store.read().settings.comfyUrl;
@@ -176,6 +231,17 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   const jobPrompt = (state,job,images) => buildCameraPipeline(job.workflowSnapshot || state.workflow,job.cameraWorkflowSnapshot || state.cameraWorkflow,job,images);
   app.get('/api/health',(req,res) => res.json({ok:true,app:'PhotoCreate'}));
   app.get('/api/state',(req,res) => res.json(publicState()));
+  app.get('/api/photo-storage',(req,res)=>res.json(photoStorage.status()));
+  app.post('/api/backups/export',async(req,res)=>res.json(await backups.exportZip()));
+  app.get('/api/backups/:token',(req,res,next)=>{
+    const archive=backups.download(req.params.token);
+    res.download(archive.path,archive.name,error=>{archive.cleanup();if(error && !res.headersSent) next(error);});
+  });
+  app.put('/api/character-prompt-settings',(req,res)=>res.json(characterPromptProfiles.saveActive(req.body)));
+  app.get('/api/character-prompt-profiles',(req,res)=>res.json(characterPromptProfiles.read()));
+  app.post('/api/character-prompt-profiles',(req,res)=>res.status(201).json(characterPromptProfiles.create(req.body)));
+  app.put('/api/character-prompt-profiles/:id',(req,res)=>res.json(characterPromptProfiles.update(req.params.id,req.body)));
+  app.delete('/api/character-prompt-profiles/:id',(req,res)=>res.json(characterPromptProfiles.remove(req.params.id)));
   app.get('/api/photo-folders',(req,res)=>res.json(photoFolders.list('admin')));
   app.post('/api/photo-folders',(req,res)=>res.status(201).json(photoFolders.create('admin',req.body?.name)));
   app.patch('/api/photo-folders/:id',(req,res)=>res.json(photoFolders.rename('admin',req.params.id,req.body?.name)));
@@ -342,9 +408,9 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   app.delete('/api/assets/:kind/:id',(req,res) => {
     if (!kinds.includes(req.params.kind)) throw fail('圖庫類型無效。');
     if(!store.read()[req.params.kind].some(row=>row.id===req.params.id && belongsToStudio(row))) throw fail('找不到圖片。',404);
-    store.mutate(state => {state[req.params.kind] = state[req.params.kind].filter(row => row.id !== req.params.id);reconcileLibrarySelections(state);});
+    const customerRecipeUpdated=store.mutate(state => {state[req.params.kind] = state[req.params.kind].filter(row => row.id !== req.params.id);return reconcileLibrarySelections(state);});
     // Files remain available for saved shot snapshots.
-    res.json({ok:true});
+    res.json({ok:true,customerRecipeUpdated});
   });
   app.post('/api/presets',(req,res) => {
     const [preset] = normalizePresetImport([req.body]);
@@ -354,6 +420,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
         if(preset.reviewed===undefined && state.presets[index].reviewed!==undefined) preset.reviewed=state.presets[index].reviewed;
         state.presets[index] = preset;
       }
+      reconcileLibrarySelections(state);
     });
     res.json(preset);
   });
@@ -363,6 +430,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
       const merged = new Map(state.presets.map(row => [row.id,row]));
       for (const row of rows) merged.set(row.id,{...(merged.get(row.id)?.reviewed===undefined ? {} : {reviewed:merged.get(row.id).reviewed}),...row});
       state.presets = [...merged.values()];
+      reconcileLibrarySelections(state);
     });
     res.json({count:rows.length});
   });
@@ -385,8 +453,8 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     res.json(preset);
   });
   app.delete('/api/presets/:id',(req,res) => {
-    store.mutate(state => {state.presets = state.presets.filter(row => row.id !== req.params.id);reconcileLibrarySelections(state);});
-    res.json({ok:true});
+    const customerRecipeUpdated=store.mutate(state => {state.presets = state.presets.filter(row => row.id !== req.params.id);return reconcileLibrarySelections(state);});
+    res.json({ok:true,customerRecipeUpdated});
   });
 
   app.get('/api/comfy/status',async (req,res) => {
@@ -533,10 +601,6 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     const state = store.read();
     const jobs = [...new Set(ids)].map(id => state.jobs.find(job => job.id === id));
     if(jobs.some(job => !job || job.status !== 'completed')) throw fail('只能刪除已完成的成果。');
-    for(const job of jobs) {
-      const base = new URL(job.comfyUrl || state.settings.comfyUrl);
-      if(!['127.0.0.1','localhost','[::1]'].includes(base.hostname)) throw fail('此成果位於其他 ComfyUI 主機，無法從本機刪除。');
-    }
     const selected = new Set(ids);
     const imageKey = image => JSON.stringify([image.type || 'output',String(image.subfolder || '').replaceAll('\\','/'),image.filename]);
     const retained = new Set(state.jobs.filter(job => !selected.has(job.id)).flatMap(job => job.images || []).map(imageKey));
@@ -544,10 +608,8 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     // A basic shoot's final output is also its original camera source.
     // Hide a replaced result while retaining the original for later angles.
     if(replacement?.jobKind === 'angle-edit' && replacement.cameraSource?.stage === 'base') retained.add(imageKey(replacement.cameraSource.image));
-    const images = jobs.flatMap(job => job.images || []).filter(image => !retained.has(imageKey(image)));
-    const directories=[...new Set(jobs.map(job=>outputDirectoryForJob(job,state.settings,outputDir())))];
-    if(directories.length!==1) throw fail('這些成果位於不同的 ComfyUI 目錄，請分開刪除。');
-    const deletedFiles = deleteOutputFiles(directories[0],images);
+    const deleting=jobs.map(job=>({...job,images:(job.images || []).filter(image=>!retained.has(imageKey(image)))}));
+    const deletedFiles = purgeOwnedOutputs(state,deleting,true);
     const deletedAt = new Date().toISOString();
     store.mutate(current => {
       for(const source of jobs) {
@@ -575,6 +637,15 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     if(!Array.isArray(ids) || !ids.length || ids.length > 100 || ids.some(id => typeof id !== 'string')) throw fail('請選擇 1–100 張成果。');
     adminJobs(ids);
     res.json(deleteOutputs(ids));
+  });
+  app.get('/api/batches/:id/export',(req,res)=>{
+    const result=store.read(state=>{
+      const batch=state.batches.find(row=>row.id===req.params.id && belongsToStudio(row));
+      if(!batch) throw fail('找不到拍攝組。',404);
+      const {id,name,createdAt}=batch;
+      return {version:1,batch:{id,name,createdAt},shots:state.jobs.filter(job=>job.batchId===id && belongsToStudio(job))};
+    });
+    res.json(result);
   });
   app.patch('/api/batches/:id',(req,res) => {
     const name = safeText(req.body.name,200,'拍攝組名稱');
@@ -616,8 +687,10 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     const result = await (await comfyAt(base,'/upload/image',{method:'POST',body:form})).json();
     return result.subfolder ? `${result.subfolder}/${result.name}` : result.name;
   }
+  const uploadedAngleInputs=new Set();
   async function uploadAngleSource(job,base) {
-    if(job.sourceInput && job.sourceInputComfyUrl === base) return job.sourceInput;
+    const cached=angleInputImage(job),cacheKey=JSON.stringify([job.id,base,job.sourceInput]);
+    if(job.sourceInput && job.sourceInputComfyUrl === base && (uploadedAngleInputs.has(cacheKey) || !photoStorage.manageOutputs && !photoStorage.find(base,cached))) return job.sourceInput;
     const cachedInput = job.sourceInput && job.sourceInputComfyUrl;
     const source = cachedInput ? {filename:path.posix.basename(job.sourceInput),subfolder:path.posix.dirname(job.sourceInput) === '.' ? '' : path.posix.dirname(job.sourceInput),type:'input'} : job.sourceImage;
     if(!source?.filename || !['input','output','temp'].includes(source.type || 'output')) throw fail('原始成果圖資料無效。');
@@ -628,6 +701,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     if(!result.name) throw fail('原始成果圖上傳失敗。');
     const input = result.subfolder ? `${result.subfolder}/${result.name}` : result.name;
     store.mutate(state => Object.assign(state.jobs.find(row => row.id === job.id),{sourceInput:input,sourceInputComfyUrl:base}));
+    uploadedAngleInputs.add(JSON.stringify([job.id,base,input]));
     return input;
   }
   const stopRequested = id => Boolean(store.read().jobs.find(job => job.id === id)?.stopRequestedAt);
@@ -660,21 +734,32 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     stopAttempts.set(key,promise);
     try {return await promise;} finally {stopAttempts.delete(key);}
   }
-  const stageRunner = createStageRunner({store,comfyJson,comfyAt,uploadReference,uploadAngleSource,onCompleted:cleanupRemakes,onStop:stopRemoteJob});
+  const stageRunner = createStageRunner({store,comfyJson,comfyAt,uploadReference,uploadAngleSource,onCompleted:cleanupRemakes,onStop:stopRemoteJob,
+    hasStoredImage:(base,image)=>photoStorage.manageOutputs || Boolean(photoStorage.find(base,image))});
   presetPreviews=createPresetPreviews({dataDir,store,outputDir,comfyJson,comfyAt,uploadReference,...presetPreviewOptions});
+  characterTurnarounds=createCharacterTurnarounds({dataDir,store,outputDir,comfyJson,comfyAt,isInstalling:()=>environment.isActive() || galleryMusic?.hasWork(),...characterTurnaroundOptions});
+  galleryMusic=createGalleryMusic({dataDir,comfyJson,comfyAt,comfyUrl:()=>store.read().settings.comfyUrl,isBusy:()=>environment.isActive() || submitting || presetPreviews.hasWork() || characterTurnarounds.hasWork() || stageRunner.hasWork() || store.read().jobs.some(job=>ACTIVE_STATUSES.includes(job.status)),...musicOptions});
   const closeWithStages=store.close;
-  store.close=()=>{presetPreviews.close();closeWithStages();};
+  store.close=()=>{galleryMusic.close();characterTurnarounds.close();presetPreviews.close();closeWithStages();};
+  app.get('/api/music',(req,res)=>res.set('Cache-Control','no-store').json(galleryMusic.list()));
+  app.get('/api/music/availability',async(req,res)=>res.json(await galleryMusic.availability()));
+  app.put('/api/music/:id',async(req,res)=>res.status(202).json(await galleryMusic.generate(req.params.id,req.body)));
+  app.post('/api/music/upload',multer({storage:multer.memoryStorage(),limits:{fileSize:80*1024*1024,files:1,fields:2,parts:3}}).single('audio'),(req,res)=>res.status(201).json(galleryMusic.upload(req.file,req.body)));
+  app.patch('/api/music/:id',(req,res)=>res.json(galleryMusic.update(req.params.id,req.body)));
+  app.delete('/api/music/:id',(req,res)=>res.json(galleryMusic.remove(req.params.id)));
+  app.post('/api/music/:id/stop',async(req,res)=>res.json(await galleryMusic.cancel(req.params.id)));
+  app.get('/api/music/:id/audio',(req,res)=>res.set({'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}).sendFile(galleryMusic.audio(req.params.id)));
   app.get('/api/presets/:id/photos',(req,res)=>res.set('Cache-Control','no-store').json(relatedPresetPhotos(store.read(),req.params.id,{limit:Number(req.query.limit ?? 5),offset:Number(req.query.offset ?? 0),sample:req.query.sample==='1'})));
   app.put('/api/preset-previews/:id',(req,res)=>res.set('Cache-Control','no-store').json(presetPreviews.open(req.params.id,req.body.presetId)));
   app.get('/api/preset-previews/:id',(req,res)=>res.set('Cache-Control','no-store').json(presetPreviews.status(req.params.id)));
-  app.post('/api/preset-previews/:id/shots',(req,res)=>res.status(202).set('Cache-Control','no-store').json(presetPreviews.shoot(req.params.id,req.body)));
+  app.post('/api/preset-previews/:id/shots',(req,res)=>{if(galleryMusic.hasWork()) throw fail('音樂製作中，請完成後再試拍。',409);res.status(202).set('Cache-Control','no-store').json(presetPreviews.shoot(req.params.id,req.body));});
   app.delete('/api/preset-previews/:id',(req,res)=>res.json(presetPreviews.stop(req.params.id)));
   app.get('/api/preset-previews/:id/jobs/:jobId/image/:index',(req,res)=>{
     const file=presetPreviews.imageFile(req.params.id,req.params.jobId,Number(req.params.index));
     res.set('Cache-Control','no-store').type(path.extname(file)).send(fs.readFileSync(file));
   });
   function queueShots(ids) {
-    if(environment.isActive()) throw fail('攝影棚正在準備，請稍後再拍攝。',503);
+    if(environment.isActive() || galleryMusic.hasWork()) throw fail('攝影棚正在準備音樂或環境，請稍後再拍攝。',503);
     const snapshot=store.read();
     if(!snapshot.workflow || ids.some(id=>{const job=snapshot.jobs.find(row=>row.id===id);return job && productionStages(job).includes('angle') && !job.cameraWorkflowSnapshot && !snapshot.cameraWorkflow;})) throw fail('攝影棚尚未就緒，請稍後再試。',503);
     if(ids.some(id=>!snapshot.jobs.some(job=>job.id===id && RETRYABLE_STATUSES.includes(job.status)))) throw fail('這張照片已在拍攝中。',409);
@@ -733,7 +818,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     res.json({...result,jobs:publicState().jobs});
   });
   app.post('/api/jobs/submit',async (req,res) => {
-    if(environment.isActive()) throw fail('環境安裝進行中，請完成或暫停安裝後再生成。',409);
+    if(environment.isActive() || galleryMusic.hasWork()) throw fail('環境或音樂製作進行中，請完成後再生成。',409);
     if (submitting) throw fail('正在送出另一批任務，請稍候。',409);
     if (!Array.isArray(req.body.ids) || !req.body.ids.length || req.body.ids.length > 100 || req.body.ids.some(id => typeof id !== 'string')) throw fail('請選擇 1–100 個草稿。');
     const snapshot = store.read();
@@ -860,27 +945,46 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     index = Number(index ?? 0);
     if(!Number.isInteger(index) || index < 0 || index > 99) throw fail('原圖索引無效。');
     const source = resolveSelectedPhotoSource(state,job,index),image = source.image;
+    const saved=photoStorage.find(source.comfyUrl || state.settings.comfyUrl,image);
+    if(saved) return res.set('Cache-Control','private, no-cache').type(saved.mime).sendFile(saved.file);
     const response = await comfyAt(source.comfyUrl || state.settings.comfyUrl,`/view?${new URLSearchParams({filename:image.filename,subfolder:image.subfolder || '',type:image.type || 'output'})}`);
     res.set('Content-Type',response.headers.get('content-type') || 'image/png');
     res.send(Buffer.from(await response.arrayBuffer()));
   }
   app.get('/api/jobs/:id/angle-source',async (req,res) => {adminJob(req.params.id);await serveAngleSource(req.params.id,req.query.index,res);});
-  function serveCharacterReference(id,res) {
-    const row=store.read().jobs.find(job=>job.id===id)?.character;
-    if(!row?.fileName || path.basename(row.fileName)!==row.fileName) throw fail('找不到拍攝時的角色參考圖。',404);
+  async function serveAssetImage(row,{thumbnail,download}={},res) {
+    if(!row?.fileName || path.basename(row.fileName)!==row.fileName) throw fail('找不到參考圖片。',404);
     const file=path.join(dataDir,'uploads',row.fileName);
-    if(!fs.existsSync(file)) throw fail('角色參考圖已不存在。',404);
-    res.type(['image/png','image/jpeg','image/webp'].includes(row.mime) ? row.mime : 'image/png').send(fs.readFileSync(file));
+    if(!fs.existsSync(file)) throw fail('參考圖片已不存在。',404);
+    if(thumbnail!==undefined && !download) return imagePreviews.send(res,{key:`upload:${row.fileName}`,file,size:thumbnail});
+    res.type(['image/png','image/jpeg','image/webp'].includes(row.mime) ? row.mime : 'image/png').sendFile(file);
   }
-  app.get('/api/jobs/:id/character-reference',(req,res)=>{adminJob(req.params.id);serveCharacterReference(req.params.id,res);});
-  async function serveJobImage(id,index,{stage,download},res) {
-    const job = store.read().jobs.find(row => row.id === id);
+  async function serveCharacterReference(id,res,query={}) {
+    const row=store.read(state=>state.jobs.find(job=>job.id===id)?.character);
+    await serveAssetImage(row,query,res);
+  }
+  app.get('/api/jobs/:id/character-reference',async(req,res)=>{adminJob(req.params.id);await serveCharacterReference(req.params.id,res,req.query);});
+  async function serveJobImage(id,index,{stage,download,thumbnail},res) {
+    const job = store.read(state=>state.jobs.find(row => row.id === id));
     if(stage !== undefined && !['base','angle'].includes(stage)) throw fail('圖片階段無效。');
     const source = stage === undefined ? job : job?.stageResults?.[stage];
     const image = job && !job.outputsDeletedAt && (stage === undefined || source?.completed) ? source?.images?.[Number(index)] : null;
     if (!image) throw fail('找不到輸出圖片。',404);
     const query = new URLSearchParams({filename:image.filename,subfolder:image.subfolder || '',type:image.type || 'output'});
-    const response = await comfyAt(source.comfyUrl || job.comfyUrl || store.read().settings.comfyUrl,`/view?${query}`);
+    const settings=store.read(state=>state.settings),base=source.comfyUrl || job.comfyUrl || settings.comfyUrl;
+    const saved=photoStorage.find(base,image);
+    if(thumbnail!==undefined && !download) {
+      let file=saved?.file;
+      if(!file && ['127.0.0.1','localhost','[::1]'].includes(new URL(base).hostname) && (image.type || 'output')==='output' && /^PhotoCreate(?:[\\/]|$)/.test(image.subfolder || '')) {
+        file=resolveOutputFile(outputDirectoryForJob({...job,comfyUrl:base},settings,comfyOutputDir || comfyOutputDirectory(settings)),image);
+      }
+      return imagePreviews.send(res,{key:JSON.stringify([base,image,stage]),file,size:thumbnail,load:async()=>Buffer.from(await (await comfyAt(base,`/view?${query}`)).arrayBuffer())});
+    }
+    if(saved) {
+      if(download) res.attachment(path.basename(image.filename));
+      return res.set('Cache-Control','private, no-cache').type(saved.mime).sendFile(saved.file);
+    }
+    const response = await comfyAt(base,`/view?${query}`);
     res.set('Content-Type',response.headers.get('content-type') || 'image/png');
     if (download) res.attachment(path.basename(image.filename));
     res.send(Buffer.from(await response.arrayBuffer()));
@@ -892,21 +996,37 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     app.get('/{*path}',(req,res) => res.sendFile(path.join(rootDir,'dist','index.html')));
   }
   app.use((error,req,res,next) => {
-    const message = error instanceof multer.MulterError ? (error.code === 'LIMIT_FILE_SIZE' ? '每張圖片最多 25 MB。' : '每批最多 50 張圖片，請分批匯入。') : error.message;
+    const message = error instanceof multer.MulterError ? (req.path==='/api/music/upload' ? '請選擇一首 80 MB 以下的音樂檔案。' : error.code === 'LIMIT_FILE_SIZE' ? '每張圖片最多 25 MB。' : '每批最多 50 張圖片，請分批匯入。') : error.message;
     res.status(error.status || 400).json({error:message});
   });
   // A process restart cannot determine if a request was received by ComfyUI.
   store.mutate(state => {for (const job of state.jobs) if(job.status === 'submitting') {job.status = job.promptId ? 'uncertain' : 'failed';job.error = '工作檯曾中斷，請重新整理 ComfyUI 任務狀態。';}});
   // Unsubmitted drafts can adopt the corrected reference format; submitted records retain their actual prompt.
   store.mutate(state => {for (const job of state.jobs) if(job.status === 'draft' && !job.promptId && !job.apiPrompt) job.prompt = referenceOnlyPrompt(job);});
-  return {app,store,authentication,loadWorkflow,loadCameraWorkflow,stageRunner,environment,transfer,presetPreviews};
+  return {app,store,authentication,loadWorkflow,loadCameraWorkflow,stageRunner,environment,transfer,presetPreviews,characterTurnarounds,galleryMusic,photoStorage,backups};
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const {app,store,loadWorkflow,loadCameraWorkflow} = createApp({dataDir:process.env.PHOTOCREATE_DATA_DIR || undefined});
+  const {app,store,loadWorkflow,loadCameraWorkflow,galleryMusic} = createApp({dataDir:process.env.PHOTOCREATE_DATA_DIR || undefined});
   const port = Number(process.env.PHOTOCREATE_PORT || 8764);
   const host = process.env.PHOTOCREATE_HOST || '0.0.0.0';
   app.listen(port,host,() => console.log(`PhotoCreate: http://${host}:${port}`));
   if(store.read().settings.cameraWorkflowPath!=='bundled') loadCameraWorkflow().catch(error => {store.mutate(state => {state.cameraWorkflowError = error.message;});console.log('相機工作流：' + error.message);});
   if (!store.read().workflow) loadWorkflow(store.read().settings.workflowPath || WORKFLOW_PATH).then(() => console.log('Qwen workflow loaded: character and clothing references')).catch(error => console.log(error.message));
+  // Explicit operator bootstrap, using this server's sole music journal writer.
+  // Wait for a shared engine to become idle without cancelling other projects.
+  if(process.argv.includes('--generate-piano')) {
+    const id=randomUUID(),until=Date.now()+45*60*1000;
+    const seed=async()=>{
+      if(galleryMusic.list().some(row=>row.kind==='piano' && row.status==='completed' && row.enabled)) return;
+      try {
+        if(galleryMusic.hasWork()) throw fail('Music is already active.',409);
+        const track=await galleryMusic.generate(id,{name:'森林微光 · 鋼琴',kind:'piano',durationCap:90,caption:DEFAULT_PIANO_CAPTION});console.log('鋼琴配樂任務：'+track.id);
+      } catch(error) {
+        if(error.status===409 && Date.now()<until) {const timer=setTimeout(seed,30000);timer.unref();}
+        else console.log('鋼琴配樂：'+error.message);
+      }
+    };
+    seed();
+  }
 }

@@ -13,11 +13,11 @@ const folderName=value=>{
 
 // Folders classify each owner's records without moving ComfyUI files.
 export function createPhotoFolders(store) {
-  const list=ownerId=>(store.read().photoFolders || []).filter(row=>row.ownerId===ownerId).map(dto);
+  const list=ownerId=>store.read(state=>(state.photoFolders || []).filter(row=>row.ownerId===ownerId).map(dto));
   const requireFolder=(ownerId,id)=>{
     if(id==='' || id===undefined) return '';
     if(typeof id!=='string') throw fail('資料夾格式不正確。');
-    if(!(store.read().photoFolders || []).some(row=>row.id===id && row.ownerId===ownerId)) throw fail('找不到這個資料夾，請重新選擇。',404);
+    if(!store.read(state=>(state.photoFolders || []).some(row=>row.id===id && row.ownerId===ownerId))) throw fail('找不到這個資料夾，請重新選擇。',404);
     return id;
   };
   const assertUnique=(ownerId,name,exceptId='')=>{

@@ -1,0 +1,135 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
+import {chromium,expect} from '@playwright/test';
+import {createApp} from '../server/index.js';
+import {buildShotPlans} from '../shared/domain.js';
+import {DRAFT,TEMPLATE,PNG,fixtureState} from './fixtures.js';
+import {CAMERA_TEMPLATE} from './camera-fixtures.js';
+import {loginBrowser} from './auth-client.js';
+
+// Isolated database and simulated ComfyUI; never submit to the real engine.
+const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-customer-controls-ui-'));
+const outputDir=path.join(dataDir,'comfy-output');fs.mkdirSync(path.join(outputDir,'PhotoCreate'),{recursive:true});
+const foreignPrompt=randomUUID(),pending=new Set([foreignPrompt]),prompts=new Map(),history=new Map();
+let failedPrompt=null;
+const fetchImpl=async(url,options={})=>{
+  const route=new URL(url).pathname;
+  if(route==='/queue') return Response.json({queue_running:[...pending].slice(0,1).map(id=>[0,id]),queue_pending:[...pending].slice(1).map(id=>[0,id])});
+  if(route==='/upload/image') return Response.json({name:options.body.get('image').name,subfolder:'PhotoCreate'});
+  if(route==='/prompt') {const body=JSON.parse(options.body);prompts.set(body.prompt_id,body.prompt);pending.add(body.prompt_id);return Response.json({prompt_id:body.prompt_id});}
+  if(route.startsWith('/api/jobs/') && route.endsWith('/cancel')) {const id=route.split('/')[3];if(id===failedPrompt) return Response.json({error:'Fixture cancellation unavailable'},{status:503});return Response.json({cancelled:pending.delete(id)});}
+  if(route.startsWith('/history/')) {const id=route.split('/').at(-1);return Response.json(history.has(id)?{[id]:history.get(id)}:{});}
+  if(route==='/view') return new Response(PNG,{headers:{'content-type':'image/png'}});
+  if(route==='/interrupt' || route==='/free') throw new Error('Bulk pause must not interrupt or unload the shared engine');
+  return Response.json({devices:[]});
+};
+const instance=createApp({dataDir,fetchImpl,comfyOutputDir:outputDir}),{store,authentication,stageRunner}=instance;
+const account=await authentication.createCustomer({username:'customer-controls',password:'test-customer-controls'});
+const accounts=new DatabaseSync(path.join(dataDir,'accounts.sqlite'),{readOnly:true});
+const ownerId=accounts.prepare('SELECT owner_id FROM accounts WHERE id=?').get(account.id).owner_id;accounts.close();
+const fixture=fixtureState(),[foreignPlan]=buildShotPlans(fixture,{...DRAFT,cameraEnabled:false,copies:1,garmentIds:['garment-a'],poseIds:['pose-standing']});
+const foreignJob={...foreignPlan,id:'foreign-photo',visitorId:'other-customer',status:'running',promptId:foreignPrompt,createdAt:new Date().toISOString(),images:[]};
+store.mutate(state=>Object.assign(state,fixture,{workflow:TEMPLATE,cameraWorkflow:CAMERA_TEMPLATE,jobs:[foreignJob],draft:{...DRAFT,mode:'random',cameraEnabled:false}}));
+for(const asset of [...fixture.characters,...fixture.garments]) fs.writeFileSync(path.join(dataDir,'uploads',asset.fileName),PNG);
+const server=instance.app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+const base=`http://127.0.0.1:${server.address().port}`;
+const browser=await chromium.launch({executablePath:process.env.PHOTOCREATE_BROWSER || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],requests=[];
+await page.emulateMedia({reducedMotion:'reduce'});
+page.on('pageerror',error=>errors.push(error.message));
+page.on('request',request=>{const route=new URL(request.url()).pathname;if(request.method()==='POST' && ['/api/studio/shoots','/api/studio/jobs/stop','/api/studio/jobs/retry'].includes(route)) requests.push({route,body:request.postDataJSON()});});
+await page.addInitScript(({id})=>localStorage.setItem(`photocreate-studio-preferences:${id}`,JSON.stringify({count:24})),{id:account.id});
+const ownedJobs=()=>store.read().jobs.filter(job=>job.visitorId===ownerId);
+const headerPause=page.getByRole('button',{name:'暫停全部拍攝',exact:true});
+const controls=page.getByRole('group',{name:'整批拍攝控制',exact:true});
+const shoot=async()=>{
+  const response=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/studio/shoots' && response.request().method()==='POST');
+  await page.locator('.pc-shoot-button').click();const result=await (await response).json();
+  await expect(page.locator('.pc-shoot-button')).toBeEnabled();return result.jobs;
+};
+fs.mkdirSync('test-results',{recursive:true});
+try {
+  await loginBrowser(page,base,'customer-controls','test-customer-controls');
+  await expect(page.locator('#photos .pc-photo-card-shell')).toHaveCount(0);
+  await expect(page.locator('#gallery .pc-featured-card')).toHaveCount(0);
+  await expect(page.getByLabel('自訂拍攝張數',{exact:true})).toHaveCount(0);
+  const counts=page.getByRole('group',{name:'拍攝張數',exact:true});await expect(counts.getByRole('button')).toHaveCount(5);
+  for(const count of [1,2,4,8,12]) await expect(counts.getByRole('button',{name:`拍攝 ${count} 張`,exact:true})).toBeVisible();
+  await expect(counts.getByRole('button',{name:'拍攝 12 張',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('button',{name:'選擇角色 角色',exact:true}).click();
+  assert.equal(requests.filter(row=>row.route==='/api/studio/shoots').length,0);
+  const first=await shoot(),firstIds=new Set(first.map(job=>job.id));assert.equal(first.length,12);assert.equal(requests.filter(row=>row.route==='/api/studio/shoots').at(-1).body.count,12);
+  await expect(page.locator('#photos').getByRole('button',{name:'資料夾 未分類',exact:true})).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#gallery .pc-featured-card')).toHaveCount(0);
+  await expect.poll(()=>ownedJobs().filter(job=>firstIds.has(job.id)).every(job=>job.promptId)).toBe(true);
+  for(const job of ownedJobs().filter(job=>firstIds.has(job.id)).slice(0,2)) {
+    const outputs={};for(const [id,node] of Object.entries(prompts.get(job.promptId))) if(node.class_type==='SaveImage') outputs[id]={images:[{filename:job.id+'.png',subfolder:'PhotoCreate',type:'output'}]};
+    pending.delete(job.promptId);history.set(job.promptId,{status:{status_str:'success'},outputs});
+  }
+  await stageRunner.tick();
+  const completed=ownedJobs().filter(job=>job.status==='completed');assert.equal(completed.length,2);
+  await counts.getByRole('button',{name:'拍攝 8 張',exact:true}).click();
+  const second=await shoot(),secondIds=new Set(second.map(job=>job.id));assert.equal(second.length,8);
+  const pauseBatch=controls.getByRole('button',{name:'暫停這組拍攝 (8)',exact:true});await expect(pauseBatch).toBeEnabled();
+  await controls.scrollIntoViewIfNeeded();
+  await page.screenshot({path:path.resolve('test-results/customer-bulk-pause-desktop.png'),animations:'disabled'});
+  await page.setViewportSize({width:390,height:844});
+  await controls.scrollIntoViewIfNeeded();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Customer controls overflow on mobile');
+  await expect(headerPause).toBeVisible();
+  assert.ok((await headerPause.boundingBox()).y<180,'Bulk pause must remain near the top of the mobile viewport');
+  await page.screenshot({path:path.resolve('test-results/customer-bulk-pause-mobile.png'),animations:'disabled'});
+  await pauseBatch.click();
+  await expect.poll(()=>ownedJobs().filter(job=>secondIds.has(job.id)).every(job=>job.status==='stopped')).toBe(true);
+  assert.deepEqual(requests.filter(row=>row.route==='/api/studio/jobs/stop').at(-1).body,{batchId:second[0].batchId});
+  assert.equal(ownedJobs().filter(job=>firstIds.has(job.id) && ['queued','running'].includes(job.status)).length,10);
+  await page.getByRole('button',{name:'已完成',exact:true}).click();
+  await headerPause.click();
+  await expect.poll(()=>ownedJobs().filter(job=>job.status==='stopped').length).toBe(18);
+  assert.deepEqual(requests.filter(row=>row.route==='/api/studio/jobs/stop').at(-1).body,{all:true});
+  assert.deepEqual(ownedJobs().filter(job=>job.status==='completed'),completed);
+  assert.deepEqual(store.read().jobs.find(job=>job.id===foreignJob.id),foreignJob);assert.ok(pending.has(foreignPrompt));
+  await controls.getByRole('button',{name:'繼續未完成 (18)',exact:true}).click();
+  await expect.poll(()=>ownedJobs().filter(job=>['queued','running'].includes(job.status) && !job.stageWaiting).length).toBe(18);
+  assert.equal(requests.filter(row=>row.route==='/api/studio/jobs/retry').at(-1).body.ids.length,18);
+  failedPrompt=ownedJobs().find(job=>job.status!=='completed').promptId;
+  await expect(headerPause).toBeEnabled();await headerPause.click();
+  await expect(page.locator('.pc-message.error[role=alert]')).toContainText('還有 1 張尚未確認暫停');
+  assert.equal(ownedJobs().filter(job=>job.status==='uncertain').length,1);
+  failedPrompt=null;await expect(headerPause).toBeEnabled();await headerPause.click();
+  await expect(headerPause).toHaveCount(0);
+  assert.deepEqual(ownedJobs().filter(job=>job.status==='completed'),completed);
+  const outputFiles=completed.flatMap(job=>job.images.map(image=>path.join(outputDir,image.subfolder,image.filename)));
+  for(const file of outputFiles) fs.writeFileSync(file,PNG);
+  await page.getByRole('button',{name:'打開第 1 張照片',exact:true}).click();
+  const photo=page.getByRole('dialog',{name:'我的照片',exact:true});
+  await photo.getByRole('button',{name:'刪除照片',exact:true}).click();
+  const deletion=page.getByRole('dialog',{name:'永久刪除這張照片？',exact:true});await expect(deletion).toContainText('圖片會消失');await expect(deletion).toContainText('無法還原');
+  await deletion.screenshot({path:path.resolve('test-results/customer-photo-delete-mobile.png')});
+  await deletion.getByRole('button',{name:'取消',exact:true}).click();assert.equal(ownedJobs().length,20);assert(outputFiles.every(file=>fs.existsSync(file)));await expect(photo).toBeVisible();
+  await photo.getByRole('button',{name:'刪除照片',exact:true}).click();await deletion.getByRole('button',{name:'確認永久刪除',exact:true}).click();
+  await expect.poll(()=>ownedJobs().length).toBe(19);assert.equal(outputFiles.filter(file=>fs.existsSync(file)).length,1);
+  await photo.getByRole('button',{name:'關閉照片',exact:true}).click();
+  await page.getByRole('button',{name:'新增產圖資料夾',exact:true}).click();await page.getByLabel('資料夾名稱',{exact:true}).fill('刪除測試');await page.getByRole('button',{name:'儲存資料夾',exact:true}).click();
+  await page.getByRole('button',{name:'全選我的照片',exact:true}).click();await page.getByLabel('移動所選照片至',{exact:true}).selectOption({label:'刪除測試'});await page.getByRole('button',{name:'移動照片',exact:true}).click();
+  await page.getByRole('button',{name:'資料夾 刪除測試',exact:true}).click();await page.getByRole('button',{name:'刪除資料夾',exact:true}).click();
+  const folderDelete=page.getByRole('dialog',{name:'刪除資料夾「刪除測試」？',exact:true});await expect(folderDelete).toContainText('全部照片、所有版本');await expect(folderDelete).toContainText('圖片會消失');
+  await folderDelete.screenshot({path:path.resolve('test-results/customer-folder-delete-mobile.png')});await folderDelete.getByRole('button',{name:'取消',exact:true}).click();assert(ownedJobs().some(job=>job.folderId));assert.equal(outputFiles.filter(file=>fs.existsSync(file)).length,1);
+  await page.getByRole('button',{name:'刪除資料夾',exact:true}).click();await folderDelete.getByRole('button',{name:'確認永久刪除',exact:true}).click();await expect(folderDelete).toHaveCount(0);
+  await expect(page.locator('#photos .pc-photo-card-shell')).toHaveCount(0);
+  await expect(page.locator('#photos .photo-folder-tab[aria-pressed="true"]')).toHaveCount(0);
+  assert.equal(ownedJobs().filter(job=>job.status==='completed').length,0);assert.equal(ownedJobs().length,18);assert(outputFiles.every(file=>!fs.existsSync(file)));assert.equal(store.read().photoFolders.filter(folder=>folder.ownerId===ownerId).length,0);
+  assert.deepEqual(store.read().jobs.find(job=>job.id===foreignJob.id),foreignJob);
+  assert.deepEqual(store.read().jobs.find(job=>job.id===foreignJob.id),foreignJob);assert.ok(pending.has(foreignPrompt));
+  assert.deepEqual(errors,[]);
+  console.log('Customer UI verified: 1/2/4/8/12 presets, batch/all pause, resume, cancellation recovery, photo/folder delete dialogs and cancellation, actual file cleanup, owner isolation, and desktop/mobile layout.');
+} finally {
+  await browser.close();await new Promise(resolve=>server.close(resolve));store.close();
+  const target=fs.realpathSync(dataDir),temporaryRoot=fs.realpathSync(os.tmpdir());
+  if(path.dirname(target)!==temporaryRoot || !path.basename(target).startsWith('PhotoCreate-customer-controls-ui-')) throw new Error('Unexpected fixture cleanup path');
+  fs.rmSync(target,{recursive:true,force:true});
+}

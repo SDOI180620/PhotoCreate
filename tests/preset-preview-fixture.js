@@ -12,7 +12,7 @@ export async function until(predicate,message='Condition did not become true') {
   while(Date.now()<end) {if(await predicate()) return;await new Promise(resolve=>setTimeout(resolve,10));}
   throw new Error(message);
 }
-export async function previewFixture({camera=true,presetPreviewOptions={},beforeStart}={}) {
+export async function previewFixture({camera=true,presetPreviewOptions={},characterTurnaroundOptions={},musicOptions={},directoryPicker,beforeStart}={}) {
   const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-preset-preview-')),outputDir=path.join(dataDir,'output');
   fs.mkdirSync(outputDir);
   const pending=new Set(),submitted=[],cancelled=[],history=new Map(),calls=[];
@@ -40,7 +40,7 @@ export async function previewFixture({camera=true,presetPreviewOptions={},before
     return Response.json({});
   };
   beforeStart?.({dataDir,outputDir,pending,control});
-  const app=createApp({dataDir,fetchImpl,comfyOutputDir:outputDir,presetPreviewOptions});
+  const app=createApp({dataDir,fetchImpl,comfyOutputDir:outputDir,presetPreviewOptions,characterTurnaroundOptions,musicOptions,directoryPicker});
   const fixture=fixtureState();
   app.store.mutate(state=>Object.assign(state,fixture,{workflow:TEMPLATE,cameraWorkflow:camera ? CAMERA_TEMPLATE : null,settings:{...state.settings,comfyUrl:'http://127.0.0.1:8188',releaseGpuMemory:true},draft:{...state.draft,steps:30,resolution:1024,aspectRatio:'9:16',angleSteps:25,refineDenoise:0.15}}));
   for(const asset of [...fixture.characters,...fixture.garments]) fs.writeFileSync(path.join(dataDir,'uploads',asset.fileName),PNG);

@@ -110,10 +110,10 @@ test('上傳、批次草稿、兩圖提交、重複提交保護與結果同步',
   const interaction = {id:'api-window',category:'interaction',name:'窗邊自然互動',prompt:'Beside a window, resting a hand on the windowsill.',tags:['窗戶']};
   assert.equal((await request('/presets/import',{version:1,presets:[interaction]})).status,200);
   const interactionSearch = await request('/presets/search?category=interaction&q=%E7%AA%97%E9%82%8A',undefined,'GET');
-  assert.equal(interactionSearch.status,200);assert.equal(interactionSearch.data.rows[0].id,interaction.id);
+  assert.equal(interactionSearch.status,200);assert.ok(interactionSearch.data.rows.some(row=>row.id===interaction.id));
   const another = await request('/jobs',{...draft,copies:1,interactionId:interaction.id});lostReply = true;
   assert.equal(another.data[0].interaction.prompt,interaction.prompt);
-  assert.match(another.data[0].prompt,/Scene interaction: Beside a window/);
+  assert.match(another.data[0].prompt,/Scene: Beside a window/);
   const unknownId = another.data[0].id;
   assert.notEqual(another.data[0].batchId,batchId);assert.equal(store.read().batches.length,2);
   const failed = await request('/jobs/submit',{ids:[unknownId]});assert.equal(failed.data.results[0].ok,false);

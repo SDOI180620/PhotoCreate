@@ -20,12 +20,22 @@ export function reconcileLibrarySelections(state) {
   if(state.draft) state.draft = reconcileDraftCandidates(state,state.draft);
   if(state.workbenchDrafts) state.workbenchDrafts = Object.fromEntries(Object.entries(state.workbenchDrafts).map(([mode,draft])=>[mode,reconcileDraftCandidates(state,draft)]));
   const recipe = state.customerRecipe;
-  if(!recipe) return;
+  if(!recipe) return false;
+  let publishedChanged=false;
   if(recipe.settings) delete recipe.settings.renderStyle;
-  if(recipe.characterIds) recipe.characterIds = recipe.characterIds.filter(id=>state.characters.some(row=>row.id===id && !row.visitorId));
+  if(recipe.characterIds) {
+    const remaining=recipe.characterIds.filter(id=>state.characters.some(row=>row.id===id && !row.visitorId));
+    publishedChanged ||= remaining.length!==recipe.characterIds.length;
+    recipe.characterIds=remaining;
+  }
   for(const [key,rows] of Object.entries(recipe.pools || {})) {
     const category = key==='clothingState' ? 'clothing_state' : key;
     const available = new Set((key==='garment' ? state.garments : state.presets.filter(row=>row.category===category)).map(row=>row.id));
-    recipe.pools[key] = rows.filter(row=>available.has(row?.id) || key==='camera' && row?.id==='camera-original');
+    const remaining=rows.filter(row=>available.has(row?.id) || key==='camera' && row?.id==='camera-original');
+    publishedChanged ||= remaining.length!==rows.length;
+    recipe.pools[key]=remaining;
   }
+  // Withdrawals publish immediately, without publishing unrelated library edits.
+  if(publishedChanged) recipe.updatedAt=new Date().toISOString();
+  return publishedChanged;
 }

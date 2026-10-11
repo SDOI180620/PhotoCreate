@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {buildShotPlans,REFERENCE_INSTRUCTION,referenceOnlyPrompt} from '../shared/domain.js';
+import {SINGLE_SUBJECT_PROMPT} from '../shared/subject.js';
 import {buildRemakePlans} from '../shared/remakes.js';
 import {createStore} from '../server/store.js';
 import {createApp} from '../server/index.js';
@@ -40,7 +41,7 @@ test('服裝備註改名、多段修改與清空不改變生成提詞，圖片�
 test('舊版參考指令只移除自動附加的服裝備註，保留手寫提詞並可重複執行',() => {
   const old = legacyShot();
   const prompt = referenceOnlyPrompt(old);
-  assert(prompt.startsWith('1 girl\n\n'));
+  assert(prompt.startsWith(`${SINGLE_SUBJECT_PROMPT}\n\n`));
   assert(prompt.includes(REFERENCE_INSTRUCTION));
   assert.doesNotMatch(prompt,/LIBRARY_ONLY_NOTE|Second line|Picture 1 is/);
   assert.match(prompt,/Clothing: User explicitly added a scarf\./);

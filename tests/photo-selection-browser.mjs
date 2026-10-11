@@ -52,6 +52,8 @@ fs.mkdirSync('test-results',{recursive:true});
 try {
   await loginBrowser(page,base,'selection-customer','selection-test-password');
   assert.equal(await page.evaluate(()=>window.isSecureContext),false);
+  await expect(photos.locator('.pc-photo-card-shell')).toHaveCount(0);
+  await choosePhotoFolder('全部照片');
   await expect(photos.locator('.pc-photo-card-shell')).toHaveCount(4);
   await allPhotos().click();await expect(photos.locator('input:checked')).toHaveCount(4);
   await expect(photos.locator('.photo-folder-move')).toContainText('已選 4 張');
@@ -83,6 +85,8 @@ try {
   assert.equal(requests.length,0,'Selecting or cancelling must not mutate photos');
 
   await expect(gallery.getByRole('searchbox')).toHaveCount(0);
+  await expect(gallery.locator('.pc-featured-card')).toHaveCount(0);
+  await chooseGalleryFolder('全部照片');
   await expect(gallery.locator('.pc-featured-card')).toHaveCount(4);
   assert.equal(await gallery.locator('.pc-featured-toolbar').evaluate(element=>element.previousElementSibling.classList.contains('photo-folders')),true,'Select all belongs after the folder filters');
   await allGallery().click();await expect(gallery.locator('input:checked')).toHaveCount(4);
@@ -116,16 +120,33 @@ try {
   assert.equal(store.read().jobs.filter(row=>row.id.startsWith('bulk-') && !row.visitorDeletedAt).length,102,'Removing from the gallery must preserve originals and versions');
 
   await photos.getByRole('button',{name:'全部',exact:true}).click();await choosePhotoFolder('大量照片');await allPhotos().click();
-  await expect(photos.locator('input:checked')).toHaveCount(101);
+  await expect(photos.locator('.pc-photo-card-shell')).toHaveCount(24);
+  await expect(photos.locator('input:checked')).toHaveCount(24);
   await expect(photos.locator('.photo-folder-move')).toContainText('已選 101 張');
+  await photos.getByRole('button',{name:'下一頁照片',exact:true}).click();
+  await expect(photos.locator('input:checked')).toHaveCount(24);
+  await photos.getByRole('button',{name:'取消全選我的照片',exact:true}).click();
+  await expect(photos.locator('input:checked')).toHaveCount(0);
+  await allPhotos().click();
   await photos.getByRole('combobox',{name:'移動所選照片至',exact:true}).selectOption('photo-destination');
   await photos.getByRole('button',{name:'移動照片',exact:true}).click();await expect(allPhotos()).toBeDisabled();
   assert.equal(store.read().jobs.filter(row=>row.folderId==='photo-destination').length,102,'Moving 101 families must include every version');
   await choosePhotoFolder('移動目的地');await allPhotos().click();await photos.getByRole('button',{name:'刪除所選',exact:true}).click();
+  await expect(page.getByRole('dialog')).toContainText('永久刪除 101 張照片？');await page.getByRole('dialog').getByRole('button',{name:'取消',exact:true}).click();assert.equal(store.read().jobs.filter(row=>row.id.startsWith('bulk-')).length,102);
+  let deleteCalls=0;
+  await page.route('**/api/studio/photos/delete',route=>++deleteCalls===2
+    ? route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'測試第二批刪除暫時失敗，請重試。'})})
+    : route.continue());
+  await photos.getByRole('button',{name:'刪除所選',exact:true}).click();await page.getByRole('dialog').getByRole('button',{name:'確認永久刪除',exact:true}).click();
+  await expect(page.getByRole('dialog')).toContainText('永久刪除 1 張照片？');await expect(page.getByRole('dialog').getByRole('alert')).toContainText('第二批刪除暫時失敗');assert.equal(store.read().jobs.filter(row=>row.id.startsWith('bulk-')).length,1);
+  await page.getByRole('dialog').getByRole('button',{name:'確認永久刪除',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(allPhotos()).toBeDisabled();
-  assert.equal(store.read().jobs.filter(row=>row.id.startsWith('bulk-') && row.visitorDeletedAt).length,102);
+  assert.equal(store.read().jobs.filter(row=>row.id.startsWith('bulk-')).length,0);assert(!fs.existsSync(path.join(outputDir,'PhotoCreate','bulk-0.png')));
+  // Retain coverage for old photos that were already in the recycle bin.
+  const legacyJobs=bulkJobs.map(row=>job(row.id,'photo-destination',{visitorDeletedAt:new Date().toISOString()})),legacyVersion=job('bulk-version','photo-destination',{rootJobId:'bulk-0',sourceJobId:'bulk-0',remakeVersion:1,visitorDeletedAt:new Date().toISOString()});
+  store.mutate(state=>state.jobs.push(...legacyJobs,legacyVersion));await page.reload();await choosePhotoFolder('移動目的地');
   await photos.getByRole('button',{name:'回收區',exact:true}).click();
-  await expect(photos.locator('.pc-trash-card')).toHaveCount(101);
+  await expect(photos.locator('.pc-trash-card')).toHaveCount(24);
   await photos.getByRole('button',{name:'全選回收區照片',exact:true}).click();
   await photos.getByRole('button',{name:'永久刪除所選',exact:true}).click();
   await expect(page.getByRole('dialog')).toContainText('永久刪除 101 張照片？');
@@ -146,7 +167,7 @@ try {
   assert.equal(store.read().jobs.filter(row=>row.id.startsWith('bulk-')).length,0);
   assert.deepEqual(store.read().jobs,initialJobs,'Bulk operations must preserve unrelated and other customers’ photos');
   for(const route of ['/gallery/move','/gallery/remove','/photos/move','/photos/delete','/photos/purge']) {
-    assert.deepEqual(requests.filter(request=>request.route===`/api/studio${route}`).map(request=>request.body.ids.length),route==='/photos/purge' ? [100,1,1] : [100,1],`${route} must handle more than 100 selected photos`);
+    assert.deepEqual(requests.filter(request=>request.route===`/api/studio${route}`).map(request=>request.body.ids.length),['/photos/delete','/photos/purge'].includes(route) ? [100,1,1] : [100,1],`${route} must handle more than 100 selected photos`);
   }
   assert.equal(fs.existsSync(path.join(outputDir,'PhotoCreate','bulk-0.png')),false);
   assert.equal(fs.existsSync(path.join(outputDir,'PhotoCreate','photo-a.png')),true);

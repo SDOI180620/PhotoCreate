@@ -1,0 +1,32 @@
+.pc-gallery-player {position:fixed;inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;padding:0;border:0;background:#101113;color:#fff;overflow:hidden}
+.pc-gallery-player::backdrop {background:#101113}
+.pc-player-screen {position:relative;width:100%;height:100%;background:#101113;color:#fff;overflow:hidden}
+.pc-player-photo {display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;animation:pc-slide-arrive .45s ease}
+.pc-player-photo.fill {object-fit:cover}
+.pc-player-header {position:absolute;left:0;top:0;right:0;display:flex;align-items:flex-start;justify-content:space-between;padding:26px 32px 40px;background:linear-gradient(#0009,transparent);pointer-events:none}
+.pc-player-header span {font-size:9px;letter-spacing:2.5px;color:#fff9}
+.pc-player-header h2 {font-size:19px;font-weight:500;margin:9px 0 0;letter-spacing:.5px}
+.pc-player-header button {pointer-events:auto;border:1px solid #ffffff30;border-radius:50%;width:38px;height:38px;background:#0004;display:grid;place-items:center;color:#fff}
+.pc-player-bottom {position:absolute;bottom:0;left:0;right:0;padding:60px 28px max(20px,env(safe-area-inset-bottom));background:linear-gradient(transparent,#101113e8 36%,#101113)}
+.pc-player-thumbnails {display:flex;gap:9px;justify-content:safe center;overflow-x:auto;margin:0 auto 16px;padding:4px;max-width:100%;scrollbar-width:thin;scrollbar-color:#fff3 transparent}
+.pc-player-thumbnails button {position:relative;flex:0 0 40px;width:40px;height:48px;padding:0;border:1px solid #fff3;border-radius:4px;overflow:hidden;background:#262626;opacity:.55}
+.pc-player-thumbnails button.active {border-color:#f0d6a9;opacity:1;box-shadow:0 0 0 2px #d8b78440}
+.pc-player-thumbnails img {width:100%;height:100%;object-fit:cover}
+.pc-player-thumbnails span {position:absolute;inset:auto 0 0;background:#0008;color:#fff;font-size:8px;text-align:center}
+.pc-player-controls {display:flex;gap:18px;align-items:center;justify-content:space-between;max-width:1150px;margin:auto}
+.pc-player-controls button {display:inline-flex;align-items:center;justify-content:center;gap:7px;background:transparent;color:#e2dfd9;padding:9px;border:0;border-radius:6px;font-size:11px;white-space:nowrap}
+.pc-player-controls button:hover {background:#ffffff12;color:#fff}
+.pc-player-controls button:disabled {opacity:.35;cursor:default}
+.pc-player-controls :focus-visible,.pc-player-header button:focus-visible,.pc-player-thumbnails button:focus-visible {outline:2px solid #f0d6a9;outline-offset:3px}
+.pc-player-transport,.pc-player-options,.pc-player-music {display:flex;align-items:center;gap:4px}
+.pc-player-controls .pc-player-play {width:40px;height:40px;border-radius:50%;background:#f1e8d8;color:#272626}
+.pc-player-position {font-size:11px;font-variant-numeric:tabular-nums;color:#fff9;min-width:58px;margin-left:9px}
+.pc-player-controls select {color:#e2dfd9;border:1px solid #fff2;background:#222326;border-radius:6px;font:inherit;font-size:11px;padding:8px;max-width:190px}
+.pc-player-time>span {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.pc-player-music input {width:64px;accent-color:#e0c69f;cursor:pointer}
+.pc-player-loading {position:absolute;top:45%;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:12px;font-size:13px;color:#ffffffaa}
+.pc-player-music-error {text-align:center;font-size:11px;color:#e0c69f;margin:10px 0 0}
+@keyframes pc-slide-arrive {from {opacity:.25} to {opacity:1}}
+@media(max-width:800px) {.pc-player-header {padding:20px}.pc-player-bottom {padding:55px 14px max(18px,env(safe-area-inset-bottom))}.pc-player-controls {flex-wrap:wrap;justify-content:center;gap:6px 20px}.pc-player-music {justify-content:center;width:100%;margin-top:5px}.pc-player-options {gap:0}.pc-player-controls select {max-width:210px}.pc-player-thumbnails {margin-bottom:10px}.pc-player-thumbnails button {height:42px;flex-basis:34px;width:34px}}
+@media(max-height:480px) {.pc-player-header {padding:12px 20px}.pc-player-header h2 {font-size:15px;margin-top:4px}.pc-player-thumbnails {display:none}.pc-player-bottom {padding-top:35px;padding-bottom:10px}.pc-player-controls {flex-wrap:nowrap;gap:7px}.pc-player-music {width:auto;margin:0}.pc-player-music input {display:none}.pc-player-options button span {display:none}.pc-player-controls select {max-width:125px}}
+@media(prefers-reduced-motion:reduce) {.pc-player-photo {animation:none}}

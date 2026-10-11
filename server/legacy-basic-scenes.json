@@ -1,0 +1,272 @@
+[
+  {
+    "id": "interaction-bed",
+    "category": "interaction",
+    "name": "在床上",
+    "prompt": "On a bed, naturally positioned on the mattress with realistic contact between the body and the bedding.",
+    "tags": [
+      "床",
+      "室內"
+    ]
+  },
+  {
+    "id": "interaction-window",
+    "category": "interaction",
+    "name": "靠窗戶",
+    "prompt": "Beside a window, gently resting a hand on the windowsill and interacting naturally with the window.",
+    "tags": [
+      "窗戶",
+      "室內"
+    ]
+  },
+  {
+    "id": "interaction-railing",
+    "category": "interaction",
+    "name": "倚著欄杆",
+    "prompt": "Beside a railing, gently resting a hand or forearm on it with natural posture and realistic contact.",
+    "tags": [
+      "欄杆",
+      "倚靠"
+    ]
+  },
+  {
+    "id": "interaction-pool",
+    "category": "interaction",
+    "name": "在水池邊",
+    "prompt": "Beside a swimming pool, sitting on the pool edge with feet in the water, wet skin glistening in the sunlight.",
+    "tags": [
+      "泳池",
+      "水邊"
+    ]
+  },
+  {
+    "id": "interaction-classroom",
+    "category": "interaction",
+    "name": "在學校課桌",
+    "prompt": "Leaning back against a school desk in an afternoon classroom, rows of desks and chairs softly blurred behind.",
+    "tags": [
+      "教室",
+      "課桌"
+    ]
+  },
+  {
+    "id": "interaction-nurse",
+    "category": "interaction",
+    "name": "在保健室床鋪",
+    "prompt": "Lying on a nurse's office cot with crisp white sheets, soft curtains and a medical cabinet in the background.",
+    "tags": [
+      "保健室",
+      "白色床單"
+    ]
+  },
+  {
+    "id": "interaction-onsen",
+    "category": "interaction",
+    "name": "在溫泉",
+    "prompt": "Soaking in a hot spring, steam rising around the shoulders, wet hair and flushed skin.",
+    "tags": [
+      "溫泉",
+      "蒸汽"
+    ]
+  },
+  {
+    "id": "interaction-balcony",
+    "category": "interaction",
+    "name": "在黃昏陽台",
+    "prompt": "On a balcony at dusk, city lights glowing softly in the background, warm rim light on the skin.",
+    "tags": [
+      "陽台",
+      "黃昏"
+    ]
+  },
+  {
+    "id": "interaction-changing-room",
+    "category": "interaction",
+    "name": "在更衣室",
+    "prompt": "In a changing room, standing among hanging clothes with soft warm lighting.",
+    "tags": [
+      "更衣室",
+      "衣物"
+    ]
+  },
+  {
+    "id": "interaction-rooftop",
+    "category": "interaction",
+    "name": "在屋頂",
+    "prompt": "On a rooftop terrace, city skyline softly blurred behind, open sky above.",
+    "tags": [
+      "屋頂",
+      "天際線"
+    ]
+  },
+  {
+    "id": "interaction-sofa",
+    "category": "interaction",
+    "name": "在沙發",
+    "prompt": "Sinking into a soft sofa, cushions supporting the body naturally.",
+    "tags": [
+      "沙發",
+      "客廳"
+    ]
+  },
+  {
+    "id": "interaction-bathroom",
+    "category": "interaction",
+    "name": "在浴室",
+    "prompt": "In a bathroom, misty air and water droplets on the skin, soft humid light.",
+    "tags": [
+      "浴室",
+      "水氣"
+    ]
+  },
+  {
+    "id": "interaction-tatami",
+    "category": "interaction",
+    "name": "在榻榻米",
+    "prompt": "Reclining on tatami mats in a traditional room, warm natural light through shoji screens.",
+    "tags": [
+      "榻榻米",
+      "和室"
+    ]
+  },
+  {
+    "id": "interaction-car-seat",
+    "category": "interaction",
+    "name": "在車後座",
+    "prompt": "Reclining in a car back seat, sunlight streaming through the windows.",
+    "tags": [
+      "車內",
+      "後座"
+    ]
+  },
+  {
+    "id": "interaction-beach",
+    "category": "interaction",
+    "name": "在沙灘",
+    "prompt": "On a sandy beach, wet sand beneath and ocean light reflecting onto the skin.",
+    "tags": [
+      "沙灘",
+      "海邊"
+    ]
+  },
+  {
+    "id": "interaction-bamboo",
+    "category": "interaction",
+    "name": "在竹林",
+    "prompt": "Amid a bamboo grove, dappled green light filtering through the stalks.",
+    "tags": [
+      "竹林",
+      "綠意"
+    ]
+  },
+  {
+    "id": "interaction-shrine",
+    "category": "interaction",
+    "name": "在神社",
+    "prompt": "At a shrine with vermilion torii gates, soft evening light and stone lanterns.",
+    "tags": [
+      "神社",
+      "鳥居"
+    ]
+  },
+  {
+    "id": "interaction-cafe",
+    "category": "interaction",
+    "name": "在咖啡廳",
+    "prompt": "At a café table by the window, warm afternoon light and blurred interior behind.",
+    "tags": [
+      "咖啡廳",
+      "窗邊"
+    ]
+  },
+  {
+    "id": "interaction-office",
+    "category": "interaction",
+    "name": "在辦公室",
+    "prompt": "In an office after hours, leaning against a desk with city lights through the window.",
+    "tags": [
+      "辦公室",
+      "夜晚"
+    ]
+  },
+  {
+    "id": "interaction-fitting-room",
+    "category": "interaction",
+    "name": "在試衣間",
+    "prompt": "In a fitting room, half-changed clothes held in front, warm enclosed light.",
+    "tags": [
+      "試衣間",
+      "更衣"
+    ]
+  },
+  {
+    "id": "interaction-staircase",
+    "category": "interaction",
+    "name": "在樓梯間",
+    "prompt": "On a staircase, body framed diagonally along the steps with soft directional light.",
+    "tags": [
+      "樓梯",
+      "斜角"
+    ]
+  },
+  {
+    "id": "interaction-window-ledge",
+    "category": "interaction",
+    "name": "在窗台",
+    "prompt": "Sitting on a wide window ledge, daylight wrapping around the body from behind.",
+    "tags": [
+      "窗台",
+      "日光"
+    ]
+  },
+  {
+    "id": "interaction-onsen-edge",
+    "category": "interaction",
+    "name": "在溫泉池邊",
+    "prompt": "At the stone edge of an open-air bath, steam curling around wet skin.",
+    "tags": [
+      "溫泉",
+      "石邊"
+    ]
+  },
+  {
+    "id": "interaction-garden",
+    "category": "interaction",
+    "name": "在花園",
+    "prompt": "In a garden among blooming flowers, soft petals and dappled sunlight.",
+    "tags": [
+      "花園",
+      "花朵"
+    ]
+  },
+  {
+    "id": "interaction-bookshelf",
+    "category": "interaction",
+    "name": "在書架旁",
+    "prompt": "Beside a tall bookshelf, books softly blurred behind in warm light.",
+    "tags": [
+      "書架",
+      "室內"
+    ]
+  },
+  {
+    "id": "interaction-bar",
+    "category": "interaction",
+    "name": "在吧台",
+    "prompt": "At a bar counter, neon and warm lights glowing softly in the background.",
+    "tags": [
+      "吧台",
+      "霓虹"
+    ]
+  },
+  {
+    "id": "interaction-cafe-curtain",
+    "category": "interaction",
+    "name": "在窗簾後",
+    "prompt": "Behind a sheer curtain, diffused daylight tracing the silhouette of the body.",
+    "tags": [
+      "窗簾",
+      "剪影"
+    ]
+  }
+]

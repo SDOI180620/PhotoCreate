@@ -69,7 +69,7 @@ try {
   await expect(photo.locator('.shot-tag-link')).toHaveCount(8);
   await expect(page.locator('.gallery-card[data-job-id="deleted-photo"] .tag-pose')).toHaveText('自然站姿');
   await expect(page.locator('.gallery-card[data-job-id="deleted-photo"] .tag-pose')).not.toHaveAttribute('aria-haspopup','dialog');
-  for(const label of ['動作','表情','服裝狀態','場景互動','攝影角度','光線','色彩','畫質']) {
+  for(const label of ['動作','表情','服裝狀態','場景','攝影角度','光線','色彩','畫質']) {
     await photo.getByRole('button',{name:new RegExp(`^開啟${label}提詞 `)}).click();
     await expect(page.getByRole('dialog').last()).toBeVisible();
     await expect(page.getByRole('dialog').last().locator('.preset-related')).toBeVisible();

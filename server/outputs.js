@@ -51,22 +51,25 @@ export function deleteOutputFiles(outputDir,images) {
 
 // Purging a photo also clears intermediate results, but only unreferenced local
 // PhotoCreate files. Other jobs may still need an output for a saved camera shoot.
-export function purgeJobOutputs(state,jobs,defaultOutputDir) {
+export function purgeJobOutputs(state,jobs,defaultOutputDir,{requireLocal=false}={}) {
   const selected=new Set(jobs.map(job=>job.id));
   const key=image=>JSON.stringify([image.type || 'output',String(image.subfolder || '').replaceAll('\\','/'),image.filename]);
-  const outputs=job=>[...(job.images || []),...Object.values(job.stageResults || {}).flatMap(stage=>stage.images || [])];
+  const outputs=job=>job.outputsDeletedAt ? [] : [...(job.images || []),...Object.values(job.stageResults || {}).flatMap(stage=>stage.images || [])];
+  const references=job=>[job.sourceImage,job.cameraSource?.image].filter(image=>image && (image.type || 'output')==='output' && /^PhotoCreate(?:[\\/]|$)/.test(String(image.subfolder || '')));
   const retained=new Set(state.jobs.filter(job=>!selected.has(job.id)).flatMap(job=>[
-    ...outputs(job),...[job.sourceImage,job.cameraSource?.image].filter(Boolean),
+    ...outputs(job),...(job.sourceInput && job.sourceInputComfyUrl ? [] : [job.sourceImage,job.cameraSource?.image].filter(Boolean)),
   ]).map(key));
   const files=new Set();
   for(const job of jobs) {
+    const images=[...outputs(job),...references(job)].filter(image=>!retained.has(key(image)));
+    if(!images.length) continue;
     let host;
-    try {host=new URL(job.comfyUrl || state.settings.comfyUrl).hostname;} catch {continue;}
-    if(!['127.0.0.1','localhost','[::1]'].includes(host)) continue;
+    try {host=new URL(job.comfyUrl || state.settings.comfyUrl).hostname;} catch {if(requireLocal) throw new Error('無法確認成果輸出位置。');continue;}
+    if(!['127.0.0.1','localhost','[::1]'].includes(host)) {if(requireLocal) throw new Error('無法清理遠端成果檔案。');continue;}
     const directory=outputDirectoryForJob(job,state.settings,defaultOutputDir);
-    if(!directory || !fs.existsSync(directory)) continue;
-    for(const image of outputs(job)) {
-      if(retained.has(key(image)) || (image.type || 'output')!=='output' || !/^PhotoCreate(?:[\\/]|$)/.test(String(image.subfolder || ''))) continue;
+    if(!directory || !fs.existsSync(directory)) {if(requireLocal) throw new Error('找不到本機 ComfyUI 輸出資料夾，請檢查連線與輸出目錄設定。');continue;}
+    for(const image of images) {
+      if((image.type || 'output')!=='output' || !/^PhotoCreate(?:[\\/]|$)/.test(String(image.subfolder || ''))) {if(requireLocal) throw new Error('成果輸出路徑無效。');continue;}
       const file=resolveOutputFile(directory,image);
       if(file) files.add(file);
     }

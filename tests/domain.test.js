@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildShotPlans, normalizePresetImport } from '../shared/domain.js';
+import { SINGLE_SUBJECT_PROMPT } from '../shared/subject.js';
 import { buildComfyPrompt, convertWorkflow } from '../server/workflow.js';
 import { DRAFT, TEMPLATE, fixtureState } from './fixtures.js';
 
@@ -11,7 +12,7 @@ test('服裝 × 動作 × 張數產生独立快照與可重現的 Seed',() => {
   assert.deepEqual(shots.map(row => row.seed),[100,101,102,103,104,105,106,107]);
   assert.equal(new Set(shots.map(row => row.id)).size,8);
   assert.match(shots[0].prompt,/<image1>.*<image2>/);
-  assert.doesNotMatch(shots[0].prompt,/Picture 3|Environment:|Scene interaction:|Facial expression:|Clothing state:/);
+  assert.doesNotMatch(shots[0].prompt,/Picture 3|Environment:|Scene:|Facial expression:|Clothing state:/);
   assert.doesNotMatch(shots[0].prompt,/白色洋裝的描述|Clothing:|Picture 1|Picture 2/);
   assert.match(shots[0].prompt,/保持刺繡/);
   state.garments[0].name = 'changed';state.presets[0].prompt = 'changed';
@@ -31,7 +32,7 @@ test('角色使用圖庫提詞，服裝備註只保留快照，忽略已移除�
     assert.ok(!shot.prompt.includes(garment.description));
     assert.match(shot.prompt,/<image1>.*<image2>/);
     assert.doesNotMatch(shot.prompt,/Hidden old/);
-    assert.ok(shot.prompt.startsWith('1 girl\n\n'));
+    assert.ok(shot.prompt.startsWith(`${SINGLE_SUBJECT_PROMPT}\n\n`));
   }
   assert.deepEqual(state,before);
 });
@@ -64,7 +65,7 @@ test('表情與服裝狀態預設無，各自選用後保存快照，清除後�
   assert.deepEqual(selected.expression,expression);assert.deepEqual(selected.clothingState,clothingState);
   assert.ok(selected.prompt.includes(`Facial expression: ${expression.prompt}`));
   assert.ok(selected.prompt.includes(`Clothing state: ${clothingState.prompt}`));
-  assert.doesNotMatch(selected.prompt,/Pose and expression:|Scene interaction:|Picture 3/);
+  assert.doesNotMatch(selected.prompt,/Pose and expression:|Scene:|Picture 3/);
   const expressionOnly = buildShotPlans(state,{...DRAFT,expressionId:expression.id,clothingStateId:''})[0];
   assert.match(expressionOnly.prompt,/Facial expression:/);assert.doesNotMatch(expressionOnly.prompt,/Clothing state:/);
   const clothingOnly = buildShotPlans(state,{...DRAFT,expressionId:'',clothingStateId:clothingState.id})[0];
@@ -98,7 +99,7 @@ test('無效參考、錯誤分類與過量組合皆阻止建立',() => {
   assert.throws(() => buildShotPlans(state,{...DRAFT,resolution:600}),/解析度/);
   const many = {...state,garments:Array.from({length:30},(_,i) => ({...state.garments[0],id:`garment-${i}`}))};
   assert.throws(() => buildShotPlans(many,{...DRAFT,garmentIds:many.garments.map(row => row.id)}),/100/);
-  assert.throws(() => buildShotPlans(state,{...DRAFT,sceneInteraction:123}),/場景互動/);
+  assert.throws(() => buildShotPlans(state,{...DRAFT,sceneInteraction:123}),/場景/);
   assert.throws(() => buildShotPlans(state,{...DRAFT,aspectRatio:'unsupported'}),/輸出比例/);
 });
 
@@ -142,7 +143,7 @@ test('固定輸出比例調整 Qwen 的空白 latent，保留兩張參考與採�
   assert.deepEqual(TEMPLATE['7'].inputs.latent_image,['12',2]);
 });
 
-test('新拍攝忽略舊場景選擇與素材名稱，只在填寫時加入場景互動',() => {
+test('新拍攝忽略舊場景選擇與素材名稱，只在填寫時加入場景',() => {
   const state = fixtureState();
   state.scenes = [];
   state.garments[0].name = 'Qwen_Image_2.1_Uncensored_T2I_00011_';
@@ -152,26 +153,26 @@ test('新拍攝忽略舊場景選擇與素材名稱，只在填寫時加入場�
   assert.equal(shot.scene,undefined);
   assert.equal(shot.sceneInteraction,'');
   assert.equal(shot.garment.name,state.garments[0].name);
-  assert.doesNotMatch(shot.prompt,/Qwen_Image|Picture 3|Environment:|Clothing:|Scene interaction:/);
+  assert.doesNotMatch(shot.prompt,/Qwen_Image|Picture 3|Environment:|Clothing:|Scene:/);
   const interaction = buildShotPlans(state,{...draft,sceneInteraction:'  Sitting on a bed near a window.  '})[0];
-  assert.match(interaction.prompt,/Scene interaction: Sitting on a bed near a window\./);
+  assert.match(interaction.prompt,/Scene: Sitting on a bed near a window\./);
   const graph = buildComfyPrompt(TEMPLATE,interaction,{character:'character.png',garment:'garment.png'});
   assert.equal(Object.values(graph).filter(node => node.class_type === 'LoadImage').length,2);
 });
 
-test('場景互動提詞可選用與補充，任務保存內容快照並驗證分類',() => {
+test('場景提詞可選用與補充，任務保存內容快照並驗證分類',() => {
   const state = fixtureState();
   const preset = state.presets.find(row => row.id === 'interaction-window');
-  const shot = buildShotPlans(state,{...DRAFT,interactionId:preset.id,sceneInteraction:'Looking toward the camera.'})[0];
+  const shot = buildShotPlans(state,{...DRAFT,interactionId:preset.id,sceneInteraction:'Translucent curtains beside the window.'})[0];
   assert.equal(shot.interaction.id,preset.id);
-  assert.match(shot.prompt,/Scene interaction: Beside a window,.*Looking toward the camera\./);
-  assert.equal(shot.prompt.split('Scene interaction:').length,2);
+  assert.ok(shot.prompt.includes(`Scene: ${preset.prompt} Translucent curtains beside the window.`));
+  assert.equal(shot.prompt.split('Scene:').length,2);
   assert.equal(shot.scene,undefined);
   const originalPrompt = preset.prompt;
   preset.prompt = 'Changed after creation';
   assert.equal(shot.interaction.prompt,originalPrompt);
-  assert.throws(() => buildShotPlans(state,{...DRAFT,interactionId:'camera-full'}),/場景互動/);
-  assert.throws(() => buildShotPlans(state,{...DRAFT,interactionId:'missing'}),/場景互動/);
+  assert.throws(() => buildShotPlans(state,{...DRAFT,interactionId:'camera-full'}),/場景/);
+  assert.throws(() => buildShotPlans(state,{...DRAFT,interactionId:'missing'}),/場景/);
   assert.equal(buildShotPlans(state,DRAFT)[0].interaction,null);
   const imported = normalizePresetImport([{id:'import-window',category:'interaction',name:'窗邊',prompt:'Beside a window.',tags:['窗戶']}]);
   assert.equal(imported[0].category,'interaction');
@@ -203,7 +204,7 @@ test('已保存的三圖拍攝仍可匯出原場景，新拍攝不繼承模板�
   const graph = buildComfyPrompt(TEMPLATE,shot,{character:'character.png',garment:'garment.png',scene:'scene.png'});
   assert.equal(graph[graph['12'].inputs['images.image_3'][0]].inputs.image,'scene.png');
   assert.match(graph['12'].inputs.prompt,/^saved legacy prompt\n\n/);
-  assert.match(graph['12'].inputs.prompt,/exactly one person/);
+  assert.match(graph['12'].inputs.prompt,/exactly ONE person/);
   assert.equal(shot.prompt,'saved legacy prompt');
   assert.throws(() => buildComfyPrompt(TEMPLATE,shot,{character:'character.png',garment:'garment.png'}),/scene/);
   const fresh = buildShotPlans(state,DRAFT)[0];

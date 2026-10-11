@@ -5,6 +5,11 @@ import { DEFAULT_PRESETS } from '../shared/domain.js';
 import { migrateShootBatches } from '../shared/batches.js';
 import { upgradeCameraMapping } from '../shared/camera.js';
 import { reconcileLibrarySelections } from '../shared/library-selections.js';
+import {defaultCharacterPromptSettings} from '../shared/character-profile.js';
+import {DEFAULT_TURNAROUND_PROMPT} from '../shared/character-turnaround.js';
+import {PORTRAIT_SCENE_PAIRS} from '../shared/portrait-scenes.js';
+import {migrateSceneDescriptions} from './scene-preset-migrations.js';
+import {initialCharacterPromptProfiles} from '../shared/character-prompt-profiles.js';
 
 export function createStore(dataDir) {
   fs.mkdirSync(path.join(dataDir,'uploads'), { recursive: true });
@@ -73,23 +78,40 @@ export function createStore(dataDir) {
   }
   const beforeMigration = fresh ? {} : structuredClone(state);
   state.settings.releaseGpuMemory ??= false;
+  state.settings.characterPrompts ??= defaultCharacterPromptSettings();
+  state.settings.characterPrompts.turnaroundPrompt ??= DEFAULT_TURNAROUND_PROMPT;
+  state.settings.characterPromptProfiles ??= initialCharacterPromptProfiles(state.settings.characterPrompts);
+  const activePromptProfile=state.settings.characterPromptProfiles.profiles.find(row=>row.id===state.settings.characterPromptProfiles.activeId);
+  if(!activePromptProfile) throw new Error('使用中的角色提詞設定檔不存在。');
+  activePromptProfile.settings=structuredClone(state.settings.characterPrompts);
   if (!state.interactionPresetsVersion) {
     const ids = new Set(state.presets.map(row => row.id));
-    state.presets.push(...structuredClone(DEFAULT_PRESETS.filter(row => row.category === 'interaction' && !ids.has(row.id))));
+    state.presets.push(...structuredClone(DEFAULT_PRESETS.filter(row => row.category === 'interaction' && !row.id.startsWith('interaction-portrait-') && !ids.has(row.id))));
     state.interactionPresetsVersion = 1;
+  }
+  if (!state.portraitScenePresetsVersion) {
+    const ids = new Set(state.presets.map(row => row.id));
+    for(const {scene,pose} of PORTRAIT_SCENE_PAIRS) if(!ids.has(scene.id)) {
+      state.presets.push(structuredClone(scene));ids.add(scene.id);
+      if(!ids.has(pose.id)) {state.presets.push(structuredClone(pose));ids.add(pose.id);}
+    }
+    state.portraitScenePresetsVersion = 1;
   }
   if (!state.detailPresetsVersion) {
     const ids = new Set(state.presets.map(row => row.id));
     state.presets.push(...structuredClone(DEFAULT_PRESETS.filter(row => ['expression','clothing_state'].includes(row.category) && !ids.has(row.id))));
     state.detailPresetsVersion = 1;
   }
+  migrateSceneDescriptions(state);
   state.presets = state.presets.map(row => row.category === 'camera' ? upgradeCameraMapping(row) : row);
   if(state.customerRecipe?.pools?.camera) state.customerRecipe.pools.camera = state.customerRecipe.pools.camera.map(row => row.id === 'camera-original' ? row : upgradeCameraMapping(row));
   reconcileLibrarySelections(state);
   migrateShootBatches(state);
   if(fresh || JSON.stringify(beforeMigration) !== JSON.stringify(state)) save(beforeMigration);
   return {
-    read: () => structuredClone(state),
+    // Pure projections avoid copying unrelated workflow snapshots when a
+    // request only needs one image or a list of folders. Results stay detached.
+    read: (select=value=>value) => structuredClone(select(state)),
     mutate: callback => {
       const previous = state;
       state = structuredClone(state);

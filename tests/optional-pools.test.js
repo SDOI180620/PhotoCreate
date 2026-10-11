@@ -26,7 +26,7 @@ test('隨機模式遵守選填清單，空清單略過該類，即使舊啟用�
   const cleared={...draft,expressionIds:[],clothingStateIds:[],interactionIds:[],expressionId:'expression-smile',randomOptional:{expression:true,clothing_state:true,interaction:true}};
   for(const shot of buildShotPlans(state,cleared)) {
     for(const key of Object.keys(fields)) assert.equal(shot[key],null);
-    assert.doesNotMatch(shot.prompt,/Facial expression:|Clothing state:|Scene interaction:/);
+    assert.doesNotMatch(shot.prompt,/Facial expression:|Clothing state:|Scene:/);
   }
 });
 

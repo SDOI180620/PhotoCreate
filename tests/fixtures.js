@@ -1,5 +1,5 @@
 import { DEFAULT_PRESETS } from '../shared/domain.js';
-export const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jFJkAAAAASUVORK5CYII=','base64');
+export const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWP4////fwAJ+wP9CNHoHgAAAABJRU5ErkJggg==','base64');
 export const TEMPLATE = {
   '1':{class_type:'UNETLoader',inputs:{unet_name:'qwen-image-2.1-UC-int8_convrot.safetensors',weight_dtype:'default'}},
   '2':{class_type:'CLIPLoader',inputs:{clip_name:'qwen3vl_8b_bf16.safetensors',type:'qwen_image',device:'default'}},

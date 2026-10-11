@@ -1,0 +1,592 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "interaction-portrait-forest-path",
+      "category": "interaction",
+      "name": "森林小徑",
+      "prompt": "A narrow woodland path between tall trees and layered green foliage. The earthy trail recedes into the forest, with low leaves, roots and ferns along its edges.",
+      "tags": [
+        "寫真",
+        "森林",
+        "步道"
+      ]
+    },
+    {
+      "id": "interaction-portrait-cedar-tree",
+      "category": "interaction",
+      "name": "杉木林間",
+      "prompt": "Straight cedar trunks form repeating vertical layers above a level forest floor covered with fallen needles. A broad textured trunk occupies the foreground, with smaller trees receding behind.",
+      "tags": [
+        "寫真",
+        "森林",
+        "杉木",
+        "樹幹"
+      ]
+    },
+    {
+      "id": "interaction-portrait-bamboo-walk",
+      "category": "interaction",
+      "name": "竹林石徑",
+      "prompt": "A stone walkway through a dense bamboo grove, surrounded by upright green stalks and layered leaves. Low bamboo branches border the path, with clear gaps between the stems into the background.",
+      "tags": [
+        "寫真",
+        "竹林",
+        "步道"
+      ]
+    },
+    {
+      "id": "interaction-portrait-moss-log",
+      "category": "interaction",
+      "name": "苔蘚林地倒木",
+      "prompt": "A lush forest clearing with textured moss, low ferns and a sturdy fallen tree trunk. The ground is level around the log, with layered vegetation and tree trunks framing the clearing.",
+      "tags": [
+        "寫真",
+        "森林",
+        "苔蘚",
+        "倒木"
+      ]
+    },
+    {
+      "id": "interaction-portrait-forest-boardwalk",
+      "category": "interaction",
+      "name": "森林木棧道",
+      "prompt": "A wooden boardwalk winds between dense forest trees, with timber railings, visible plank textures and greenery on both sides. The walkway leads into overlapping layers of foliage.",
+      "tags": [
+        "寫真",
+        "森林",
+        "木棧道",
+        "欄杆"
+      ]
+    },
+    {
+      "id": "interaction-portrait-stream-stones",
+      "category": "interaction",
+      "name": "林間溪畔踏石",
+      "prompt": "A shallow woodland stream with clear water and small rounded stones. Broad dry stepping stones lie near the bank, beneath overhanging branches and a layered canopy of leaves.",
+      "tags": [
+        "寫真",
+        "森林",
+        "溪流",
+        "踏石"
+      ]
+    },
+    {
+      "id": "interaction-portrait-forest-picnic",
+      "category": "interaction",
+      "name": "林間野餐空地",
+      "prompt": "A grassy clearing framed by forest trees, with a picnic blanket spread over level ground and a small woven basket beside it. Low wildflowers and ferns line the open woodland space.",
+      "tags": [
+        "寫真",
+        "森林",
+        "野餐",
+        "草地"
+      ]
+    },
+    {
+      "id": "interaction-portrait-forest-bridge",
+      "category": "interaction",
+      "name": "林間吊橋",
+      "prompt": "A wooden suspension footbridge crosses a wooded ravine. Timber planks, rope supports and side rails lead from the bridge entrance toward distant forest trees, with layered greenery below.",
+      "tags": [
+        "寫真",
+        "森林",
+        "吊橋"
+      ]
+    },
+    {
+      "id": "interaction-portrait-misty-forest",
+      "category": "interaction",
+      "name": "晨霧森林",
+      "prompt": "Thin morning mist separates tall forest trunks above level ground. Dark nearby bark contrasts with pale distant layers of trees, while the overhead canopy remains visible through the haze.",
+      "tags": [
+        "寫真",
+        "森林",
+        "晨霧"
+      ]
+    },
+    {
+      "id": "interaction-portrait-woodland-cabin",
+      "category": "interaction",
+      "name": "林間木屋門口",
+      "prompt": "A small timber cabin in the woods, with an open doorway, weathered boards and a broad wooden doorframe. Ferns grow beside the threshold and forest trees fill the space beyond the cabin.",
+      "tags": [
+        "寫真",
+        "森林",
+        "木屋",
+        "門框"
+      ]
+    },
+    {
+      "id": "interaction-portrait-park-bench",
+      "category": "interaction",
+      "name": "公園長椅",
+      "prompt": "A park bench beside a leafy, gently curving path. Its broad seat and nearby paving remain clearly visible, with mature trees, low garden beds and the path receding into the park.",
+      "tags": [
+        "寫真",
+        "公園",
+        "長椅"
+      ]
+    },
+    {
+      "id": "interaction-portrait-fallen-leaves",
+      "category": "interaction",
+      "name": "公園落葉步道",
+      "prompt": "A park path scattered with autumn leaves, bordered by golden foliage and mature trees. A carpet of dry leaves covers the edges of the walkway, with the trail curving into the garden.",
+      "tags": [
+        "寫真",
+        "公園",
+        "落葉",
+        "秋天"
+      ]
+    },
+    {
+      "id": "interaction-portrait-park-lawn",
+      "category": "interaction",
+      "name": "公園草地",
+      "prompt": "A neatly maintained park lawn with level grass, low flower beds and spreading leafy trees. The open green area extends toward a distant path, with layered foliage framing its edges.",
+      "tags": [
+        "寫真",
+        "公園",
+        "草地"
+      ]
+    },
+    {
+      "id": "interaction-portrait-park-fountain",
+      "category": "interaction",
+      "name": "公園噴水池",
+      "prompt": "A decorative fountain in a landscaped park, with water contained inside a stone basin and a broad dry rim. Paved paths, trimmed shrubs and small garden beds surround the fountain.",
+      "tags": [
+        "寫真",
+        "公園",
+        "噴水池",
+        "石邊"
+      ]
+    },
+    {
+      "id": "interaction-portrait-park-pergola",
+      "category": "interaction",
+      "name": "公園花架步道",
+      "prompt": "A flowering pergola over a paved park walkway, with sturdy posts and climbing flowers overhead. Garden paths and low planting beds extend beyond the shaded structure.",
+      "tags": [
+        "寫真",
+        "公園",
+        "花架",
+        "步道"
+      ]
+    },
+    {
+      "id": "interaction-portrait-park-lake",
+      "category": "interaction",
+      "name": "公園湖畔步道",
+      "prompt": "A park lake promenade bordered by a low railing. Still water, shoreline trees and a distant footbridge form layered background elements beyond the broad level walkway.",
+      "tags": [
+        "寫真",
+        "公園",
+        "湖畔",
+        "欄杆"
+      ]
+    },
+    {
+      "id": "interaction-portrait-park-shade",
+      "category": "interaction",
+      "name": "公園樹蔭步道",
+      "prompt": "A park walkway beneath spreading tree canopies, with patches of shade across the pavement. An open lawn, repeating trunks and low garden plants extend beside the winding path.",
+      "tags": [
+        "寫真",
+        "公園",
+        "樹蔭",
+        "步道"
+      ]
+    },
+    {
+      "id": "interaction-portrait-park-pavilion",
+      "category": "interaction",
+      "name": "公園木造涼亭",
+      "prompt": "An open wooden pavilion in a landscaped park, with broad columns, a level floor and a visible sheltering roof. Garden beds, trees and a distant pathway surround the structure.",
+      "tags": [
+        "寫真",
+        "公園",
+        "涼亭",
+        "木柱"
+      ]
+    },
+    {
+      "id": "interaction-portrait-riverside-park",
+      "category": "interaction",
+      "name": "河濱公園步道",
+      "prompt": "A broad riverside park path with a low railing beside the water. Grasses border the walkway, while the river surface and distant opposite bank create an open, airy background.",
+      "tags": [
+        "寫真",
+        "公園",
+        "河濱",
+        "步道"
+      ]
+    },
+    {
+      "id": "interaction-portrait-botanical-leaves",
+      "category": "interaction",
+      "name": "植物園溫室",
+      "prompt": "A botanical garden greenhouse with planted beds, broad tropical leaves and layered foliage. Glass panels and metal supports create clear structural lines above the level indoor paths.",
+      "tags": [
+        "寫真",
+        "植物園",
+        "溫室",
+        "綠葉"
+      ]
+    },
+    {
+      "id": "interaction-portrait-waterfall-platform",
+      "category": "interaction",
+      "name": "瀑布木造觀景台",
+      "prompt": "A wooden viewing platform faces a waterfall, with sturdy rails and dry timber decking. Falling water, textured rocks and dense greenery establish the surrounding gorge.",
+      "tags": [
+        "寫真",
+        "瀑布",
+        "觀景台",
+        "欄杆"
+      ]
+    },
+    {
+      "id": "interaction-portrait-waterfall-rock",
+      "category": "interaction",
+      "name": "瀑布平岩",
+      "prompt": "A broad dry level rock beside a waterfall viewing area. The waterfall cascades behind and to one side, with visible rock textures, low vegetation and a clear dry foreground.",
+      "tags": [
+        "寫真",
+        "瀑布",
+        "岩石"
+      ]
+    },
+    {
+      "id": "interaction-portrait-waterfall-mist",
+      "category": "interaction",
+      "name": "瀑布水霧步道",
+      "prompt": "A dry path near a waterfall, with fine spray softening the distant falling water. Rocks and green vegetation line the walkway, while the nearby foreground remains clear through the mist.",
+      "tags": [
+        "寫真",
+        "瀑布",
+        "水霧",
+        "步道"
+      ]
+    },
+    {
+      "id": "interaction-portrait-valley-bridge",
+      "category": "interaction",
+      "name": "溪谷木橋",
+      "prompt": "A small timber footbridge above a clear mountain stream, with wooden side rails and visible planks. Rounded stones, flowing water and green valley slopes surround the bridge.",
+      "tags": [
+        "寫真",
+        "溪谷",
+        "木橋",
+        "欄杆"
+      ]
+    },
+    {
+      "id": "interaction-portrait-stream-bank",
+      "category": "interaction",
+      "name": "山溪岸邊岩石",
+      "prompt": "A shallow mountain stream with clear water, pebbles and low ferns. A broad smooth dry rock lies close to the level bank, with layered woodland vegetation beyond the water.",
+      "tags": [
+        "寫真",
+        "溪流",
+        "岩石",
+        "岸邊"
+      ]
+    },
+    {
+      "id": "interaction-portrait-beach-breeze",
+      "category": "interaction",
+      "name": "海邊沙灘",
+      "prompt": "A sandy beach beside the shoreline, with small waves, damp sand and an open horizon. A mild sea breeze crosses the shore, with distant coastal vegetation defining the edge of the beach.",
+      "tags": [
+        "寫真",
+        "海邊",
+        "沙灘",
+        "微風"
+      ]
+    },
+    {
+      "id": "interaction-portrait-coastal-rail",
+      "category": "interaction",
+      "name": "海岸木欄步道",
+      "prompt": "A coastal walkway above the shore, bordered by a wooden railing. Low coastal plants, weathered rocks and open water form a spacious background along the level trail.",
+      "tags": [
+        "寫真",
+        "海岸",
+        "步道",
+        "欄杆"
+      ]
+    },
+    {
+      "id": "interaction-portrait-harbor-pier",
+      "category": "interaction",
+      "name": "漁港棧橋",
+      "prompt": "A sturdy harbor pier with weathered timber, side rails and ropes tied to nearby posts. Quiet water and moored fishing boats extend beyond the walkway toward the harbor mouth.",
+      "tags": [
+        "寫真",
+        "漁港",
+        "棧橋",
+        "船隻"
+      ]
+    },
+    {
+      "id": "interaction-portrait-lake-dock",
+      "category": "interaction",
+      "name": "湖畔木碼頭",
+      "prompt": "A lakeside wooden dock with a wide fixed bench and clearly visible planks. Calm water, shoreline trees and distant hills create layered depth beyond the edge of the dock.",
+      "tags": [
+        "寫真",
+        "湖畔",
+        "碼頭",
+        "長椅"
+      ]
+    },
+    {
+      "id": "interaction-portrait-reed-path",
+      "category": "interaction",
+      "name": "湖邊蘆葦小徑",
+      "prompt": "A narrow lakeside path between tall reeds, with low vegetation along the firm ground. Gaps in the stems reveal calm water and the distant shoreline beyond the walkway.",
+      "tags": [
+        "寫真",
+        "湖畔",
+        "蘆葦",
+        "步道"
+      ]
+    },
+    {
+      "id": "interaction-portrait-grassy-hill",
+      "category": "interaction",
+      "name": "山丘草坡",
+      "prompt": "A gentle grassy hillside with rolling slopes and a level patch of short grass in the foreground. Distant trees and low countryside hills form an open layered background.",
+      "tags": [
+        "寫真",
+        "山丘",
+        "草坡"
+      ]
+    },
+    {
+      "id": "interaction-portrait-mountain-lookout",
+      "category": "interaction",
+      "name": "山林觀景台",
+      "prompt": "A mountain viewing deck with a sturdy railing and level timber floor. Layered wooded ridgelines, distant slopes and a broad valley establish a clear sense of open space.",
+      "tags": [
+        "寫真",
+        "山林",
+        "觀景台",
+        "欄杆"
+      ]
+    },
+    {
+      "id": "interaction-portrait-tea-garden",
+      "category": "interaction",
+      "name": "茶園步道",
+      "prompt": "A walkway between neatly arranged tea bushes, with curved rows following the hillside. Fresh green leaves border the path, and surrounding hills extend beyond the patterned tea garden.",
+      "tags": [
+        "寫真",
+        "茶園",
+        "步道",
+        "綠葉"
+      ]
+    },
+    {
+      "id": "interaction-portrait-rice-terraces",
+      "category": "interaction",
+      "name": "梯田田埂",
+      "prompt": "A broad level path beside terraced rice fields, clearly separated from the planted rows. Green terraces follow the hillside, with distant rural hills and open sky beyond the fields.",
+      "tags": [
+        "寫真",
+        "梯田",
+        "田埂"
+      ]
+    },
+    {
+      "id": "interaction-portrait-cherry-walk",
+      "category": "interaction",
+      "name": "櫻花步道",
+      "prompt": "A walkway lined with blooming cherry trees, with flowering branches overhead and scattered petals on the ground. Repeating trunks and soft layers of blossoms lead into the garden.",
+      "tags": [
+        "寫真",
+        "櫻花",
+        "步道",
+        "花瓣"
+      ]
+    },
+    {
+      "id": "interaction-portrait-flower-field",
+      "category": "interaction",
+      "name": "花田小徑",
+      "prompt": "A narrow walkway through a colorful flower field, with blossoms at varied heights and depths. Rows of flowers extend toward an open rural horizon beyond the level path.",
+      "tags": [
+        "寫真",
+        "花田",
+        "步道"
+      ]
+    },
+    {
+      "id": "interaction-portrait-lavender-garden",
+      "category": "interaction",
+      "name": "薰衣草花園",
+      "prompt": "A lavender garden with orderly rows of purple flowers, low green leaves and narrow level paths. The planted rows recede into the distance beneath an open countryside backdrop.",
+      "tags": [
+        "寫真",
+        "薰衣草",
+        "花園"
+      ]
+    },
+    {
+      "id": "interaction-portrait-rose-arbor",
+      "category": "interaction",
+      "name": "玫瑰花園拱架",
+      "prompt": "A rose-covered garden arch with a smooth structural frame above a winding path. Rose beds and layered garden foliage surround the open passage beneath the flowering canopy.",
+      "tags": [
+        "寫真",
+        "玫瑰",
+        "花園",
+        "花架"
+      ]
+    },
+    {
+      "id": "interaction-portrait-ginkgo-autumn",
+      "category": "interaction",
+      "name": "秋日銀杏步道",
+      "prompt": "A path beneath a golden ginkgo tree, with a carpet of fallen leaves on the ground. Bright overhead branches and layered autumn foliage create depth beside the level walkway.",
+      "tags": [
+        "寫真",
+        "銀杏",
+        "秋天",
+        "落葉"
+      ]
+    },
+    {
+      "id": "interaction-portrait-lotus-bridge",
+      "category": "interaction",
+      "name": "夏日荷塘小橋",
+      "prompt": "A small bridge across a lotus pond, with low side rails and a level walkway. Broad lotus leaves, scattered blossoms and still water establish a lush summer garden.",
+      "tags": [
+        "寫真",
+        "荷塘",
+        "橋",
+        "夏天"
+      ]
+    },
+    {
+      "id": "interaction-portrait-old-town",
+      "category": "interaction",
+      "name": "老街石板巷弄",
+      "prompt": "A quiet stone-paved old-town lane with weathered shopfronts and timber doors. Textured walls and the receding narrow streetscape create layers of familiar architectural detail.",
+      "tags": [
+        "寫真",
+        "老街",
+        "石板路"
+      ]
+    },
+    {
+      "id": "interaction-portrait-white-colonnade",
+      "category": "interaction",
+      "name": "白色迴廊",
+      "prompt": "A white colonnaded walkway with repeating arches, broad columns and a level floor. Clean architectural lines extend into the distance, with open passages between the columns.",
+      "tags": [
+        "寫真",
+        "迴廊",
+        "建築",
+        "石柱"
+      ]
+    },
+    {
+      "id": "interaction-portrait-brick-wall",
+      "category": "interaction",
+      "name": "紅磚街角",
+      "prompt": "An aged red-brick wall beside a paved urban lane, with a nearby window and a few climbing plants. Visible mortar lines and weathered brick textures form a simple streetscape.",
+      "tags": [
+        "寫真",
+        "紅磚",
+        "街景"
+      ]
+    },
+    {
+      "id": "interaction-portrait-courtyard-fountain",
+      "category": "interaction",
+      "name": "庭院噴泉",
+      "prompt": "A landscaped courtyard with a fountain, dry stone benches and level paving. Stonework, trimmed greenery and surrounding garden walls create a layered architectural setting.",
+      "tags": [
+        "寫真",
+        "庭院",
+        "噴泉",
+        "長椅"
+      ]
+    },
+    {
+      "id": "interaction-portrait-cafe-window",
+      "category": "interaction",
+      "name": "咖啡店窗邊",
+      "prompt": "A cafe table beside a large window, with ceramic cups and a simple tabletop setting. Window frames, nearby chairs and the street beyond add layered everyday detail to the interior.",
+      "tags": [
+        "寫真",
+        "咖啡店",
+        "窗邊",
+        "室內"
+      ]
+    },
+    {
+      "id": "interaction-portrait-bookshop-window",
+      "category": "interaction",
+      "name": "書店窗邊閱讀台",
+      "prompt": "A bookshop window beside a low reading counter, with an open book on the surface. Bookshelves and clearly defined window frames create layered depth in the quiet interior.",
+      "tags": [
+        "寫真",
+        "書店",
+        "窗邊",
+        "室內"
+      ]
+    },
+    {
+      "id": "interaction-portrait-gallery-corridor",
+      "category": "interaction",
+      "name": "美術館長廊",
+      "prompt": "A quiet art gallery corridor with framed artworks spaced along plain walls. A clean level floor and repeating doorways lead into the distance, creating an orderly architectural backdrop.",
+      "tags": [
+        "寫真",
+        "美術館",
+        "長廊",
+        "室內"
+      ]
+    },
+    {
+      "id": "interaction-portrait-glass-greenhouse",
+      "category": "interaction",
+      "name": "玻璃溫室門口",
+      "prompt": "An open doorway into a glass greenhouse, with a metal frame and level threshold. Glass panes, structural supports and potted greenery create depth along the indoor path.",
+      "tags": [
+        "寫真",
+        "溫室",
+        "玻璃",
+        "門框"
+      ]
+    },
+    {
+      "id": "interaction-portrait-guesthouse-balcony",
+      "category": "interaction",
+      "name": "民宿陽台",
+      "prompt": "A guesthouse balcony with a sturdy railing and level floor. Simple outdoor furniture, potted plants and distant scenery create a quiet retreat setting beyond the open terrace.",
+      "tags": [
+        "寫真",
+        "民宿",
+        "陽台",
+        "欄杆"
+      ]
+    },
+    {
+      "id": "interaction-portrait-studio-window",
+      "category": "interaction",
+      "name": "攝影棚落地窗",
+      "prompt": "A floor-to-ceiling window in a minimal portrait studio, with a broad windowsill and sheer curtains. A plain wall and uncluttered level floor create a clean interior setting.",
+      "tags": [
+        "寫真",
+        "攝影棚",
+        "落地窗",
+        "室內"
+      ]
+    }
+  ]
+}

@@ -219,7 +219,7 @@ export function createTransferManager({dataDir,store,now=()=>Date.now(),limits=L
     } catch(error) {for(const file of copied) fs.rmSync(file,{force:true});throw error;}
     cleanupPreview();return {...plan.summary,draftApplied:applyDraft};
   });}
-  return {uploadDir:workDir,exportZip,prepare,commit,
+  return {uploadDir:workDir,exportZip,prepare,commit,isBusy:()=>busy,
     download(token) {
       purgeExpired();const archive=exports.get(token);
       if(!archive || archive.downloading) throw transferError('ZIP 下載已過期，請重新匯出。',410);

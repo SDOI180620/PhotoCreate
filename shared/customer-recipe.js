@@ -2,6 +2,9 @@ import {DEFAULT_DRAFT} from './draft.js';
 import {getShotRecipe,optionalPresetSelections,selectedCharacterIds} from './domain.js';
 import {ORIGINAL_CAMERA} from './camera.js';
 
+export const CUSTOMER_MAX_SHOOT_COUNT=12;
+export const CUSTOMER_SHOOT_COUNTS=[1,2,4,8,12];
+
 const SETTINGS=['cameraMode','cameraEnabled','steps','resolution','angleSteps','refineDenoise','negative','extra','sceneInteraction','randomOptional'];
 
 // Use the same candidate snapshot for publishing and for the workbench's dirty state.

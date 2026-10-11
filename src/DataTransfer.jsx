@@ -7,7 +7,13 @@ const formatBytes=bytes=>bytes>=1024**2 ? `${(bytes/1024**2).toFixed(1)} MB` : `
 export default function DataTransfer({state,api,onBeforeTransfer,onImported,busy}) {
   const input=useRef(null),token=useRef(''),mounted=useRef(true);
   const [working,setWorking]=useState(''),[preview,setPreview]=useState(null),[applyDraft,setApplyDraft]=useState(true),[error,setError]=useState(''),[message,setMessage]=useState('');
+  const [storage,setStorage]=useState(null);
   useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;if(token.current) api(`/transfer/preview/${token.current}`,{method:'DELETE'}).catch(()=>{});};},[]);
+  useEffect(()=>{
+    if(!state.features?.fullBackups) return;
+    let live=true;const refresh=()=>api('/photo-storage').then(value=>{if(live) setStorage(value);}).catch(()=>{});
+    refresh();const timer=setInterval(refresh,5000);return ()=>{live=false;clearInterval(timer);};
+  },[state.features?.fullBackups]);
   const locked=busy || !!working;
   async function action(label,callback) {
     setWorking(label);setError('');setMessage('');
@@ -20,6 +26,16 @@ export default function DataTransfer({state,api,onBeforeTransfer,onImported,busy
   }
   const stats=Object.entries(LABELS).filter(([kind])=>kind!=='scenes' || state.scenes.length);
   return <section className="data-transfer" aria-label="資料搬移">
+    <div className="transfer-card transfer-export-card">
+      <div className="transfer-card-heading"><FileArchive size={20}/><div><h3>完整備份（含照片）</h3><p className="field-help">保存所有顧客帳號、角色與服裝、成果原圖、拍攝紀錄、分類與精選、提詞設定及播放音樂。</p></div></div>
+      {storage && <p className="field-help">已保存 {storage.files} 個照片檔案 · {formatBytes(storage.bytes)}{storage.archiving ? ' · 正在保存歷史照片…' : ''}{storage.missing>0 ? ` · 還有 ${storage.missing} 張成果待保存` : ''}</p>}
+      <button className="button primary" disabled={locked || !state.features?.fullBackups} onClick={()=>action('正在保存照片並建立完整備份…',async()=>{
+        await onBeforeTransfer();const result=await api('/backups/export',{method:'POST'});
+        const anchor=document.createElement('a');anchor.href=`/api/backups/${result.token}`;anchor.download=result.name;document.body.append(anchor);anchor.click();anchor.remove();
+        if(mounted.current) setMessage(`完整備份已開始下載（${formatBytes(result.size)}，${result.photos} 個照片檔案）。${result.unavailableOriginals ? `有 ${result.unavailableOriginals} 張歷史成果的來源未能取得，備份已包含其餘保存的照片與資料。` : ''}`);
+      })}><ArrowDownToLine size={16}/>下載完整備份</button>
+      <p className="field-help">還原時先關閉 PhotoCreate，將完整備份 ZIP 拖到 Restore-PhotoCreate.cmd，再啟動程式。還原前的資料會另外保留。</p>
+    </div>
     <div><h2>把工作室帶到新環境</h2><p className="field-help">角色、服裝原圖與保存的提詞，連同角度和拍攝設定，一次打包。</p></div>
     {!preview && <div className="transfer-card transfer-export-card">
       <div className="transfer-card-heading"><ArrowDownToLine size={20}/><div><h3>匯出資料 ZIP</h3><p className="field-help">下載後，可在另一台電腦的 PhotoCreate 匯入。</p></div></div>
@@ -55,7 +71,7 @@ export default function DataTransfer({state,api,onBeforeTransfer,onImported,busy
         })}><Check size={16}/>匯入資料</button><button className="button secondary" disabled={locked} onClick={discard}>取消</button></div>
       </div>}
     </div>
-    <p className="field-help transfer-scope">資料 ZIP 不包含成果照片、拍攝任務或模型。ComfyUI 目錄與網址沿用新環境的設定；模型與工作流請到「環境與工作流」安裝或綁定。</p>
+    <p className="field-help transfer-scope">素材搬移 ZIP 不包含成果照片與拍攝任務；要保存整個工作室，請下載完整備份。兩種 ZIP 都不包含模型；新電腦可在「環境與工作流」重新綁定 ComfyUI。</p>
     {working && <p className="transfer-status" role="status"><Loader2 size={16} className="spin"/>{working}</p>}
     {error && <p className="inline-error" role="alert">{error}</p>}
     {message && <p className="transfer-status" role="status"><Check size={16}/>{message}</p>}

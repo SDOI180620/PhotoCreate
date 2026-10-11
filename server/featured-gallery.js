@@ -10,7 +10,7 @@ const folderName=value=>{
 // A selection pins one completed output, rather than following a family's
 // latest remake. Album folders and generated-photo folders are independent.
 export function createFeaturedGallery(store) {
-  const folders=ownerId=>(store.read().galleryFolders || []).filter(row=>row.ownerId===ownerId).map(folderDto);
+  const folders=ownerId=>store.read(state=>(state.galleryFolders || []).filter(row=>row.ownerId===ownerId).map(folderDto));
   const requireFolder=(ownerId,id)=>{
     if(id==='' || id===undefined) return '';
     if(typeof id!=='string') throw fail('資料夾格式不正確。');
@@ -24,10 +24,10 @@ export function createFeaturedGallery(store) {
     folderId:entry.folderId || '',addedAt:entry.addedAt,createdAt:job.createdAt,version:job.remakeVersion || 0,
     garment:job.garment?.name || '',pose:job.pose?.name || '',batchId:job.batchId,
     image:`/api/studio/jobs/${job.id}/image/${entry.imageIndex}`});
-  const list=ownerId=>{
-    const state=store.read(),jobs=new Map(state.jobs.filter(job=>job.visitorId===ownerId && !job.visitorDeletedAt && !job.outputsDeletedAt && job.status==='completed').map(job=>[job.id,job]));
+  const list=ownerId=>store.read(state=>{
+    const jobs=new Map(state.jobs.filter(job=>job.visitorId===ownerId && !job.visitorDeletedAt && !job.outputsDeletedAt && job.status==='completed').map(job=>[job.id,job]));
     return (state.galleryEntries || []).filter(row=>row.ownerId===ownerId && jobs.get(row.jobId)?.images?.[row.imageIndex]).map(row=>publicEntry(row,jobs.get(row.jobId)));
-  };
+  });
   const selected=(ownerId,ids)=>{
     if(!Array.isArray(ids) || !ids.length || ids.length>100 || ids.some(id=>typeof id!=='string')) throw fail('請選擇 1–100 張精選照片。');
     const entries=store.read().galleryEntries || [],rows=[...new Set(ids)].map(id=>entries.find(row=>row.id===id && row.ownerId===ownerId));

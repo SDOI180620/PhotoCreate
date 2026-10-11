@@ -7,15 +7,20 @@ import {buildComfyPrompt} from '../server/workflow.js';
 import {buildCameraStage} from '../server/camera-workflow.js';
 import {SINGLE_SUBJECT_PROMPT,SINGLE_SUBJECT_NEGATIVE,withSingleSubjectPrompt,withSingleSubjectNegative} from '../shared/subject.js';
 import {cameraPrompt} from '../shared/camera.js';
+import {customPhotoPrompt,DEFAULT_PHOTO_CUSTOMIZATION} from '../shared/photo-customization.js';
 import {DRAFT,TEMPLATE,fixtureState} from './fixtures.js';
 import {CAMERA_TEMPLATE} from './camera-fixtures.js';
 
 const encoder = graph => Object.values(graph).find(node=>node.class_type==='TextEncodeQwenImage21').inputs;
+const previousSingleSubject='A single-person photograph: exactly one person, solo, one subject appearing once in one camera view. The result is a single photograph, with the subject visible only once.';
 const removedAppearance="Use <image1> as the sole reference for the character's identity and anatomy. Preserve the same face and facial structure, hairstyle, body shape and build, body proportions, and breast size shown in <image1>. Changes to clothing, pose, camera viewpoint or rendering style must not redesign the face or physique, or increase or reduce breast size.";
 const removedBreastSize='Keep the breast size the same as in <image1>.';
 const assertSingle = (positive,negative) => {
-  assert.match(positive,/exactly one person, solo/);
-  assert.match(positive,/one subject appearing once in one camera view/);
+  assert.match(positive,/Create a photorealistic photograph featuring exactly ONE person\./);
+  assert.match(positive,/If <image1> contains multiple views, they all depict the SAME person from different angles\./);
+  assert.match(positive,/Show the person only ONCE in a single scene\./);
+  assert.match(positive,/Do not recreate the reference image's multi-view arrangement, panel layout, or repeated figures\./);
+  assert.doesNotMatch(positive,/(?:^|\n)\s*(?:a\s+girl|1\s*girl)\s*(?:\n|$)/i);
   assert.doesNotMatch(positive,/Compose one continuous photographic scene|Extract the identity and clothing from the reference|Use the reference only for appearance and clothing|never copy its page layout/);
   for(const term of ['multiple people','duplicate person','multiple views','three-view','turnaround','front side back','triptych','split screen']) assert(negative.includes(term),term);
 };
@@ -23,11 +28,11 @@ const assertSingle = (positive,negative) => {
 test('舊的單人提詞升級後只有一份新限制，負提詞補上三視圖且不重複',()=>{
   const legacy='A single-person photograph: exactly one person, solo, one subject appearing once in one camera view. The references may show different views of the same person; use them only for identity and clothing. Produce one photograph of one person, with no additional people, duplicate figures, reference sheet, collage, or split panels.';
   const removed='Extract the identity and clothing from the reference, then photograph that person once in the requested scene. Use the reference only for appearance and clothing, never copy its page layout.';
-  const previous=SINGLE_SUBJECT_PROMPT.replace('The result is',removed+' The result is');
+  const previous=previousSingleSubject.replace('The result is',removed+' The result is');
   const composition='Compose one continuous photographic scene, one uninterrupted frame, one viewpoint and one pose.';
-  const earlier=SINGLE_SUBJECT_PROMPT.replace('The result is',composition+' '+removed+' The result is');
+  const earlier=previousSingleSubject.replace('The result is',composition+' '+removed+' The result is');
   const negative=withSingleSubjectNegative('blurry, three-view');
-  for(const oldPrompt of [legacy,previous,earlier,removed,composition,removedAppearance,removedBreastSize,`${SINGLE_SUBJECT_PROMPT}\n\n${removedAppearance}\n\n${removedBreastSize}`]) {
+  for(const oldPrompt of [legacy,previousSingleSubject,previous,earlier,removed,composition,removedAppearance,removedBreastSize,`${SINGLE_SUBJECT_PROMPT}\n\n${removedAppearance}\n\n${removedBreastSize}`]) {
     const positive=withSingleSubjectPrompt(`A studio portrait.\n\n${oldPrompt}`);
     assertSingle(positive,negative);assert.equal(positive,`A studio portrait.\n\n${SINGLE_SUBJECT_PROMPT}`);
     assert(!positive.includes('The references may show different views'));
@@ -35,6 +40,22 @@ test('舊的單人提詞升級後只有一份新限制，負提詞補上三視�
   }
   assert.equal(withSingleSubjectNegative(negative),negative);
   assert.equal(negative.split(',').filter(term=>term.trim()==='three-view').length,1);
+});
+
+test('舊性別前綴在送出、重製與自訂拍攝時移除，原紀錄及手寫內容保留',()=>{
+  const directions='Editorial portrait of a person in a blue jacket.\n\nPose: Stand beside a window.';
+  for(const prefix of ['a girl','A GIRL','1 girl','1girl']) {
+    const source={...buildShotPlans(fixtureState(),DRAFT)[0],prompt:`${prefix}\n\n${previousSingleSubject}\n\n${directions}`,status:'completed',images:[{filename:'old.png'}],apiPrompt:structuredClone(TEMPLATE)};
+    const before=structuredClone(source),expected=`${directions}\n\n${SINGLE_SUBJECT_PROMPT}`;
+    const submitted=encoder(buildComfyPrompt(TEMPLATE,source,{character:'person.png',garment:'outfit.png'}));
+    const [remake]=buildRemakePlans({jobs:[source]},[source.id],{requestId:'subject-prefix'});
+    assert.equal(submitted.prompt,expected);assert.equal(remake.prompt,expected);
+    assert.equal(customPhotoPrompt(DEFAULT_PHOTO_CUSTOMIZATION,source),expected);
+    assert.equal(withSingleSubjectPrompt(expected),expected);
+    assert.deepEqual(source,before);
+  }
+  const custom='Photograph a girl wearing a blue jacket.';
+  assert.equal(withSingleSubjectPrompt(custom),`${custom}\n\n${SINGLE_SUBJECT_PROMPT}`);
 });
 
 test('撤回外觀一致性段落後，舊照片重拍不再送入模型，歷史紀錄保留',()=>{
