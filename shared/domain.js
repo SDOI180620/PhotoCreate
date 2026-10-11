@@ -1,6 +1,7 @@
 import { cameraPreset, cameraPrompt, normalizeCameraAngle, ORIGINAL_CAMERA, REFINE_STEPS, CAMERA_MAPPING_VERSION } from './camera.js';
 import { SINGLE_SUBJECT_PROMPT, withSingleSubjectNegative } from './subject.js';
 import {characterProfilePrompt} from './character-profile.js';
+import {garmentInstruction} from './garments.js';
 import {PORTRAIT_SCENE_PRESETS,PORTRAIT_POSE_PRESETS} from './portrait-scenes.js';
 import {PORTRAIT_ACTION_PRESETS} from './portrait-actions.js';
 import {BASIC_SCENE_PAIRS} from './scene-presets.js';
@@ -174,11 +175,11 @@ export function referenceOnlyPrompt(shot) {
   return prompt;
 }
 
-export function composePrompt({ character, characterPromptSettings, characterMeasurementsPrompt, pose, expression, clothingState, interaction, camera, lighting, color, quality, sceneInteraction = '', extra = '', cameraMode }) {
+export function composePrompt({ character, garment, characterPromptSettings, characterMeasurementsPrompt, pose, expression, clothingState, interaction, camera, lighting, color, quality, sceneInteraction = '', extra = '', cameraMode }) {
   const interactionPrompt = [interaction?.prompt?.trim(),sceneInteraction.trim()].filter(Boolean).join(' ');
   const paragraphs = [
     SINGLE_SUBJECT_PROMPT,
-    REFERENCE_INSTRUCTION,
+    garmentInstruction(garment,REFERENCE_INSTRUCTION),
     character?.description?.trim() && `Character details: ${character.description.trim()}`,
     characterMeasurementsPrompt ?? characterProfilePrompt(character,characterPromptSettings),
     interactionPrompt && `Scene: ${interactionPrompt}`,

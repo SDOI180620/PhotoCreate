@@ -1,5 +1,6 @@
 import { getOutputSize } from '../shared/domain.js';
 import {withSingleSubjectPrompt,withSingleSubjectNegative} from '../shared/subject.js';
+import {isPromptGarment} from '../shared/garments.js';
 
 export const WORKFLOW_NAME = '02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖';
 export const WORKFLOW_PATH = `Qwen Image 2.1/${WORKFLOW_NAME}.json`;
@@ -62,8 +63,8 @@ export function validateTemplate(graph) {
 
 export function referenceKinds(shot) {
   if(shot.jobKind==='character-turnaround') return ['character'];
-  if(shot.jobKind==='photo-edit') return ['character',...(shot.garment?.fileName ? ['garment'] : [])];
-  return ['character','garment',...(shot.scene ? ['scene'] : [])];
+  if(shot.jobKind==='photo-edit') return ['character',...(!isPromptGarment(shot.garment) && shot.garment?.fileName ? ['garment'] : [])];
+  return ['character',...(!isPromptGarment(shot.garment) ? ['garment'] : []),...(shot.scene ? ['scene'] : [])];
 }
 
 export function buildComfyPrompt(template, shot, images) {

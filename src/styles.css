@@ -252,7 +252,8 @@ code,pre {font-family:var(--font-mono)}
 .gallery-caption .shot-tag {padding:4px 8px;border-radius:5px;font-size:12px;line-height:1.5;color:var(--color-primary)}
 .gallery-caption .shot-tag-link {white-space:normal;text-align:left}
 .gallery-card-actions {display:flex;flex-direction:column;gap:12px;margin-top:auto;padding-top:18px}
-.gallery-shoot-actions {display:grid;grid-auto-columns:minmax(0,1fr);grid-auto-flow:column;gap:8px}
+.gallery-shoot-actions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.gallery-shoot-actions .button:only-child,.gallery-shoot-actions .button:nth-child(3) {grid-column:1 / -1}
 .gallery-shoot-actions .button {min-width:0;min-height:40px;padding:9px 6px;font-size:12px;gap:6px}
 .gallery-utility-actions {display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid var(--color-border)}
 .gallery-utility-actions .button {min-height:32px;padding:4px 0;border:0;background:transparent;font-size:12px;gap:6px;color:var(--color-text-dim)}
@@ -282,7 +283,7 @@ code,pre {font-family:var(--font-mono)}
 .gallery-lightbox-footer > button {margin-left:auto}
 @media(max-width:760px) {.gallery-lightbox-options {padding:12px}.gallery-lightbox-options .shot-options {grid-template-columns:minmax(0,1fr)}.gallery-state-legend {font-size:10px;gap:7px 12px}.shot-option {padding:5px 0}.batch-detail-heading {flex-wrap:wrap;gap:14px}.batch-control {width:100%;justify-content:flex-start}}
 @media(max-width:760px) {.gallery-grid {gap:16px}.gallery-latest {margin-left:0}.gallery-toolbar > .search-box {min-width:100%;order:3}.gallery-toolbar > select {flex:1;min-width:0}.gallery-lightbox-backdrop {padding:10px}.gallery-lightbox {max-height:calc(100vh - 20px)}.gallery-lightbox-heading {padding:12px;gap:10px}.gallery-lightbox-footer {padding:12px;gap:12px}.gallery-lightbox-image img {height:40vh;max-width:calc(100% - 72px)}.gallery-lightbox-image button {width:28px}.gallery-selection-toolbar > span {width:100%;margin-left:0}}
-@media(max-width:380px) {.gallery-shoot-actions {grid-auto-flow:row}}
+@media(max-width:380px) {.gallery-shoot-actions {grid-template-columns:minmax(0,1fr)}}
 .style-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 20px}
 .output-ratio-field {margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--color-border)}
 .output-ratio-field label {font-size:11px}

@@ -20,6 +20,7 @@
     "test:camera-ui": "node tests/camera-angle-browser.mjs",
     "test:preset-ui": "node tests/preset-editor-browser.mjs",
     "test:preset-photos-ui": "node tests/preset-photos-browser.mjs",
+    "test:garments-ui": "node tests/garments-browser.mjs",
     "test:preset-review-ui": "node tests/preset-review-browser.mjs",
     "test:gallery-ui": "node tests/gallery-layout-browser.mjs",
     "test:loading-ui": "node tests/image-loading-browser.mjs",

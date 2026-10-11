@@ -2,6 +2,7 @@ import {OPTIONAL_PRESET_FIELDS,OPTIONAL_PRESET_POOL_FIELDS,PRESET_POOL_FIELDS,PR
 import {cameraPreset,CAMERA_MAPPING_VERSION} from '../shared/camera.js';
 import {DEFAULT_DRAFT} from '../shared/draft.js';
 import {characterProfile} from '../shared/character-profile.js';
+import {garmentFields,isPromptGarment} from '../shared/garments.js';
 
 export const ASSET_KINDS = ['garments','characters','scenes'];
 export const LIMITS = {archive:2*1024**3,total:2*1024**3,image:25*1024**2,manifest:10*1024**2,assets:10000,presets:10000};
@@ -80,10 +81,12 @@ export function validateManifest(value) {
     assets[kind]=rows.map(row=> {
       if(!row || typeof row!=='object') throw transferError('圖片資料格式不正確。');
       const id=idField(row.id);if(ids.has(id)) throw transferError('圖片 ID 重複。');ids.add(id);
+      const garment=kind==='garments' ? garmentFields(row) : null;
+      if(garment && isPromptGarment(garment)) return {id,...garment,createdAt:textField(row.createdAt ?? createdAt,40,'服裝日期')};
       if(!Number.isSafeInteger(row.size) || row.size<12 || row.size>LIMITS.image || typeof row.sha256!=='string' || !/^[a-f0-9]{64}$/.test(row.sha256)) throw transferError('圖片大小或校驗值無效。');
       const ext={'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp'}[row.mime];
       if(!ext || row.imageFile!==`images/${row.sha256}${ext}`) throw transferError('圖片檔案路徑或格式無效。');
-      return {id,name:textField(row.name,200,'圖片名稱',true),description:textField(row.description ?? '',20000,'圖片提詞'),tags:tagsField(row.tags ?? []),createdAt:textField(row.createdAt ?? createdAt,40,'圖片日期'),mime:row.mime,imageFile:row.imageFile,sha256:row.sha256,size:row.size,...(kind==='characters' ? characterProfile(row) : {})};
+      return {id,name:textField(row.name,200,'圖片名稱',true),description:textField(row.description ?? '',20000,'圖片提詞'),tags:tagsField(row.tags ?? []),createdAt:textField(row.createdAt ?? createdAt,40,'圖片日期'),mime:row.mime,imageFile:row.imageFile,sha256:row.sha256,size:row.size,...(garment ? garment : {}),...(kind==='characters' ? characterProfile(row) : {})};
     });
   }
   const presets=portablePresets(value.presets);

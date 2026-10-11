@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {OUTPUT_RATIOS} from '../shared/domain.js';
+import {isPromptGarment} from '../shared/garments.js';
 import {STOPPABLE_STATUSES,RETRYABLE_STATUSES} from '../shared/batches.js';
 import {photoPromptDetails} from './photo-prompts.js';
 import {customerDraft,customerCharacters} from './customer-recipe.js';
@@ -104,7 +105,8 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
       jobs:state.jobs,trash:state.trash,
       ready:Boolean(recipe && ['garment','pose','lighting','color','quality'].every(key=>recipe.pools[key]?.length) && state.workflow && !isInstalling()),cameraReady:Boolean(state.workflow && state.cameraWorkflow && !isInstalling()),
       wardrobeCount:recipe?.pools.garment.length || 0,maxCount:CUSTOMER_MAX_SHOOT_COUNT,canQueueShoots:true,canStopShootBatches:true,canEditCharacters:true,canPermanentlyDeletePhotos:true,characterProfile:1,characterTurnaround:1,turnaroundReady:Boolean(state.workflow && !isInstalling()),photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION,
-      garments:(recipe?.pools.garment || []).map(row=>({id:row.id,name:row.name,image:`/api/studio/garments/${row.id}/image`})),
+      garmentSources:1,
+      garments:(recipe?.pools.garment || []).map(row=>({id:row.id,name:row.name,sourceType:isPromptGarment(row) ? 'prompt' : 'image',...(!isPromptGarment(row) ? {image:`/api/studio/garments/${row.id}/image`} : {})})),
       presets:Object.entries(PHOTO_PRESET_CATEGORIES).flatMap(([key,category])=>(recipe?.pools[key==='scene' ? 'interaction' : key] || []).filter(row=>row.category===category).map(row=>({id:row.id,category,name:row.name,groupIds:photoPresetGroupIds(row)}))),
       cameras:(recipe?.pools.camera || []).map(row=>({id:row.id,name:row.name,angle:row.angle})),
     };
@@ -206,7 +208,7 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
   });
   router.get('/garments/:id/image',async(req,res)=>{
     const row=getCustomerRecipe()?.pools.garment.find(row=>row.id===req.params.id);
-    if(!row?.fileName || path.basename(row.fileName)!==row.fileName) throw fail('找不到服裝圖片。',404);
+    if(isPromptGarment(row) || !row?.fileName || path.basename(row.fileName)!==row.fileName) throw fail('找不到服裝圖片。',404);
     const file=path.join(dataDir,'uploads',row.fileName);
     if(!fs.existsSync(file)) throw fail('服裝圖片已不存在。',404);
     await sendAssetImage(row,req.query,res);

@@ -9,9 +9,10 @@ import yazl from 'yazl';
 import {ACTIVE_STATUSES} from '../shared/batches.js';
 import {ASSET_KINDS,LIMITS,transferError,textField,tagsField,imageType,portablePresets,portableDraft,validateManifest,remapDraft} from './transfer-schema.js';
 import {characterProfile} from '../shared/character-profile.js';
+import {garmentFields,isPromptGarment} from '../shared/garments.js';
 
 const libraryRevision = state => createHash('sha256').update(JSON.stringify([state.garments,state.characters,state.scenes,state.presets])).digest('hex');
-const assetKey = (kind,row,digest) => JSON.stringify([kind,row.name,row.description || '',row.tags || [],row.mime,digest,...(kind==='characters' ? [characterProfile(row)] : [])]);
+const assetKey = (kind,row,digest) => JSON.stringify([kind,row.name,row.description || '',row.tags || [],isPromptGarment(row) ? undefined : row.mime,digest,...(kind==='garments' ? [row.sourceType || 'image',row.prompt || ''] : []),...(kind==='characters' ? [characterProfile(row)] : [])]);
 const presetKey = row => JSON.stringify([row.category,row.name,row.prompt,row.tags,row.angle ?? null]);
 
 // Only registered uploads are exported; generated outputs and machine settings are separate.
@@ -75,6 +76,7 @@ export function createTransferManager({dataDir,store,now=()=>Date.now(),limits=L
       for(const kind of ASSET_KINDS) {
         assets[kind]=[];
         for(const row of snapshot[kind]) {
+          if(kind==='garments' && isPromptGarment(row)) {assets[kind].push({id:row.id,...garmentFields(row),createdAt:row.createdAt});continue;}
           let file;try {file=registeredFile(dataDir,row);} catch(error) {throw transferError(`無法讀取「${row.name}」的原圖，請先重新上傳。`);}
           if(fs.statSync(file).size>limits.image) throw transferError(`「${row.name}」超過每張 25 MB。`);
           const copy=tempFile('.image');temporary.push(copy);
@@ -83,7 +85,7 @@ export function createTransferManager({dataDir,store,now=()=>Date.now(),limits=L
           if(!files.has(imageFile)) {files.set(imageFile,copy);total+=measured.size;}
           else removeFile(copy);
           if(total>limits.total) throw transferError('資料包超過 2 GB，請先整理圖庫。');
-          assets[kind].push({id:row.id,name:textField(row.name,200,'名稱',true),description:textField(row.description ?? '',20000,'圖片提詞'),tags:tagsField(row.tags ?? []),createdAt:row.createdAt,mime:type.mime,imageFile,sha256:measured.sha256,size:measured.size,...(kind==='characters' ? characterProfile(row) : {})});
+          assets[kind].push({id:row.id,name:textField(row.name,200,'名稱',true),description:textField(row.description ?? '',20000,'圖片提詞'),tags:tagsField(row.tags ?? []),createdAt:row.createdAt,mime:type.mime,imageFile,sha256:measured.sha256,size:measured.size,...(kind==='garments' ? garmentFields(row) : {}),...(kind==='characters' ? characterProfile(row) : {})});
         }
       }
       const presets=portablePresets(snapshot.presets);
@@ -131,6 +133,7 @@ export function createTransferManager({dataDir,store,now=()=>Date.now(),limits=L
       if(!manifest) throw transferError('ZIP 缺少 PhotoCreate 資料清單。');
       const expected=new Set(['photocreate.json']);
       for(const kind of ASSET_KINDS) for(const row of manifest.assets[kind]) {
+        if(kind==='garments' && isPromptGarment(row)) continue;
         expected.add(row.imageFile);const file=files.get(row.imageFile);
         if(!file || file.sha256!==row.sha256 || file.size!==row.size) throw transferError(`「${row.name}」的圖片遺失或校驗失敗。`);
         if(imageType(file.header).mime!==row.mime) throw transferError(`「${row.name}」的圖片格式不符。`);
@@ -148,6 +151,7 @@ export function createTransferManager({dataDir,store,now=()=>Date.now(),limits=L
     const currentHashes=new Map();
     for(const kind of ASSET_KINDS) for(const row of state[kind].filter(row=>!row.visitorId)) {
       try {
+        if(kind==='garments' && isPromptGarment(row)) {existingAssets.set(assetKey(kind,row),row.id);continue;}
         const file=registeredFile(dataDir,row);let digest=currentHashes.get(file);
         if(!digest) {digest=(await measureFile(file,limits.image,{signal:controller.signal})).sha256;currentHashes.set(file,digest);}
         existingAssets.set(assetKey(kind,row,digest),row.id);
@@ -160,7 +164,7 @@ export function createTransferManager({dataDir,store,now=()=>Date.now(),limits=L
       for(const row of manifest.assets[kind]) {
         const key=assetKey(kind,row,row.sha256);let id=existingAssets.get(key);
         if(id) duplicates[kind]++;
-        else {id=usedAssetIds.has(row.id) ? randomUUID() : row.id;usedAssetIds.add(id);existingAssets.set(key,id);newAssets[kind].push({...row,id,sourcePath:files.get(row.imageFile).path});}
+        else {id=usedAssetIds.has(row.id) ? randomUUID() : row.id;usedAssetIds.add(id);existingAssets.set(key,id);newAssets[kind].push({...row,id,...(row.imageFile ? {sourcePath:files.get(row.imageFile).path} : {})});}
         assetMap.set(row.id,id);
       }
     }
@@ -198,6 +202,7 @@ export function createTransferManager({dataDir,store,now=()=>Date.now(),limits=L
       for(const kind of ASSET_KINDS) {
         additions[kind]=[];
         for(const row of plan.newAssets[kind]) {
+          if(kind==='garments' && isPromptGarment(row)) {additions[kind].push({...row});continue;}
           let fileName=imageFiles.get(row.imageFile);
           if(!fileName) {
             fileName=`${randomUUID()}${path.extname(row.imageFile)}`;const target=path.join(uploads,fileName);

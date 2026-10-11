@@ -1,4 +1,4 @@
-import {loginBrowser} from './auth-client.js';
+import {loginBrowser,adminFetch} from './auth-client.js';
 import { chromium, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -118,18 +118,18 @@ try {
   await page.getByRole('button',{name:'設為 30 步',exact:true}).click();
   await expect(page.getByRole('spinbutton',{name:'採樣步數',exact:true})).toHaveValue('30');
   await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('27');
-  await expect(page.getByRole('button',{name:'選擇攝影角度提詞',exact:true})).toHaveAttribute('aria-haspopup','dialog');
-  await expect(page.getByRole('button',{name:'選擇攝影角度提詞',exact:true})).toContainText('修改提詞選擇');
+  await expect(page.getByRole('button',{name:'選擇攝影角度提詞',exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'選擇表情提詞',exact:true})).toContainText('選擇提詞');
   await expect(page.getByRole('button',{name:'建立拍攝清單',exact:true})).toBeDisabled();
   await page.setViewportSize({width:1440,height:900});
-  await page.getByRole('button',{name:'選擇攝影角度提詞',exact:true}).click();
-  await page.getByRole('dialog').getByRole('button',{name:'新增角度',exact:true}).click();
+  await page.getByRole('button',{name:'提詞資料庫',exact:true}).click();
+  await page.locator('.filter-tabs').getByRole('button',{name:/攝影角度/}).click();
+  await page.getByRole('button',{name:'新增提詞',exact:true}).click();
   let cameraDialog = page.getByRole('dialog',{name:'新增相機角度',exact:true});
   await cameraDialog.getByRole('textbox',{name:'角度名稱',exact:true}).fill('極低角度測試');
-  await cameraDialog.getByRole('combobox',{name:'俯仰角度快捷選擇',exact:true}).selectOption('-90');
-  await cameraDialog.getByRole('combobox',{name:'Zoom快捷選擇',exact:true}).selectOption('10');
-  await expect(cameraDialog.getByRole('spinbutton',{name:'俯仰角度',exact:true})).toHaveValue('-90');
+  await cameraDialog.getByRole('combobox',{name:'俯仰角度快捷選擇',exact:true}).selectOption('-70');
+  await cameraDialog.getByRole('spinbutton',{name:'Zoom',exact:true}).fill('10');
+  await expect(cameraDialog.getByRole('spinbutton',{name:'俯仰角度',exact:true})).toHaveValue('-70');
   await expect(cameraDialog.getByRole('spinbutton',{name:'Zoom',exact:true})).toHaveValue('10');
   await cameraDialog.getByRole('slider',{name:'拖球調水平角度',exact:true}).focus();
   await page.keyboard.press('ArrowRight');
@@ -137,10 +137,12 @@ try {
   await cameraDialog.getByRole('combobox',{name:'俯仰角度快捷選擇',exact:true}).selectOption('-60');
   await cameraDialog.getByRole('combobox',{name:'Zoom快捷選擇',exact:true}).selectOption('9');
   const zoomBall = await cameraDialog.getByRole('slider',{name:'拖球調Zoom',exact:true}).boundingBox();
-  const target = await cameraDialog.locator('.camera-orbit').evaluate(node => {const point = new DOMPoint(435,160).matrixTransform(node.getScreenCTM());return {x:point.x,y:point.y};});
   await page.mouse.move(zoomBall.x + zoomBall.width / 2,zoomBall.y + zoomBall.height / 2);
   await page.mouse.down();
+  const target = await cameraDialog.locator('.camera-orbit').evaluate(node => {const point = new DOMPoint(435,160).matrixTransform(node.getScreenCTM());return {x:point.x,y:point.y};});
   await page.mouse.move(target.x,target.y,{steps:8});
+  const stableTarget = await cameraDialog.locator('.camera-orbit').evaluate(node => {const point = new DOMPoint(435,160).matrixTransform(node.getScreenCTM());return {x:point.x,y:point.y};});
+  await page.mouse.move(stableTarget.x,stableTarget.y);
   await page.mouse.up();
   await expect.poll(async () => Math.abs(Number(await cameraDialog.getByRole('spinbutton',{name:'Zoom',exact:true}).inputValue()) - 5)).toBeLessThanOrEqual(0.15);
   await cameraDialog.getByRole('combobox',{name:'Zoom快捷選擇',exact:true}).selectOption('9');
@@ -152,15 +154,15 @@ try {
   await page.locator('input[type=file]').setInputFiles([{name:'白色洋裝.png',mimeType:'image/png',buffer:PNG},{name:'黑色外套.png',mimeType:'image/png',buffer:PNG}]);
   await expect(page.locator('.asset-card')).toHaveCount(2);
   await page.locator('.asset-title').filter({hasText:'白色洋裝'}).click();
-  await expect(page.getByRole('dialog')).toContainText('提詞僅作備註');
-  await page.getByRole('textbox',{name:'提詞',exact:true}).fill(whiteGarmentPrompt);
+  await expect(page.getByRole('dialog')).toContainText('圖片備註');
+  await page.getByRole('textbox',{name:/^圖片備註/}).fill(whiteGarmentPrompt);
   await page.getByLabel('標籤',{exact:true}).fill('白色, 刺繡');
-  await page.getByRole('button',{name:'保存資料',exact:true}).click();
+  await page.getByRole('button',{name:'保存服裝',exact:true}).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.locator('.asset-card').filter({hasText:'白色洋裝'})).toContainText('刺繡');
   await page.locator('.asset-title').filter({hasText:'黑色外套'}).click();
-  await page.getByRole('textbox',{name:'提詞',exact:true}).fill(blackGarmentPrompt);
-  await page.getByRole('button',{name:'保存資料',exact:true}).click();
+  await page.getByRole('textbox',{name:/^圖片備註/}).fill(blackGarmentPrompt);
+  await page.getByRole('button',{name:'保存服裝',exact:true}).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button',{name:'角色參考',exact:true}).click();
   await page.locator('input[type=file]').setInputFiles({name:'角色.png',mimeType:'image/png',buffer:PNG});
@@ -205,9 +207,9 @@ try {
   await expect(page.locator('.output-ratio-field')).toContainText('1536 × 1536 px');
   await page.getByRole('combobox',{name:'輸出比例',exact:true}).selectOption('9:16');
   const whiteGarmentId = store.read().garments.find(row => row.name === '白色洋裝').id;
-  const extraStyles = [['攝影角度','85mm 人像'],['光線','棚拍柔光'],['色彩','暖調底片'],['畫質','生活感紀實']];
+  const extraStyles = [['光線','棚拍柔光'],['色彩','暖調底片'],['畫質','生活感紀實']];
   for(const [label,name] of extraStyles) await choosePrompt(label,name);
-  await expect(page.locator('.shoot-total strong')).toHaveText('32張寫真');
+  await expect(page.locator('.shoot-total strong')).toHaveText('16張寫真');
   for(const [label,name] of extraStyles) await choosePrompt(label,name);
   await expect(page.locator('.shoot-total strong')).toHaveText('2張寫真');
 
@@ -261,7 +263,7 @@ try {
   await page.getByRole('button',{name:'選擇場景提詞',exact:true}).click();
   await expect(page.getByRole('dialog').locator('.pool-option')).toHaveCount(8);
   await page.getByRole('button',{name:'場景下一頁',exact:true}).click();
-  await expect(page.getByRole('dialog').locator('.pool-option')).toHaveCount(4);
+  await expect(page.getByRole('dialog').locator('.pool-option')).toHaveCount(Math.min(8,store.read().presets.filter(row=>row.category==='interaction').length-8));
   await page.getByRole('dialog').getByRole('textbox',{name:'搜尋場景名稱、標籤、提詞…',exact:true}).fill('窗邊');
   await page.getByRole('dialog').getByRole('button',{name:'窗邊自然倚靠',exact:true}).click();
   await page.getByRole('dialog').getByRole('button',{name:/^使用所選提詞/}).click();
@@ -321,7 +323,7 @@ try {
   const exported = JSON.parse(fs.readFileSync(await download.path(),'utf8'));
   if(!exported.prompt['12'].inputs.prompt.includes('<image1>') || !exported.prompt['12'].inputs.prompt.includes('<image2>') || exported.prompt['12'].inputs.prompt.includes(whiteGarmentPrompt) || exported.prompt['12'].inputs.prompt.includes(blackGarmentPrompt)) throw new Error('Native image references must be used without clothing notes.');
   if(exported.prompt['7'].inputs.steps !== 27) throw new Error('The visible sampling steps did not reach KSampler.');
-  if(exported.executionMode !== 'staged' || exported.stages.length !== 3 || exported.stages.some(stage => Object.values(stage.prompt).filter(node => node.class_type === 'KSampler').length !== 1) || exported.stages[2].prompt.refine_7.inputs.denoise !== 0.2) throw new Error('New shots must run the camera and conservative HD stages.');
+  if(exported.executionMode !== 'staged' || exported.stages.length !== 1 || exported.stages[0].stage !== 'base' || Object.values(exported.stages[0].prompt).filter(node => node.class_type === 'KSampler').length !== 1) throw new Error('New shoots must produce their original image before requesting a different angle.');
   if(exported.prompt['12'].inputs.prompt.includes('Camera and composition:')) throw new Error('Camera prose must not be used for the initial image in multiangle mode.');
   if(Object.values(exported.prompt).filter(node => node.class_type === 'LoadImage').length !== 2) throw new Error('Export must contain two image loaders.');
   const exportedSize = exported.prompt[exported.prompt['7'].inputs.latent_image[0]];
@@ -329,7 +331,7 @@ try {
   await page.getByRole('checkbox',{name:'選取本頁可送出的照片'}).check();
   await page.getByRole('button',{name:'送出所選 (4)',exact:true}).click();
   await expect(page.locator('.job-card .status-badge.completed')).toHaveCount(4,{timeout:15000});
-  if(prompts.size !== 14 || uploads !== 3) throw new Error(`Unexpected submit counts: ${prompts.size} prompts, ${uploads} uploads.`);
+  if(prompts.size !== 4 || uploads !== 3) throw new Error(`Unexpected submit counts: ${prompts.size} prompts, ${uploads} uploads.`);
   for(const graph of prompts.values()) if(graph['12']?.class_type === 'TextEncodeQwenImage21' && Object.values(graph).filter(node => node.class_type === 'LoadImage').length !== 2) throw new Error('Every original-image stage must have two references.');
   const reopened = createStore(dataDir);
   if(reopened.read().jobs.some(job => job.aspectRatio !== '9:16' || job.outputWidth !== 1152 || job.outputHeight !== 2048)) throw new Error('Output dimensions must persist in each shot.');
@@ -391,7 +393,7 @@ try {
   for(let index = 1;index <= 11;index++) {
     const snapshot = store.read();
     const body = {...snapshot.draft,characterId:snapshot.characters[0].id,garmentIds:[snapshot.garments[0].id],poseIds:['pose-standing'],copies:1,batchName:`分頁測試 ${index}`};
-    const response = await fetch(`${base}/api/jobs`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const response = await adminFetch(`${base}/api/jobs`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(response.status !== 201) throw new Error('Cannot create pagination fixtures.');
   }
   await page.reload();
@@ -417,7 +419,7 @@ try {
   await expect(page.locator('.batch-card')).toHaveCount(12);
   await page.locator('.batch-card').first().getByRole('button',{name:'生成本組 (1)',exact:true}).click();
   await expect(page.locator('.batch-card').first().locator('.status-badge.completed')).toHaveCount(1,{timeout:15000});
-  if(prompts.size !== 19) throw new Error('Generating one group must submit only that group through three isolated stages.');
+  if(prompts.size !== 5) throw new Error('Generating one group must submit only the original image of that group.');
   if(store.read().jobs.filter(job => job.batchId === hundredBatch.id).some(job => job.status !== 'draft')) throw new Error('Generating another group changed the 100-shot batch.');
   await page.getByRole('textbox',{name:'搜尋拍攝組、角色或服裝…',exact:true}).fill('100 張已命名');
   await expect(page.locator('.batch-card')).toHaveCount(1);
@@ -456,9 +458,9 @@ try {
   await expect(angleDialog).toBeVisible();
   await expect(angleDialog).toContainText('拍攝來源：目前選取的照片，第 1 張。');
   await expect(angleDialog.locator('.camera-orbit image')).toHaveAttribute('href',`/api/jobs/${await optionCard.getAttribute('data-job-id')}/angle-source?index=0`);
-  await angleDialog.getByRole('combobox',{name:'俯仰角度快捷選擇',exact:true}).selectOption('-90');
-  await angleDialog.getByRole('combobox',{name:'Zoom快捷選擇',exact:true}).selectOption('10');
-  await expect(angleDialog.getByRole('spinbutton',{name:'俯仰角度',exact:true})).toHaveValue('-90');
+  await angleDialog.getByRole('combobox',{name:'俯仰角度快捷選擇',exact:true}).selectOption('-70');
+  await angleDialog.getByRole('spinbutton',{name:'Zoom',exact:true}).fill('10');
+  await expect(angleDialog.getByRole('spinbutton',{name:'俯仰角度',exact:true})).toHaveValue('-70');
   await expect(angleDialog.getByRole('spinbutton',{name:'Zoom',exact:true})).toHaveValue('10');
   await expect(angleDialog.getByRole('button',{name:'拍攝這個角度',exact:true})).toBeEnabled();
   if(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('Mobile camera edit dialog horizontal overflow.');
@@ -591,7 +593,7 @@ try {
   await expect(page.locator('.job-card')).toHaveCount(24);
 
   // Large prompt libraries stay inside the picker; only this new group is submitted.
-  store.mutate(state => state.presets.push(...Array.from({length:20},(_,index)=>({id:`ui-camera-${index}`,category:'camera',name:`量產鏡頭 ${String(index).padStart(2,'0')}`,prompt:`Camera composition number ${index}.`,tags:['量產']}))));
+  store.mutate(state => state.presets.push(...Array.from({length:20},(_,index)=>({id:`ui-lighting-${index}`,category:'lighting',name:`量產光線 ${String(index).padStart(2,'0')}`,prompt:`Lighting setup number ${index}.`,tags:['量產']}))));
   await page.getByRole('button',{name:'拍攝工作檯',exact:true}).click();
   await page.reload();
   await page.getByRole('button',{name:'隨機寫真',exact:true}).click();
@@ -610,14 +612,14 @@ try {
   await expressionPicker.getByRole('button',{name:'清除表情提詞',exact:true}).click();
   await expect(page.locator('.prompt-preview')).not.toContainText('Facial expression:');
   await expect(page.locator('.pool-option')).toHaveCount(0);
-  await page.getByRole('button',{name:'選擇攝影角度提詞',exact:true}).click();
+  await page.getByRole('button',{name:'選擇光線提詞',exact:true}).click();
   const poolDialog = page.getByRole('dialog');
   await expect(poolDialog.locator('.pool-option')).toHaveCount(8);
-  await poolDialog.getByRole('textbox').fill('量產鏡頭 00');
-  await poolDialog.getByRole('button',{name:'量產鏡頭 00',exact:true}).click();
+  await poolDialog.getByRole('textbox').fill('量產光線 00');
+  await poolDialog.getByRole('button',{name:'量產光線 00',exact:true}).click();
   await poolDialog.getByRole('textbox').fill('');
   await expect(poolDialog.locator('.pool-option')).toHaveCount(8);
-  await poolDialog.getByRole('button',{name:'攝影角度下一頁',exact:true}).click();
+  await poolDialog.getByRole('button',{name:'光線下一頁',exact:true}).click();
   await expect(poolDialog.locator('.pool-option')).toHaveCount(8);
   await poolDialog.locator('.pool-option:not(.selected)').first().click();
   await expect(poolDialog.getByRole('button',{name:'使用所選提詞 (3)',exact:true})).toBeVisible();

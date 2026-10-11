@@ -7,6 +7,7 @@ import {productionStatus} from '../shared/production.js';
 import {belongsToStudio,operatorState} from './studio-ownership.js';
 import {resolveOutputFile} from './outputs.js';
 import {createStageRunner} from './stage-runner.js';
+import {garmentFields} from '../shared/garments.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PRESET_KEYS = ['pose','expression','clothingState','interaction','camera','lighting','color','quality'];
@@ -15,10 +16,13 @@ const fail = (message,status=400) => Object.assign(new Error(message),{status});
 const validId = id => {if(!UUID.test(id)) throw fail('臨時試拍識別碼無效。');return id;};
 const localUrl = base => {try {return ['127.0.0.1','localhost','[::1]'].includes(new URL(base).hostname);} catch {return false;}};
 
-export function relatedPresetPhotos(state,id,{limit=5,offset=0,sample=false}={}) {
-  if(!state.presets.some(row=>row.id===id)) throw fail('找不到提詞。',404);
+export function relatedPresetPhotos(state,id,options={}) {return relatedPhotos(state,id,'preset',options);}
+export function relatedGarmentPhotos(state,id,options={}) {return relatedPhotos(state,id,'garment',options);}
+
+function relatedPhotos(state,id,kind,{limit=5,offset=0,sample=false}={}) {
+  if(!(kind==='garment' ? state.garments.filter(row=>belongsToStudio(row)) : state.presets).some(row=>row.id===id)) throw fail(kind==='garment' ? '找不到服裝。' : '找不到提詞。',404);
   if(!Number.isInteger(limit) || limit<1 || limit>100 || !Number.isInteger(offset) || offset<0) throw fail('關聯照片分頁無效。');
-  const rows=state.jobs.filter(job=>belongsToStudio(job) && job.status==='completed' && !job.outputsDeletedAt && PRESET_KEYS.some(key=>job[key]?.id===id))
+  const rows=state.jobs.filter(job=>belongsToStudio(job) && job.status==='completed' && !job.outputsDeletedAt && (kind==='garment' ? job.garment?.id===id : PRESET_KEYS.some(key=>job[key]?.id===id)))
     .sort((a,b)=>String(b.finishedAt || b.createdAt).localeCompare(String(a.finishedAt || a.createdAt)) || b.id.localeCompare(a.id))
     .flatMap(job=>(job.images || []).map((image,index)=>({id:`${job.id}:${index}`,jobId:job.id,imageIndex:index,src:`/api/jobs/${encodeURIComponent(job.id)}/image/${index}`,name:job.name || `${job.garment?.name || '照片'} · ${job.pose?.name || ''}`,createdAt:job.finishedAt || job.createdAt,version:job.remakeVersion || 0})));
   if(sample) {
@@ -64,7 +68,7 @@ export function createPresetPreviews({dataDir,store,outputDir,comfyJson,comfyAt,
   const memory={jobs:[],pipelineRuns:[]};
   let closed=false,cleaning=false,timer;
   const persist=()=>{
-    const records=[...sessions.values()].map(({id,presetId,createdAt,closedAt,comfyUrl,outputDir,promptIds,lastPromptAt})=>({id,presetId,createdAt,closedAt,comfyUrl,outputDir,promptIds,lastPromptAt}));
+    const records=[...sessions.values()].map(({id,presetId,garmentId,previewKind,createdAt,closedAt,comfyUrl,outputDir,promptIds,lastPromptAt})=>({id,presetId,garmentId,previewKind,createdAt,closedAt,comfyUrl,outputDir,promptIds,lastPromptAt}));
     fs.writeFileSync(journalFile+'.tmp',JSON.stringify({version:1,sessions:records}));
     fs.renameSync(journalFile+'.tmp',journalFile);
   };
@@ -106,27 +110,30 @@ export function createPresetPreviews({dataDir,store,outputDir,comfyJson,comfyAt,
   const sessionFor=(id,{touch=true}={})=>{
     validId(id);
     const session=sessions.get(id);
-    if(!session || session.closedAt || closed) throw fail('臨時試拍已結束，請重新開啟提詞視窗。',410);
+    if(!session || session.closedAt || closed) throw fail('臨時試拍已結束，請重新開啟編輯視窗。',410);
     if(touch) session.touchedAt=clock();
     return session;
   };
   const view=session=>({id:session.id,jobs:memory.jobs.filter(job=>job.previewSessionId===session.id).map(job=>({
     id:job.id,status:job.status,progress:productionStatus(job),error:job.error,createdAt:job.createdAt,
-    character:job.character.name,garment:job.garment.name,aspectRatio:job.aspectRatio,outputWidth:job.outputWidth,outputHeight:job.outputHeight,
+    character:job.character.name,garment:job.garment.name,garmentId:job.garment.id,garmentSourceType:job.garment.sourceType || 'image',aspectRatio:job.aspectRatio,outputWidth:job.outputWidth,outputHeight:job.outputHeight,
     presets:PRESET_KEYS.flatMap(key=>job[key]?.id ? [{category:job[key].category,name:job[key].name,id:job[key].id}] : []),
-    images:(job.images || []).map((image,index)=>({id:`${job.id}:${index}`,name:`${session.presetName || '提詞'} · 臨時試拍`,src:`/api/preset-previews/${session.id}/jobs/${job.id}/image/${index}`})),
+    images:(job.images || []).map((image,index)=>({id:`${job.id}:${index}`,name:`${session.presetName || session.garmentName || '試拍'} · 臨時試拍`,src:`/api/preset-previews/${session.id}/jobs/${job.id}/image/${index}`})),
   }))});
-  function open(id,presetId) {
+  function open(id,presetId,garmentId) {
     validId(id);
-    if(closed || sessions.get(id)?.closedAt) throw fail('臨時試拍已結束，請重新開啟提詞視窗。',410);
+    if(closed || sessions.get(id)?.closedAt) throw fail('臨時試拍已結束，請重新開啟編輯視窗。',410);
     if(presetId!==undefined && presetId!==null && !store.read().presets.some(row=>row.id===presetId)) throw fail('找不到提詞。',404);
+    const previewKind=garmentId===undefined ? 'preset' : 'garment';
+    if(previewKind==='garment' && presetId!=null) throw fail('試拍只能固定一項服裝或提詞。');
+    if(garmentId!=null && !store.read().garments.some(row=>row.id===garmentId && belongsToStudio(row))) throw fail('找不到服裝。',404);
     const existing=sessions.get(id);
     if(existing) {
-      if(existing.presetId!==(presetId || null)) throw fail('臨時試拍已綁定其他提詞。',409);
+      if((existing.previewKind || 'preset')!==previewKind || existing.presetId!==(presetId || null) || (existing.garmentId || null)!==(garmentId || null)) throw fail('臨時試拍已綁定其他項目。',409);
       existing.touchedAt=clock();return view(existing);
     }
     if([...sessions.values()].filter(row=>!row.closedAt).length>=20) throw fail('開啟的試拍視窗過多，請先關閉不用的視窗。',409);
-    const session={id,presetId:presetId || null,createdAt:clock(),touchedAt:clock(),promptIds:[]};
+    const session={id,presetId:presetId || null,garmentId:garmentId || null,previewKind,createdAt:clock(),touchedAt:clock(),promptIds:[]};
     sessions.set(id,session);persist();return view(session);
   }
   function stop(id) {
@@ -146,32 +153,43 @@ export function createPresetPreviews({dataDir,store,outputDir,comfyJson,comfyAt,
     if(!closed) tick().catch(()=>{});
     return {closed:true};
   }
-  function shoot(id,{preset,requestId,aspectRatio}={}) {
+  function shoot(id,{preset,garment,requestId,aspectRatio}={}) {
     const session=sessionFor(id);validId(requestId);
     const existing=memory.jobs.find(job=>job.previewSessionId===id && job.requestId===requestId);
     if(existing) return view(session);
     if(memory.jobs.some(job=>job.previewSessionId===id && ACTIVE.includes(job.status))) throw fail('請等目前這張試拍完成。',409);
     if(memory.jobs.filter(job=>job.previewSessionId===id).length>=24) throw fail('這個視窗已試拍 24 張，請關閉後重新開啟。',409);
-    const bound=normalizePresetImport([preset])[0];
+    const garmentTrial=session.previewKind==='garment';
+    let bound;
+    if(garmentTrial) {
+      if(typeof garment?.id!=='string' || !/^[\w-]{1,120}$/.test(garment.id)) throw fail('試拍服裝識別碼無效。');
+      const fields=garmentFields(garment),saved=store.read().garments.find(row=>row.id===garment.id && belongsToStudio(row));
+      if(session.garmentId && (!saved || garment.id!==session.garmentId)) throw fail('試拍服裝已被移除，請重新開啟視窗。',409);
+      if(fields.sourceType==='image' && !saved?.fileName) throw fail('圖片版試拍請先匯入服裝參考圖。');
+      // Never accept an upload path from the editing form. Image references come
+      // exclusively from the operator's registered library; text needs no file.
+      bound={id:garment.id,...fields,...(fields.sourceType==='image' ? {fileName:saved.fileName,image:saved.image,mime:saved.mime} : {})};
+    } else bound=normalizePresetImport([preset])[0];
     if(session.presetId && (bound.id!==session.presetId || !store.read().presets.some(row=>row.id===session.presetId))) throw fail('試拍提詞已被移除，請重新開啟視窗。',409);
     const snapshot=operatorState(store.read()),directory=outputDir();
     if(!localUrl(snapshot.settings.comfyUrl) || !directory || !fs.statSync(directory,{throwIfNoEntry:false})?.isDirectory()) throw fail('臨時試拍需要可存取的本機 ComfyUI 輸出目錄，請在工作流設定檢查輸出資料夾。');
     if(!snapshot.workflow) throw fail('請先載入拍攝工作流。');
     if(session.comfyUrl && (session.comfyUrl!==snapshot.settings.comfyUrl || session.outputDir!==path.resolve(directory))) throw fail('試拍期間不能切換 ComfyUI，請重新開啟視窗。',409);
-    snapshot.presets=snapshot.presets.filter(row=>row.id!==bound.id).concat(bound);
+    if(garmentTrial) snapshot.garments=[bound];
+    else snapshot.presets=snapshot.presets.filter(row=>row.id!==bound.id).concat(bound);
     const saved=snapshot.draft || DEFAULT_DRAFT;
     if(aspectRatio!==undefined && (typeof aspectRatio!=='string' || !Object.hasOwn(OUTPUT_RATIOS,aspectRatio))) throw fail('請選擇有效的試拍比例。');
     const draft={...DEFAULT_DRAFT,steps:saved.steps,resolution:saved.resolution,aspectRatio:aspectRatio===undefined ? saved.aspectRatio : aspectRatio,
       mode:'random',randomPoolMode:'selected',randomCount:1,copies:1,seed:-1,cameraEnabled:false,
       characterIds:snapshot.characters.map(row=>row.id),garmentIds:snapshot.garments.map(row=>row.id),
     };
-    for(const [category,field] of Object.entries(PRESET_SELECTION_FIELDS)) draft[field]=category===bound.category ? [bound.id] : snapshot.presets.filter(row=>row.category===category).map(row=>row.id);
+    for(const [category,field] of Object.entries(PRESET_SELECTION_FIELDS)) draft[field]=!garmentTrial && category===bound.category ? [bound.id] : snapshot.presets.filter(row=>row.category===category).map(row=>row.id);
     const [job]=buildShotPlans(snapshot,draft);
     // Camera presets can be tried as text in the original-image model. Every
     // preview ends at base, regardless of the installed 3D camera workflow.
     if(bound.category==='camera') Object.assign(job,{camera:structuredClone(bound),prompt:composePrompt({...job,camera:bound,cameraMode:'prompt'})});
     Object.assign(job,{previewSessionId:id,requestId,status:'draft',images:[],createdAt:new Date(clock()).toISOString(),comfyOutputDir:path.resolve(directory)});
-    Object.assign(session,{comfyUrl:snapshot.settings.comfyUrl,outputDir:path.resolve(directory),presetName:bound.name});
+    Object.assign(session,{comfyUrl:snapshot.settings.comfyUrl,outputDir:path.resolve(directory),[garmentTrial ? 'garmentName' : 'presetName']:bound.name});
     memory.jobs.push(job);persist();
     // Queue asynchronously so a close can cancel an upload or an in-flight POST.
     runner.start([job.id],{...snapshot,settings:{...snapshot.settings,releaseGpuMemory:false}}).catch(error=>{

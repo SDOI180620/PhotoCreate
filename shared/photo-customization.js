@@ -1,6 +1,7 @@
 import {withSingleSubjectPrompt} from './subject.js';
 import {referenceOnlyPrompt,REFERENCE_INSTRUCTION} from './domain.js';
 import {characterProfilePrompt} from './character-profile.js';
+import {isPromptGarment,textClothingInstruction} from './garments.js';
 
 export const PHOTO_CHANGE_FIELDS = {pose:'動作',clothing:'服裝',clothingState:'服裝狀態',scene:'場景',expression:'表情',lighting:'光線',color:'色彩',quality:'畫質'};
 export const PHOTO_PRESET_CATEGORIES = {pose:'pose',clothingState:'clothing_state',scene:'interaction',expression:'expression',lighting:'lighting',color:'color',quality:'quality'};
@@ -13,7 +14,6 @@ export const DEFAULT_PHOTO_CUSTOMIZATION = {
 };
 export const PHOTO_CHANGE_MAX_LENGTH = 2000;
 const CHARACTER_INSTRUCTION='Photograph the character from <image1>. Preserve the same identity, face, hairstyle and body proportions.';
-const textClothingInstruction=value=>`Replace the entire outfit shown in <image1> with the requested clothing. Use <image1> for the person's appearance; disregard its clothing when dressing the character. The requested outfit takes priority over the reference outfit.\nThe character should wear: ${value}`;
 
 export function clothingDescription(value='') {
   const text=value.trim(),shortName=text.replace(/[。.!！]/g,'').replace(/\s+/g,'');
@@ -66,7 +66,7 @@ export function normalizePhotoCustomization(input = {}) {
     if(value.trim() && (key!=='clothing' || clothingMode==='text')) values[key]=value.trim();
   }
   const garmentId = clothingMode==='reference' ? input.garmentId : '';
-  if(typeof garmentId!=='string' || garmentId.length>120 || clothingMode==='reference' && !garmentId) throw new Error('請選擇一套服裝參考圖。');
+  if(typeof garmentId!=='string' || garmentId.length>120 || clothingMode==='reference' && !garmentId) throw new Error('請選擇一套官方服裝。');
   return {preserveOriginal:false,useOriginal,clothingMode,garmentId,aspectRatio,fieldModes,presetIds,changes:values};
 }
 
@@ -79,7 +79,7 @@ export function photoCustomizationError(value,{garments=[],presets=[]}={}) {
   } catch(error) {return error.message;}
 }
 
-export function customPhotoPrompt(options,shot,selectedPresets={}) {
+export function customPhotoPrompt(options,shot,selectedPresets={},selectedGarment=null) {
   const {changes:customChanges,presetIds,clothingMode,preserveOriginal} = normalizePhotoCustomization(options);
   const changes={...customChanges};
   for(const [key,id] of Object.entries(presetIds)) {
@@ -108,17 +108,20 @@ export function customPhotoPrompt(options,shot,selectedPresets={}) {
     for(const [key,label] of [['lighting','Lighting'],['color','Color treatment'],['quality','Photographic quality']]) replaceDirection([label,key],[shot[key]?.prompt],changes[key]);
     if(changes.clothing || clothingMode==='reference') {
       const referenceInstruction='Dress the character from <image1> in the clothing from <image2>. Preserve the cut, material, colors and details of the clothing shown in <image2>.';
-      const replacement=changes.clothing ? [!prompt.includes(CHARACTER_INSTRUCTION) && CHARACTER_INSTRUCTION,textClothingInstruction(clothingDescription(changes.clothing))].filter(Boolean).join('\n') : REFERENCE_INSTRUCTION;
-      const previous=[REFERENCE_INSTRUCTION,referenceInstruction,shot.garment?.description && textClothingInstruction(shot.garment.description),shot.garment?.description && `The character should wear: ${shot.garment.description}`].find(value=>value && prompt.includes(value));
-      if(previous && (changes.clothing || previous!==REFERENCE_INSTRUCTION)) prompt=prompt.replace(previous,replacement);
+      const requestedClothing=changes.clothing ? clothingDescription(changes.clothing) : isPromptGarment(selectedGarment) ? selectedGarment.prompt : null;
+      const replacement=requestedClothing ? [!prompt.includes(CHARACTER_INSTRUCTION) && CHARACTER_INSTRUCTION,textClothingInstruction(requestedClothing)].filter(Boolean).join('\n') : REFERENCE_INSTRUCTION;
+      const oldClothing=isPromptGarment(shot.garment) ? shot.garment.prompt : shot.garment?.description;
+      const previous=[REFERENCE_INSTRUCTION,referenceInstruction,oldClothing && textClothingInstruction(oldClothing),oldClothing && `The character should wear: ${oldClothing}`].find(value=>value && prompt.includes(value));
+      if(previous && (requestedClothing || previous!==REFERENCE_INSTRUCTION)) prompt=prompt.replace(previous,replacement);
       else if(!previous) prompt+=`\n\n${replacement}`;
-      if(changes.clothing) while(prompt.includes(`${CHARACTER_INSTRUCTION}\n${CHARACTER_INSTRUCTION}`)) prompt=prompt.replaceAll(`${CHARACTER_INSTRUCTION}\n${CHARACTER_INSTRUCTION}`,CHARACTER_INSTRUCTION);
+      if(requestedClothing) while(prompt.includes(`${CHARACTER_INSTRUCTION}\n${CHARACTER_INSTRUCTION}`)) prompt=prompt.replaceAll(`${CHARACTER_INSTRUCTION}\n${CHARACTER_INSTRUCTION}`,CHARACTER_INSTRUCTION);
     }
     return withSingleSubjectPrompt(prompt);
   }
-  const useClothingImage=clothingMode==='reference' || !changes.clothing && Boolean(shot.garment?.fileName);
+  const garment=selectedGarment || shot.garment;
+  const useClothingImage=clothingMode==='reference' ? !isPromptGarment(garment) : !changes.clothing && !isPromptGarment(garment) && Boolean(garment?.fileName);
   const scene=changes.scene || [shot.interaction?.prompt,shot.sceneInteraction,shot.scene?.description].filter(Boolean).join(' ');
-  const clothing=changes.clothing ? clothingDescription(changes.clothing) : shot.garment?.description;
+  const clothing=changes.clothing ? clothingDescription(changes.clothing) : isPromptGarment(garment) ? garment.prompt : garment?.description;
   return withSingleSubjectPrompt([
     CHARACTER_INSTRUCTION,
     shot.character?.description && `Character details: ${shot.character.description}`,

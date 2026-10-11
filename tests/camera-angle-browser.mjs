@@ -158,10 +158,14 @@ try {
         await dialog.screenshot({path:path.resolve(`test-results/custom-photo-${surface}-maid-text.png`)});
       }
       if(kind==='reference' || kind==='clothing-reference') {
-        await dialog.getByRole('button',{name:'選擇服裝圖',exact:true}).click();
-        await expect(dialog.locator('.photo-garment-picker button')).toHaveCount(surface==='admin' ? 2 : 1);
+        await dialog.getByRole('group',{name:'換裝方式',exact:true}).getByRole('button',{name:'官方選項',exact:true}).click();
         await expect(dialog.getByRole('button',{name:'開始自訂拍攝',exact:true})).toBeDisabled();
-        await dialog.getByRole('button',{name:'選擇服裝 黑色外套',exact:true}).click();
+        await dialog.getByRole('button',{name:'選擇官方服裝',exact:true}).click();
+        const wardrobe=page.getByRole('dialog',{name:'選擇服裝',exact:true});
+        await expect(wardrobe.locator('.garment-picker-option')).toHaveCount(surface==='admin' ? 2 : 1);
+        await wardrobe.getByRole('button',{name:'選擇服裝 黑色外套',exact:true}).click();
+        await wardrobe.getByRole('button',{name:'使用所選服裝',exact:true}).click();
+        await expect(wardrobe).toHaveCount(0);
         if(kind==='clothing-reference') for(const [index,checkbox] of originals.entries()) if(index!==1) await checkbox.check();
       } else if(kind==='original' || kind==='pose' || kind==='clothing-state') {
         for(const [index,checkbox] of originals.entries()) if(kind==='original' || index!==(kind==='pose' ? 0 : 2)) await checkbox.check();
@@ -235,10 +239,18 @@ try {
         for(const [label,,id] of officialFields) {
           await dialog.getByRole('checkbox',{name:`${label}沿用原設定`,exact:true}).uncheck();
           await dialog.getByRole('group',{name:`${label}設定方式`,exact:true}).getByRole('button',{name:'官方選項',exact:true}).click();
-          const select=dialog.getByRole('combobox',{name:`${label}官方選項`,exact:true});
           await expect(dialog.getByRole('button',{name:'開始自訂拍攝',exact:true})).toBeDisabled();
-          if(surface==='customer') await expect(select.locator('option')).toHaveCount(2);
-          await select.selectOption(id);
+          if(label==='動作' || label==='場景') {
+            await dialog.getByRole('button',{name:`選擇${label}官方選項`,exact:true}).click();
+            const picker=page.getByRole('dialog',{name:`選擇${label}`,exact:true});
+            if(surface==='customer') await expect(picker.locator('.photo-preset-option')).toHaveCount(1);
+            await picker.getByRole('button',{name:store.read().presets.find(row=>row.id===id).name,exact:true}).click();
+            await picker.getByRole('button',{name:`使用此${label}`,exact:true}).click();
+          } else {
+            const select=dialog.getByRole('combobox',{name:`${label}官方選項`,exact:true});
+            if(surface==='customer') await expect(select.locator('option')).toHaveCount(2);
+            await select.selectOption(id);
+          }
           await expect(dialog.getByRole('textbox',{name:`自訂${label}`,exact:true})).toHaveCount(0);
         }
         if(surface==='customer') {

@@ -21,7 +21,8 @@ import { CATEGORIES, buildShotPlans, getOutputSize, normalizePresetImport, refer
 import { ACTIVE_STATUSES, RETRYABLE_STATUSES, STOPPABLE_STATUSES, defaultBatchName } from '../shared/batches.js';
 import { jobUpdateFromComfy } from './job-status.js';
 import { createStageRunner } from './stage-runner.js';
-import {createPresetPreviews,relatedPresetPhotos} from './preset-previews.js';
+import {createPresetPreviews,relatedPresetPhotos,relatedGarmentPhotos} from './preset-previews.js';
+import {GARMENT_SOURCES_VERSION,garmentFields} from '../shared/garments.js';
 import {createCharacterTurnarounds,characterTurnaroundRouter} from './character-turnarounds.js';
 import {createCharacterPromptProfiles} from './character-prompt-profiles.js';
 import {createGalleryMusic} from './gallery-music.js';
@@ -155,7 +156,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     });
     const workflow=state.workflow;
     state.photoFolders=photoFolders.list('admin');
-    return {...state,customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,imagePreviews:1,managedPhotos:1,fullBackups:1,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true,characterPools:true,characterProfile:1,characterPromptSettings:1,characterPromptProfiles:1,characterTurnaround:1,gpuMemoryControl:true,presetPreviews:1,presetPreviewRatios:1,presetReview:1,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
+    return {...state,customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,garmentSources:GARMENT_SOURCES_VERSION,imagePreviews:1,managedPhotos:1,fullBackups:1,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true,characterPools:true,characterProfile:1,characterPromptSettings:1,characterPromptProfiles:1,characterTurnaround:1,gpuMemoryControl:true,presetPreviews:1,presetPreviewRatios:1,presetReview:1,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
   };
   const adminJob=(id,state)=>{
     const job=state ? state.jobs.find(row=>row.id===id && belongsToStudio(row))
@@ -367,6 +368,13 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     bindEnvironment(result,'directory',plan.directory);
     environment.activated();res.json({ready:true});
   });
+  app.post('/api/garments',(req,res) => {
+    const fields=garmentFields(req.body);
+    if(fields.sourceType!=='prompt') throw fail('新增文字服裝請使用提詞版。');
+    const row={id:randomUUID(),...fields,createdAt:new Date().toISOString()};
+    store.mutate(state=>state.garments.unshift(row));
+    res.status(201).json(row);
+  });
   app.post('/api/assets/:kind',(req,res,next) => {
     if (!kinds.includes(req.params.kind)) return next(fail('圖庫類型無效。'));
     if (Number(req.headers['content-length']) > 150 * 1024 * 1024) return next(fail('每批上傳最多 150 MB。'));
@@ -395,11 +403,16 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   }
   app.patch('/api/assets/:kind/:id',(req,res) => {
     if (!kinds.includes(req.params.kind)) throw fail('圖庫類型無效。');
-    const fields = assetFields(req.body);
+    const fields = req.params.kind==='garments' ? null : assetFields(req.body);
     const profile=req.params.kind==='characters' ? characterProfile(req.body) : {};
     const row = store.mutate(state => {
       const item = state[req.params.kind].find(item => item.id === req.params.id && belongsToStudio(item));
-      if (!item) throw fail('找不到圖片。',404);
+      if (!item) throw fail('找不到圖庫項目。',404);
+      if(req.params.kind==='garments') {
+        const garment=garmentFields({...item,...req.body});
+        if(garment.sourceType==='image' && !item.fileName) throw fail('圖片版服裝需要先匯入參考圖。');
+        return Object.assign(item,garment);
+      }
       if(req.params.kind==='characters') for(const key of ['cupSize','heightCm']) if(Object.hasOwn(req.body,key)) {if(Object.hasOwn(profile,key)) item[key]=profile[key];else delete item[key];}
       return Object.assign(item,fields);
     });
@@ -560,7 +573,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     const photoSource=resolveSelectedPhotoSource(state,source,imageIndex);
     const recipe=visitorId ? getCustomerRecipe() : null,selectedPresets={};
     const garment=customization.clothingMode==='reference' ? (visitorId ? recipe?.pools.garment : state.garments)?.find(row=>row.id===customization.garmentId) : null;
-    if(customization.clothingMode==='reference' && !garment) throw fail('請選擇攝影棚提供的服裝參考圖。');
+    if(customization.clothingMode==='reference' && !garment) throw fail('請選擇攝影棚提供的服裝。');
     for(const [key,presetId] of Object.entries(customization.presetIds)) {
       const pool=visitorId ? recipe?.pools[key==='scene' ? 'interaction' : key] : state.presets;
       const row=pool?.find(row=>row.id===presetId && row.category===PHOTO_PRESET_CATEGORIES[key]);
@@ -578,11 +591,11 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     }
     const job={...plan,jobKind:'photo-edit',cameraMode:'multiangle',cameraEnabled:false,executionMode:'staged',
       photoCustomization:customization,photoSource,sourceImageIndex:imageIndex,
-      workflowSnapshot:structuredClone(state.workflow),prompt:customPhotoPrompt(customization,baseline,selectedPresets),
+      workflowSnapshot:structuredClone(state.workflow),prompt:customPhotoPrompt(customization,baseline,selectedPresets,garment),
       name:`${source.originalName || source.name} · 自訂拍攝 ${plan.remakeVersion}`,status:'draft',createdAt:new Date().toISOString(),images:[],...(visitorId ? {visitorId} : {})};
     for(const key of ['sourceImage','sourceComfyUrl','sourceInput','sourceInputComfyUrl','cameraSource','cameraWorkflowSnapshot']) delete job[key];
     if(garment) job.garment=structuredClone(garment);
-    else if(customization.changes.clothing) job.garment={id:`custom-clothing-${job.id}`,name:customization.changes.clothing.slice(0,80),input:customization.changes.clothing,description:clothingDescription(customization.changes.clothing),image:job.character.image};
+    else if(customization.changes.clothing) job.garment={id:`custom-clothing-${job.id}`,name:customization.changes.clothing.slice(0,80),sourceType:'prompt',prompt:clothingDescription(customization.changes.clothing),input:customization.changes.clothing,description:clothingDescription(customization.changes.clothing)};
     for(const key of Object.keys(PHOTO_PRESET_CATEGORIES)) {
       const field=key==='scene' ? 'interaction' : key;
       if(selectedPresets[key]) job[field]=structuredClone(selectedPresets[key]);
@@ -750,7 +763,8 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   app.post('/api/music/:id/stop',async(req,res)=>res.json(await galleryMusic.cancel(req.params.id)));
   app.get('/api/music/:id/audio',(req,res)=>res.set({'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}).sendFile(galleryMusic.audio(req.params.id)));
   app.get('/api/presets/:id/photos',(req,res)=>res.set('Cache-Control','no-store').json(relatedPresetPhotos(store.read(),req.params.id,{limit:Number(req.query.limit ?? 5),offset:Number(req.query.offset ?? 0),sample:req.query.sample==='1'})));
-  app.put('/api/preset-previews/:id',(req,res)=>res.set('Cache-Control','no-store').json(presetPreviews.open(req.params.id,req.body.presetId)));
+  app.get('/api/garments/:id/photos',(req,res)=>res.set('Cache-Control','no-store').json(relatedGarmentPhotos(store.read(),req.params.id,{limit:Number(req.query.limit ?? 5),offset:Number(req.query.offset ?? 0),sample:req.query.sample==='1'})));
+  app.put('/api/preset-previews/:id',(req,res)=>res.set('Cache-Control','no-store').json(presetPreviews.open(req.params.id,req.body.presetId,req.body.garmentId)));
   app.get('/api/preset-previews/:id',(req,res)=>res.set('Cache-Control','no-store').json(presetPreviews.status(req.params.id)));
   app.post('/api/preset-previews/:id/shots',(req,res)=>{if(galleryMusic.hasWork()) throw fail('音樂製作中，請完成後再試拍。',409);res.status(202).set('Cache-Control','no-store').json(presetPreviews.shoot(req.params.id,req.body));});
   app.delete('/api/preset-previews/:id',(req,res)=>res.json(presetPreviews.stop(req.params.id)));
