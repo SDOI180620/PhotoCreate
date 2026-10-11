@@ -2,6 +2,8 @@ import {PRESET_SELECTION_FIELDS,OPTIONAL_PRESET_FIELDS} from './domain.js';
 
 export function reconcileDraftCandidates(state,input) {
   const draft = {...input};
+  // Remove the withdrawn style setting when loading or saving older drafts.
+  delete draft.renderStyle;
   const selections = {garment:['garmentIds','garmentId',state.garments],character:['characterIds','characterId',state.characters],
     ...Object.fromEntries(Object.entries(PRESET_SELECTION_FIELDS).map(([category,field])=>[category,[field,OPTIONAL_PRESET_FIELDS[category] || `${category}Id`,state.presets.filter(row=>row.category===category)]]))};
   for(const [field,legacyField,rows] of Object.values(selections)) {
@@ -19,6 +21,7 @@ export function reconcileLibrarySelections(state) {
   if(state.workbenchDrafts) state.workbenchDrafts = Object.fromEntries(Object.entries(state.workbenchDrafts).map(([mode,draft])=>[mode,reconcileDraftCandidates(state,draft)]));
   const recipe = state.customerRecipe;
   if(!recipe) return;
+  if(recipe.settings) delete recipe.settings.renderStyle;
   if(recipe.characterIds) recipe.characterIds = recipe.characterIds.filter(id=>state.characters.some(row=>row.id===id && !row.visitorId));
   for(const [key,rows] of Object.entries(recipe.pools || {})) {
     const category = key==='clothingState' ? 'clothing_state' : key;

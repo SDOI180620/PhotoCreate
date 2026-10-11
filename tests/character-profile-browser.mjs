@@ -1,0 +1,54 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {chromium,expect} from '@playwright/test';
+import {previewFixture,until} from './preset-preview-fixture.js';
+import {loginBrowser} from './auth-client.js';
+import {DRAFT,PNG} from './fixtures.js';
+
+const f=await previewFixture();
+f.store.mutate(state=>{state.draft={...state.draft,...DRAFT,renderStyle:'anime_cg'};state.workbenchDrafts={random:{...state.draft,mode:'random',renderStyle:'anime_cg'}};});
+await f.authentication.createCustomer({username:'profile-ui',password:'profile-password'});
+const browser=await chromium.launch({executablePath:process.env.PHOTOCREATE_BROWSER || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const admin=await browser.newPage({viewport:{width:1440,height:1000}}),customer=await browser.newPage({viewport:{width:390,height:844}}),errors=[];
+for(const page of [admin,customer]) page.on('pageerror',error=>errors.push(error.message));
+const file=name=>({name,mimeType:'image/png',buffer:PNG});
+try {
+  await loginBrowser(admin,f.base);
+  await expect(admin.getByRole('group',{name:'畫面風格選擇',exact:true})).toHaveCount(0);
+  await until(()=>f.store.read().draft.renderStyle===undefined);
+  await admin.getByRole('button',{name:'角色參考',exact:true}).click();
+  const count=f.store.read().characters.length;
+  await admin.locator('input[type=file]').setInputFiles([file('profile-one.png'),file('profile-two.png')]);
+  const editor=admin.getByRole('dialog',{name:'上傳角色',exact:true});
+  await expect(editor).toBeVisible();assert.equal(f.store.read().characters.length,count,'Choosing files does not upload before confirmation');
+  const cups=editor.getByRole('combobox',{name:'胸部尺寸',exact:true}),heights=editor.getByRole('spinbutton',{name:'身高（公分）',exact:true});
+  await expect(cups.first().locator('option')).toHaveCount(27);
+  await cups.first().selectOption('A');await heights.first().fill('160');await cups.nth(1).selectOption('Z');await heights.nth(1).fill('180.5');
+  fs.mkdirSync('test-results',{recursive:true});await editor.screenshot({path:'test-results/character-profile-admin.png'});
+  await editor.getByRole('button',{name:'上傳 2 個角色',exact:true}).click();await expect(editor).toHaveCount(0);
+  await until(()=>f.store.read().characters.some(row=>row.name==='profile-two'));
+  const one=f.store.read().characters.find(row=>row.name==='profile-one'),two=f.store.read().characters.find(row=>row.name==='profile-two');
+  assert.equal(one.cupSize,'A');assert.equal(one.heightCm,160);assert.equal(two.cupSize,'Z');assert.equal(two.heightCm,180.5);
+  await admin.locator('.asset-title').filter({hasText:'profile-one'}).click();
+  const existing=admin.getByRole('dialog',{name:'編輯角色',exact:true});
+  await expect(existing.getByRole('combobox',{name:'胸部尺寸',exact:true})).toHaveValue('A');
+  await existing.getByRole('combobox',{name:'胸部尺寸',exact:true}).selectOption('C');await existing.getByRole('spinbutton',{name:'身高（公分）',exact:true}).fill('165');
+  await existing.getByRole('button',{name:'保存資料',exact:true}).click();await expect(existing).toHaveCount(0);
+  await until(()=>f.store.read().characters.find(row=>row.id===one.id).cupSize==='C');
+  await admin.locator('input[type=file]').setInputFiles(file('cancelled-profile.png'));await editor.getByRole('button',{name:'取消',exact:true}).click();await expect(editor).toHaveCount(0);assert(!f.store.read().characters.some(row=>row.name==='cancelled-profile'));
+
+  await loginBrowser(customer,f.base,'profile-ui','profile-password');
+  await expect(customer.getByRole('group',{name:'畫面風格選擇',exact:true})).toHaveCount(0);
+  await customer.locator('input[type=file]').setInputFiles(file('customer-profile.png'));
+  const upload=customer.getByRole('dialog',{name:'上傳角色',exact:true});
+  await upload.getByRole('combobox',{name:'胸部尺寸',exact:true}).selectOption('D');await upload.getByRole('spinbutton',{name:'身高（公分）',exact:true}).fill('172');
+  await upload.screenshot({path:'test-results/character-profile-customer.png'});
+  const box=await upload.boundingBox();assert(box.x>=0 && box.x+box.width<=390,'Mobile upload dialog fits the viewport');
+  await upload.getByRole('button',{name:'上傳 1 個角色',exact:true}).click();await expect(upload).toHaveCount(0);
+  await expect(customer.getByRole('button',{name:'選擇角色 customer-profile',exact:true})).toHaveAttribute('aria-pressed','true');
+  await customer.getByRole('button',{name:'拍攝 1 張',exact:true}).click();await customer.getByRole('button',{name:'開始拍攝 1 張',exact:true}).click();
+  await until(()=>f.submitted.length>0);const input=Object.values(f.submitted.at(-1).prompt).find(row=>row.class_type==='TextEncodeQwenImage21').inputs;
+  assert.match(input.prompt,/height 172 cm; breast size D cup/);assert.doesNotMatch(input.prompt,/Japanese anime game CG|single-character illustration|Keep the breast size the same/);
+  assert.deepEqual(errors,[]);
+  console.log('Character profiles UI passed: admin batch upload/edit/cancel, customer mobile upload and shoot, A–Z cups, per-character height, and removed CG controls and stale draft setting.');
+} finally {await browser.close();await f.close();}

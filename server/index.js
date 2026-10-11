@@ -25,6 +25,7 @@ import { PHOTO_CUSTOMIZATION_VERSION,PHOTO_CHANGE_FIELDS,PHOTO_PRESET_CATEGORIES
 import { reconcileLibrarySelections,reconcileDraftCandidates } from '../shared/library-selections.js';
 import { CAMERA_FRAMING_VERSION, cameraPreset, normalizeCameraAngle, cameraPrompt, REFINE_PROMPT, REFINE_STEPS } from '../shared/camera.js';
 import {productionStages} from '../shared/production.js';
+import {characterProfile,uploadedCharacterProfiles} from '../shared/character-profile.js';
 import { validateCameraWorkflow, buildCameraPipeline, buildCameraStage } from './camera-workflow.js';
 import { deleteOutputFiles, purgeJobOutputs, outputDirectoryForJob } from './outputs.js';
 import { createEnvironmentManager,defaultComfyDirectory,validateComfyDirectory,pickComfyDirectory,comfyOutputDirectory,BUNDLED_WORKFLOW_PATH,BUNDLED_CAMERA_PATH } from './environment.js';
@@ -105,7 +106,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     photoFolders,
     getCustomerRecipe,
     isInstalling:()=>environment.isActive(),
-    uploadCharacter:(files,visitorId)=>saveAssetUploads('characters',files,visitorId),
+    uploadCharacter:(files,visitorId,profiles)=>saveAssetUploads('characters',files,visitorId,profiles),
     createShots,remakeShots,angleShot,customShot,queueShots,stopShots,
     purgeOutputs:jobs=>purgeJobOutputs(store.read(),jobs,outputDir()),
     sendImage:serveJobImage,sendAngleSource:serveAngleSource,sendCharacterReference:serveCharacterReference,
@@ -119,7 +120,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     delete state.workflow;delete state.cameraWorkflow;
     state.cameraWorkflow = cameraWorkflow;
     state.photoFolders=photoFolders.list('admin');
-    return {...state,customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true,characterPools:true,gpuMemoryControl:true,presetPreviews:1,presetPreviewRatios:1,presetReview:1,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
+    return {...state,customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true,characterPools:true,characterProfile:1,gpuMemoryControl:true,presetPreviews:1,presetPreviewRatios:1,presetReview:1,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
   };
   const adminJob=(id,state=store.read())=>{
     const job=state.jobs.find(row=>row.id===id && belongsToStudio(row));
@@ -304,9 +305,10 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     if (!kinds.includes(req.params.kind)) return next(fail('圖庫類型無效。'));
     if (Number(req.headers['content-length']) > 150 * 1024 * 1024) return next(fail('每批上傳最多 150 MB。'));
     next();
-  },upload.array('images',50), (req,res) => res.status(201).json(saveAssetUploads(req.params.kind,req.files)));
-  function saveAssetUploads(kind,files,visitorId) {
+  },upload.array('images',50), (req,res) => res.status(201).json(saveAssetUploads(req.params.kind,req.files,undefined,req.body?.profiles)));
+  function saveAssetUploads(kind,files,visitorId,rawProfiles) {
     if (!files?.length) throw fail('請選擇 PNG、JPG 或 WebP 圖片。');
+    const profiles=kind==='characters' ? uploadedCharacterProfiles(rawProfiles,files.length) : [];
     const detected = files.map(file => {
       const b = file.buffer;
       if (b.length >= 24 && b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return {ext:'.png',mime:'image/png'};
@@ -320,7 +322,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
       // Multer decodes filenames as latin1; browser FormData sends UTF-8.
       const originalName = /[^\x00-\x7f]/.test(file.originalname) ? Buffer.from(file.originalname,'latin1').toString('utf8') : file.originalname;
       fs.writeFileSync(path.join(dataDir,'uploads',fileName),file.buffer);
-      return { id, name: path.parse(originalName).name.slice(0,200) || '未命名', description:visitorId ? 'Preserve the character identity shown in <image1>, including facial features, hair, and body proportions.' : '',tags:[],image:`/uploads/${fileName}`,fileName,mime:detected[index].mime,createdAt:new Date().toISOString(),...(visitorId ? {visitorId} : {}) };
+      return { id, name: path.parse(originalName).name.slice(0,200) || '未命名', description:visitorId ? 'Preserve the character identity shown in <image1>, including facial features, hair, and body proportions.' : '',tags:[],image:`/uploads/${fileName}`,fileName,mime:detected[index].mime,createdAt:new Date().toISOString(),...profiles[index],...(visitorId ? {visitorId} : {}) };
     });
     store.mutate(state => {state[kind].unshift(...rows);});
     return rows;
@@ -328,9 +330,11 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   app.patch('/api/assets/:kind/:id',(req,res) => {
     if (!kinds.includes(req.params.kind)) throw fail('圖庫類型無效。');
     const fields = assetFields(req.body);
+    const profile=req.params.kind==='characters' ? characterProfile(req.body) : {};
     const row = store.mutate(state => {
       const item = state[req.params.kind].find(item => item.id === req.params.id && belongsToStudio(item));
       if (!item) throw fail('找不到圖片。',404);
+      if(req.params.kind==='characters') for(const key of ['cupSize','heightCm']) if(Object.hasOwn(req.body,key)) {if(Object.hasOwn(profile,key)) item[key]=profile[key];else delete item[key];}
       return Object.assign(item,fields);
     });
     res.json(row);
@@ -482,7 +486,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     if(!state.workflow) throw fail('請先載入 Qwen 2.1 工作流。');
     const existing=state.jobs.find(job=>job.remakeRequestId===requestId && belongsToStudio(job,visitorId || 'admin'));
     if(existing) {
-      if(existing.jobKind!=='photo-edit' || existing.sourceJobId!==id || existing.sourceImageIndex!==imageIndex || JSON.stringify(existing.photoCustomization)!==JSON.stringify(customization)) throw fail('此請求 ID 已用於另一個自訂拍攝。',409);
+      if(existing.jobKind!=='photo-edit' || existing.sourceJobId!==id || existing.sourceImageIndex!==imageIndex || JSON.stringify(normalizePhotoCustomization(existing.photoCustomization))!==JSON.stringify(customization)) throw fail('此請求 ID 已用於另一個自訂拍攝。',409);
       return {job:existing,created:false};
     }
     const photoSource=resolveSelectedPhotoSource(state,source,imageIndex);

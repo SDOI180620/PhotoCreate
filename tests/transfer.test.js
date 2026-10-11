@@ -35,6 +35,18 @@ async function exportTo(source,target) {
   fs.copyFileSync(archive.path,file);archive.cleanup();return file;
 }
 
+test('角色尺寸與身高經 ZIP 保留，同圖但資料不同時保留各自角色',async t=>{
+  const source=fixture(t,{source:true}),target=fixture(t,{source:true});
+  source.store.mutate(state=>Object.assign(state.characters[0],{cupSize:'F',heightCm:168.5}));
+  target.store.mutate(state=>Object.assign(state.characters[0],{cupSize:'C',heightCm:160}));
+  const archive=await exportTo(source,target),preview=await target.transfer.prepare(archive);
+  assert.equal(preview.added.characters,1);await target.transfer.commit(preview.token,{applyDraft:true});
+  const state=target.store.read(),imported=state.characters.find(row=>row.id===state.draft.characterId);
+  assert.notEqual(imported.id,'person');assert.equal(imported.cupSize,'F');assert.equal(imported.heightCm,168.5);
+  assert.equal(state.characters.find(row=>row.id==='person').cupSize,'C');
+  const repeated=await target.transfer.prepare(await exportTo(source,target));assert.equal(repeated.added.characters,0);
+});
+
 test('角色複選經資料搬移保留所有候選，ID 衝突時逐一對應',async t=>{
   const source=fixture(t,{source:true}),target=fixture(t,{source:true});
   source.store.mutate(state=>{

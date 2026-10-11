@@ -10,9 +10,10 @@ import {productionStages} from '../shared/production.js';
 import {CAMERA_FRAMING_VERSION} from '../shared/camera.js';
 import {PHOTO_CUSTOMIZATION_VERSION,PHOTO_PRESET_CATEGORIES,photoSettings} from '../shared/photo-customization.js';
 import {createFeaturedGallery} from './featured-gallery.js';
+import {characterProfile} from '../shared/character-profile.js';
 
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
-const publicCharacter=(row,visitorId)=>({id:row.id,name:row.name,image:`/api/studio/characters/${row.id}/image`,owned:row.visitorId===visitorId});
+const publicCharacter=(row,visitorId)=>({id:row.id,name:row.name,image:`/api/studio/characters/${row.id}/image`,...characterProfile(row),owned:row.visitorId===visitorId});
 const publicJob=job=>{
   const base=`/api/studio/jobs/${job.id}`;
   const images=(job.images || []).map((_,index)=>`${base}/image/${index}`);
@@ -30,7 +31,7 @@ const publicJob=job=>{
 export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,getCustomerRecipe,uploadCharacter,createShots,remakeShots,angleShot,customShot,queueShots,stopShots,purgeOutputs,sendImage,sendAngleSource,sendCharacterReference}) {
   const router=express.Router();
   const gallery=createFeaturedGallery(store);
-  const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024,files:1,fields:0,parts:1}}).single('image');
+  const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024,files:1,fields:1,parts:2,fieldSize:20000}}).single('image');
   router.use((req,res,next)=>{
     if(req.account?.role!=='customer') return next(fail('請先登入顧客帳號。',401));
     req.visitorId=req.account.owner_id;
@@ -72,7 +73,7 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
       jobs:state.jobs.filter(job=>job.visitorId===visitorId && !job.visitorDeletedAt).map(publicJob),
       trash:state.jobs.filter(job=>job.visitorId===visitorId && job.visitorDeletedAt).map(job=>({...publicJob(job),deletedAt:job.visitorDeletedAt})),
       ready:Boolean(recipe && ['garment','pose','lighting','color','quality'].every(key=>recipe.pools[key]?.length) && state.workflow && !isInstalling()),cameraReady:Boolean(state.workflow && state.cameraWorkflow && !isInstalling()),
-      wardrobeCount:recipe?.pools.garment.length || 0,maxCount:24,canQueueShoots:true,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION,
+      wardrobeCount:recipe?.pools.garment.length || 0,maxCount:24,canQueueShoots:true,characterProfile:1,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION,
       garments:(recipe?.pools.garment || []).map(row=>({id:row.id,name:row.name,image:`/api/studio/garments/${row.id}/image`})),
       presets:Object.entries(PHOTO_PRESET_CATEGORIES).flatMap(([key,category])=>(recipe?.pools[key==='scene' ? 'interaction' : key] || []).filter(row=>row.category===category).map(row=>({id:row.id,category,name:row.name}))),
       cameras:(recipe?.pools.camera || []).map(row=>({id:row.id,name:row.name,angle:row.angle})),
@@ -127,7 +128,7 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
   router.post('/jobs/:id/restore',(req,res)=>changeDeleted(req,res,false));
   router.post('/characters',upload,(req,res)=>{
     if(!req.file) throw fail('請選擇 PNG、JPG 或 WebP 圖片。');
-    const [character]=uploadCharacter([req.file],req.visitorId);
+    const [character]=uploadCharacter([req.file],req.visitorId,req.body?.profiles);
     res.status(201).json(publicCharacter(character,req.visitorId));
   });
   router.delete('/characters/:id',(req,res)=>{

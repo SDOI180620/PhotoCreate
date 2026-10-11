@@ -163,6 +163,7 @@ try {
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button',{name:'角色參考',exact:true}).click();
   await page.locator('input[type=file]').setInputFiles({name:'角色.png',mimeType:'image/png',buffer:PNG});
+  await page.getByRole('dialog',{name:'上傳角色',exact:true}).getByRole('button',{name:'上傳 1 個角色',exact:true}).click();
   await expect(page.locator('.asset-card')).toHaveCount(1);
   await page.locator('.asset-title').first().click();
   await page.getByRole('textbox',{name:'提詞',exact:true}).fill(characterPrompt);

@@ -11,6 +11,8 @@ import {DRAFT,TEMPLATE,fixtureState} from './fixtures.js';
 import {CAMERA_TEMPLATE} from './camera-fixtures.js';
 
 const encoder = graph => Object.values(graph).find(node=>node.class_type==='TextEncodeQwenImage21').inputs;
+const removedAppearance="Use <image1> as the sole reference for the character's identity and anatomy. Preserve the same face and facial structure, hairstyle, body shape and build, body proportions, and breast size shown in <image1>. Changes to clothing, pose, camera viewpoint or rendering style must not redesign the face or physique, or increase or reduce breast size.";
+const removedBreastSize='Keep the breast size the same as in <image1>.';
 const assertSingle = (positive,negative) => {
   assert.match(positive,/exactly one person, solo/);
   assert.match(positive,/one subject appearing once in one camera view/);
@@ -25,7 +27,7 @@ test('舊的單人提詞升級後只有一份新限制，負提詞補上三視�
   const composition='Compose one continuous photographic scene, one uninterrupted frame, one viewpoint and one pose.';
   const earlier=SINGLE_SUBJECT_PROMPT.replace('The result is',composition+' '+removed+' The result is');
   const negative=withSingleSubjectNegative('blurry, three-view');
-  for(const oldPrompt of [legacy,previous,earlier,removed,composition]) {
+  for(const oldPrompt of [legacy,previous,earlier,removed,composition,removedAppearance,removedBreastSize,`${SINGLE_SUBJECT_PROMPT}\n\n${removedAppearance}\n\n${removedBreastSize}`]) {
     const positive=withSingleSubjectPrompt(`A studio portrait.\n\n${oldPrompt}`);
     assertSingle(positive,negative);assert.equal(positive,`A studio portrait.\n\n${SINGLE_SUBJECT_PROMPT}`);
     assert(!positive.includes('The references may show different views'));
@@ -33,6 +35,20 @@ test('舊的單人提詞升級後只有一份新限制，負提詞補上三視�
   }
   assert.equal(withSingleSubjectNegative(negative),negative);
   assert.equal(negative.split(',').filter(term=>term.trim()==='three-view').length,1);
+});
+
+test('撤回外觀一致性段落後，舊照片重拍不再送入模型，歷史紀錄保留',()=>{
+  const source=buildShotPlans(fixtureState(),DRAFT)[0];
+  source.prompt+=`\n\n${removedAppearance}\n\n${removedBreastSize}\n\nPreserve the freckles and blue scarf.`;
+  const before=structuredClone(source);
+  for(const renderStyle of ['realistic','anime_cg']) {
+    const input=encoder(buildComfyPrompt(TEMPLATE,{...source,renderStyle},{character:'person.png',garment:'outfit.png'}));
+    assert.doesNotMatch(input.prompt,/sole reference for the character's identity and anatomy|breast size shown in <image1>|increase or reduce breast size|Keep the breast size the same/);
+    assert.match(input.prompt,/Preserve the freckles and blue scarf\./);
+    assert.ok(input.prompt.includes(source.pose.prompt));
+    assert.doesNotMatch(input.prompt,/Japanese anime game CG illustration/);
+  }
+  assert.deepEqual(source,before);
 });
 
 test('管理員組合與隨機產圖強調單人單視角，自訂負面提詞不取代人數限制',()=>{
@@ -45,7 +61,7 @@ test('管理員組合與隨機產圖強調單人單視角，自訂負面提詞�
       assert.equal(shot.negative.split(',').filter(term=>term.trim()==='multiple people').length,1);
       if(negative) assert.match(shot.negative,/^blurry,/);
       const submitted=encoder(buildComfyPrompt(TEMPLATE,shot,{character:'person.png',garment:'outfit.png'}));
-      assert.equal(submitted.prompt,shot.prompt);assert.equal(submitted.negative_prompt,shot.negative);
+      assert.equal(submitted.prompt,withSingleSubjectPrompt(shot.prompt));assert.equal(submitted.negative_prompt,shot.negative);
     }
   }
   assert.deepEqual(state,before);

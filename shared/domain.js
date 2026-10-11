@@ -1,5 +1,6 @@
 import { cameraPreset, cameraPrompt, normalizeCameraAngle, ORIGINAL_CAMERA, REFINE_STEPS, CAMERA_MAPPING_VERSION } from './camera.js';
 import { SINGLE_SUBJECT_PROMPT, withSingleSubjectNegative } from './subject.js';
+import {characterProfilePrompt} from './character-profile.js';
 
 export const CATEGORIES = {
   pose: { label: '動作', plural: '動作提詞' },
@@ -173,6 +174,7 @@ export function composePrompt({ character, pose, expression, clothingState, inte
     SINGLE_SUBJECT_PROMPT,
     REFERENCE_INSTRUCTION,
     character?.description?.trim() && `Character details: ${character.description.trim()}`,
+    characterProfilePrompt(character),
     interactionPrompt && `Scene interaction: ${interactionPrompt}`,
     pose?.prompt && `Pose: ${pose.prompt}`,
     expression?.prompt?.trim() && `Facial expression: ${expression.prompt.trim()}`,

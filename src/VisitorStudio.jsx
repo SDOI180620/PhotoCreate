@@ -6,6 +6,7 @@ import PhotoPrompts from './PhotoPrompts.jsx';
 import ImageViewer from './ImageViewer.jsx';
 import PhotoFolders,{FolderDestination,usePhotoDrag} from './PhotoFolders.jsx';
 import FeaturedGallery from './FeaturedGallery.jsx';
+import CharacterUploadDialog from './CharacterUpload.jsx';
 import {checkAuthentication} from './auth-api.js';
 import {CAMERA_FRAMING_VERSION,DEFAULT_CAMERA_ANGLE,cameraControlAngle,cameraAngleLabel} from '../shared/camera.js';
 import {DEFAULT_PHOTO_CUSTOMIZATION,PHOTO_CUSTOMIZATION_VERSION,photoCustomizationError} from '../shared/photo-customization.js';
@@ -137,6 +138,7 @@ export default function VisitorStudio({user,accountMenu}) {
   const [needsCharacter,setNeedsCharacter]=useState(false);
   const [folderId,setFolderId]=useState(preferences.folderId || ''),[galleryFolder,setGalleryFolder]=useState('all'),[selectedPhotos,setSelectedPhotos]=useState([]);
   const [purgeSelection,setPurgeSelection]=useState(null);
+  const [uploadFiles,setUploadFiles]=useState(null);
   const [selectedVersion,setSelectedVersion]=useState(null),[selectedOutput,setSelectedOutput]=useState(0);
   const [source,setSource]=useState('studio'),[filter,setFilter]=useState('all'),[selectedRoot,setSelectedRoot]=useState(null),[pending,setPending]=useState(''),[dragging,setDragging]=useState(false);
   const input=useRef(null),photos=useRef(null),characterSection=useRef(null),mutation=useRef(false),shootKey=useRef(requestKey());
@@ -187,7 +189,12 @@ export default function VisitorStudio({user,accountMenu}) {
     }
     return result;
   };
-  const upload=async file=>{if(!file || !data || mutation.current) return;if(file.size>25*1024*1024) {setError('角色圖片最多 25 MB，請選擇較小的圖片。');return;}await run('upload',async()=>{const body=new FormData();body.append('image',file);const row=await studioApi('/characters',{method:'POST',body});selectCharacter(row.id);setSource('mine');},'角色已就位，可以開始拍攝。');};
+  const upload=async file=>{if(!file || !data || mutation.current) return;if(file.size>25*1024*1024) {setError('角色圖片最多 25 MB，請選擇較小的圖片。');return;}setUploadFiles([file]);};
+  const uploadCharacter=async profiles=>{
+    if(!data.characterProfile && profiles.some(row=>row.cupSize || row.heightCm)) throw new Error('請重新啟動 PhotoCreate 服務，啟用角色尺寸與身高資料。');
+    let uploaded;
+    return run('upload',async()=>{const body=new FormData();body.append('image',uploadFiles[0]);if(data.characterProfile) body.append('profiles',JSON.stringify(profiles));uploaded=await studioApi('/characters',{method:'POST',body});return uploaded;},'角色已就位，可以開始拍攝。',()=>{selectCharacter(uploaded.id);setSource('mine');});
+  };
   const shoot=async()=>{if(!character || !countValid) return;const ok=await run('shoot',()=>studioApi('/shoots',{method:'POST',body:{characterId:character.id,count:Number(count),aspectRatio:ratio,cameraEnabled:false,folderId,requestId:shootKey.current}}),active ? `已排入 ${count} 張照片，會依序拍攝。` : `已開始拍攝 ${count} 張照片。`);if(ok) {shootKey.current=requestKey();setFilter('all');setGalleryFolder(folderId || 'all');photos.current?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',block:'start'});}};
   const createFolder=name=>run('folder',()=>studioApi('/folders',{method:'POST',body:{name}}),'資料夾已建立。');
   const addToGallery=(jobId,imageIndex,destination)=>run('gallery',()=>studioApi('/gallery',{method:'POST',body:{jobId,imageIndex,folderId:destination}}),'已將這個版本放入精選畫廊。');
@@ -240,5 +247,6 @@ export default function VisitorStudio({user,accountMenu}) {
     </section>
     <FeaturedGallery entries={data?.gallery || []} folders={data?.galleryFolders || []} busy={!data || Boolean(pending)} error={error} onCreateFolder={createGalleryFolder} onRenameFolder={renameGalleryFolder} onDeleteFolder={deleteGalleryFolder} onMove={moveGallery} onRemove={removeFromGallery} onInspect={entry=>openPhoto(entry.rootId,entry.jobId,entry.imageIndex)} onRefresh={()=>run('gallery',()=>{},'畫廊已更新。')}/>
     {photoDrag.preview}
+    {uploadFiles && <CharacterUploadDialog files={uploadFiles} onSubmit={uploadCharacter} onClose={()=>setUploadFiles(null)}/>}
     </main><footer className="pc-footer"><Brand small/><p>你的角色，你的鏡頭，你的可能。<small>角色與照片保存在你的帳號；換個裝置，登入後就能繼續拍攝。</small></p><span>Made for your next look.</span></footer>{selectedItem && <PhotoDialog key={selectedRoot} item={selectedItem} cameras={data.cameras} garments={data.garments} presets={data.presets} customReady={data.photoCustomization} ready={data.ready && !updateRequired} cameraReady={data.cameraReady} cameraFraming={data.cameraFraming===CAMERA_FRAMING_VERSION} pending={Boolean(pending)} error={error} onClose={()=>setSelectedRoot(null)} onAction={photoAction} onDelete={deletePhoto} gallery={data.gallery} galleryFolders={data.galleryFolders} onAddToGallery={addToGallery} initialVersionId={selectedVersion} initialImageIndex={selectedOutput}/>} {purgeSelection && <PurgeDialog count={purgeSelection.length} pending={Boolean(pending)} error={error} onClose={()=>setPurgeSelection(null)} onConfirm={purgePhotos}/>}</div>;
 }

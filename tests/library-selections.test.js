@@ -6,6 +6,19 @@ import path from 'node:path';
 import {createStore} from '../server/store.js';
 import {createCustomerRecipe} from '../server/customer-recipe.js';
 import {fixtureState,DRAFT} from './fixtures.js';
+import {reconcileLibrarySelections} from '../shared/library-selections.js';
+
+test('撤除 CG 後清理所有草稿設定，保留完成照片的歷史紀錄',()=>{
+  const fixture=fixtureState(),draft={...DRAFT,renderStyle:'anime_cg'},job={id:'historical-cg',renderStyle:'anime_cg',prompt:'Historical prompt'};
+  const state={...fixture,draft,workbenchDrafts:{random:{...draft,mode:'random'},combinations:{...draft,mode:'combinations'}},customerRecipe:{settings:{steps:30,renderStyle:'anime_cg'},pools:{}},jobs:[job]};
+  reconcileLibrarySelections(state);
+  assert.equal(Object.hasOwn(state.draft,'renderStyle'),false);
+  assert.deepEqual(state.draft,DRAFT);
+  for(const candidate of Object.values(state.workbenchDrafts)) assert.equal(Object.hasOwn(candidate,'renderStyle'),false);
+  assert.deepEqual(state.customerRecipe.settings,{steps:30});
+  assert.equal(draft.renderStyle,'anime_cg');
+  assert.deepEqual(state.jobs,[job]);
+});
 
 test('重開後清理已刪候選：兩種草稿與顧客名單一致，既有照片保留快照',t=>{
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-library-selection-'));

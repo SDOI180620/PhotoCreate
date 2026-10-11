@@ -8,9 +8,10 @@ import yauzl from 'yauzl';
 import yazl from 'yazl';
 import {ACTIVE_STATUSES} from '../shared/batches.js';
 import {ASSET_KINDS,LIMITS,transferError,textField,tagsField,imageType,portablePresets,portableDraft,validateManifest,remapDraft} from './transfer-schema.js';
+import {characterProfile} from '../shared/character-profile.js';
 
 const libraryRevision = state => createHash('sha256').update(JSON.stringify([state.garments,state.characters,state.scenes,state.presets])).digest('hex');
-const assetKey = (kind,row,digest) => JSON.stringify([kind,row.name,row.description || '',row.tags || [],row.mime,digest]);
+const assetKey = (kind,row,digest) => JSON.stringify([kind,row.name,row.description || '',row.tags || [],row.mime,digest,...(kind==='characters' ? [characterProfile(row)] : [])]);
 const presetKey = row => JSON.stringify([row.category,row.name,row.prompt,row.tags,row.angle ?? null]);
 
 // Only registered uploads are exported; generated outputs and machine settings are separate.
@@ -82,7 +83,7 @@ export function createTransferManager({dataDir,store,now=()=>Date.now(),limits=L
           if(!files.has(imageFile)) {files.set(imageFile,copy);total+=measured.size;}
           else removeFile(copy);
           if(total>limits.total) throw transferError('資料包超過 2 GB，請先整理圖庫。');
-          assets[kind].push({id:row.id,name:textField(row.name,200,'名稱',true),description:textField(row.description ?? '',20000,'圖片提詞'),tags:tagsField(row.tags ?? []),createdAt:row.createdAt,mime:type.mime,imageFile,sha256:measured.sha256,size:measured.size});
+          assets[kind].push({id:row.id,name:textField(row.name,200,'名稱',true),description:textField(row.description ?? '',20000,'圖片提詞'),tags:tagsField(row.tags ?? []),createdAt:row.createdAt,mime:type.mime,imageFile,sha256:measured.sha256,size:measured.size,...(kind==='characters' ? characterProfile(row) : {})});
         }
       }
       const presets=portablePresets(snapshot.presets);

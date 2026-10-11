@@ -1,5 +1,6 @@
 import {withSingleSubjectPrompt} from './subject.js';
 import {referenceOnlyPrompt,REFERENCE_INSTRUCTION} from './domain.js';
+import {characterProfilePrompt} from './character-profile.js';
 
 export const PHOTO_CHANGE_FIELDS = {pose:'動作',clothing:'服裝',clothingState:'服裝狀態',scene:'場景',expression:'表情',lighting:'光線',color:'色彩',quality:'畫質'};
 export const PHOTO_PRESET_CATEGORIES = {pose:'pose',clothingState:'clothing_state',scene:'interaction',expression:'expression',lighting:'lighting',color:'color',quality:'quality'};
@@ -121,6 +122,7 @@ export function customPhotoPrompt(options,shot,selectedPresets={}) {
   return withSingleSubjectPrompt([
     CHARACTER_INSTRUCTION,
     shot.character?.description && `Character details: ${shot.character.description}`,
+    characterProfilePrompt(shot.character),
     useClothingImage ? 'Dress the character from <image1> in the clothing from <image2>. Preserve the cut, material, colors and details of the clothing shown in <image2>.' : textClothingInstruction(clothing || 'the requested outfit'),
     (changes.pose || shot.pose?.prompt) && `Pose and action: ${changes.pose || shot.pose.prompt}`,
     scene && `Scene: ${scene}`,
