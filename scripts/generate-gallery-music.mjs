@@ -2,7 +2,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {createGalleryMusic} from '../server/gallery-music.js';
-import {DEFAULT_PIANO_CAPTION} from '../shared/gallery-music.js';
+import {DEFAULT_PIANO_CAPTION,DEFAULT_PIANO_DURATION_CAP} from '../shared/gallery-music.js';
 
 // Run with PhotoCreate stopped or before upgrading a server without music
 // support. The journal must have exactly one writer, just like studio.sqlite.
@@ -15,7 +15,7 @@ try {
   if(existing) {console.log(JSON.stringify({existing:true,id:existing.id,fileName:existing.fileName}));}
   else {
     const active=music.list().find(row=>['submitting','queued','running','uncertain'].includes(row.status));
-    const track=active || await music.generate(randomUUID(),{name:'森林微光 · 鋼琴',kind:'piano',durationCap:90,caption:DEFAULT_PIANO_CAPTION});
+    const track=active || await music.generate(randomUUID(),{name:'森林微光 · 鋼琴',kind:'piano',durationCap:DEFAULT_PIANO_DURATION_CAP,caption:DEFAULT_PIANO_CAPTION});
     console.log(JSON.stringify({id:track.id,status:track.status}));
     const end=Date.now()+45*60*1000;let previous='';
     while(Date.now()<end) {

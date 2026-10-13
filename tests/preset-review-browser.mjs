@@ -26,7 +26,8 @@ fs.mkdirSync('test-results',{recursive:true});
 const apply=page.getByRole('button',{name:'套用至顧客攝影棚',exact:true});
 const editor=page.getByRole('dialog',{name:'編輯提詞',exact:true});
 const closeEditor=async()=>{await page.getByRole('dialog').last().getByRole('button',{name:'關閉視窗',exact:true}).click();await expect(editor).toHaveCount(0);};
-const poseCard=()=>page.locator('.preset-card').filter({has:page.getByRole('heading',{name:'自然站姿',exact:true})});
+const poseName=f.store.read().presets.find(row=>row.id==='pose-standing').name;
+const poseCard=()=>page.locator('.preset-card').filter({has:page.getByRole('heading',{name:poseName,exact:true})});
 try {
   await loginBrowser(page,f.base);await expect(apply).toBeDisabled();
   await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('60');await expect(apply).toBeEnabled();
@@ -39,12 +40,12 @@ try {
   await page.locator('.customer-publish-panel').screenshot({path:path.resolve('test-results/customer-publish-unchanged.png')});
 
   await page.getByRole('button',{name:'提詞資料庫',exact:true}).click();
-  await poseCard().getByRole('button',{name:'標記為已確認 自然站姿',exact:true}).click();
-  await expect(poseCard().getByRole('button',{name:'取消已確認 自然站姿',exact:true})).toHaveAttribute('aria-pressed','true');
+  await poseCard().getByRole('button',{name:`標記為已確認 ${poseName}`,exact:true}).click();
+  await expect(poseCard().getByRole('button',{name:`取消已確認 ${poseName}`,exact:true})).toHaveAttribute('aria-pressed','true');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.reload();await page.getByRole('button',{name:'提詞資料庫',exact:true}).click();
   await expect(poseCard().getByRole('img',{name:'已確認',exact:true})).toBeVisible();
-  await poseCard().getByRole('button',{name:'編輯提詞 自然站姿',exact:true}).click();
+  await poseCard().getByRole('button',{name:`編輯提詞 ${poseName}`,exact:true}).click();
   await expect(editor.getByRole('checkbox',{name:'已確認這個提詞',exact:true})).toBeChecked();
   await expect(editor.locator('.preset-photo-sample .preset-photo-tile')).toHaveCount(1);
   await editor.getByRole('textbox',{name:'提詞內容',exact:true}).fill('Updated browser pose');
@@ -55,7 +56,7 @@ try {
   await apply.click();await expect(apply).toBeDisabled();
   await page.getByRole('button',{name:'選擇動作提詞',exact:true}).click();
   const picker=page.getByRole('dialog',{name:'選擇動作提詞 · 可複選',exact:true});
-  const pose=picker.getByRole('button',{name:'自然站姿',exact:true});
+  const pose=picker.getByRole('button',{name:poseName,exact:true});
   await expect(pose.getByRole('img',{name:'已確認',exact:true})).toBeVisible();
   await expect(pose).toHaveAttribute('aria-pressed','true');
   const mark=await pose.locator('.preset-review-mark').boundingBox(),box=await pose.boundingBox();
@@ -78,22 +79,22 @@ try {
   assert.equal(f.store.read().jobs[0].pose.prompt.includes('Updated browser'),false,'Opening/editing tags keeps original photo snapshots');
   await photo.getByRole('button',{name:'詳細',exact:true}).click();
   const inspector=page.getByRole('dialog');await expect(inspector.locator('.shot-options')).toBeVisible();
-  await inspector.getByRole('button',{name:'開啟動作提詞 自然站姿',exact:true}).click();await expect(editor).toBeVisible();
+  await inspector.getByRole('button',{name:`開啟動作提詞 ${poseName}`,exact:true}).click();await expect(editor).toBeVisible();
   await closeEditor();await expect(page.getByRole('dialog').locator('.shot-options')).toBeVisible();
   await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
   await photo.getByRole('button',{name:/^放大成果 /}).click();
-  await page.getByRole('dialog',{name:'成果放大檢視',exact:true}).getByRole('button',{name:'開啟動作提詞 自然站姿',exact:true}).click();
+  await page.getByRole('dialog',{name:'成果放大檢視',exact:true}).getByRole('button',{name:`開啟動作提詞 ${poseName}`,exact:true}).click();
   await expect(editor).toBeVisible();await expect(page.getByRole('dialog',{name:'成果放大檢視',exact:true})).toHaveCount(0);await closeEditor();
 
   await page.getByRole('button',{name:'拍攝清單',exact:true}).click();
   await page.getByRole('button',{name:'開啟拍攝組 確認測試',exact:true}).click();
   await page.getByRole('button',{name:'任務清單',exact:true}).click();
-  await page.locator('.job-card').first().getByRole('button',{name:'開啟動作提詞 自然站姿',exact:true}).click();await expect(editor).toBeVisible();await closeEditor();
+  await page.locator('.job-card').first().getByRole('button',{name:`開啟動作提詞 ${poseName}`,exact:true}).click();await expect(editor).toBeVisible();await closeEditor();
 
   await page.getByRole('button',{name:'提詞資料庫',exact:true}).click();
-  await poseCard().getByRole('button',{name:'取消已確認 自然站姿',exact:true}).click();
-  await expect(poseCard().getByRole('button',{name:'標記為已確認 自然站姿',exact:true})).toHaveAttribute('aria-pressed','false');
-  await poseCard().getByRole('button',{name:'編輯提詞 自然站姿',exact:true}).click();
+  await poseCard().getByRole('button',{name:`取消已確認 ${poseName}`,exact:true}).click();
+  await expect(poseCard().getByRole('button',{name:`標記為已確認 ${poseName}`,exact:true})).toHaveAttribute('aria-pressed','false');
+  await poseCard().getByRole('button',{name:`編輯提詞 ${poseName}`,exact:true}).click();
   await editor.getByRole('checkbox',{name:'已確認這個提詞',exact:true}).check();
   await editor.getByRole('button',{name:'保存提詞',exact:true}).click();await expect(editor).toHaveCount(0);
   await expect(poseCard().getByRole('img',{name:'已確認',exact:true})).toBeVisible();

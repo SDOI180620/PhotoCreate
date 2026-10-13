@@ -15,7 +15,7 @@ const managerFor=fixture=>createEnvironmentManager(fixture);
 
 test('環境套件來源 hash 正確，工作流不攜帶原圖、原始提詞或預覽內容',()=> {
   const manifest=JSON.parse(fs.readFileSync(path.join(BUNDLE_DIR,'manifest.json'),'utf8'));
-  assert.equal(manifest.resources.filter(row=>row.kind==='model').length,7);
+  assert.equal(manifest.resources.filter(row=>row.kind==='model').length,8);
   for(const resource of manifest.resources) {
     if(resource.kind==='model') {assert.match(resource.url,new RegExp('/resolve/'+resource.revision+'/'));assert.match(resource.sha256,/^[a-f0-9]{64}$/);continue;}
     const bytes=fs.readFileSync(environmentPath(BUNDLE_DIR,resource.source));assert.equal(bytes.length,resource.size);assert.equal(createHash('sha256').update(bytes).digest('hex'),resource.sha256);
@@ -114,7 +114,7 @@ test('API 測試不改設定，綁定重新驗證；本機安裝與載入、忙�
   fixture.controls.foreignQueue=true;assert.equal((await request('/environment/install',{directory:fixture.root})).status,409);assert.equal(environment.status(),null);
   fixture.controls.foreignQueue=false;fixture.controls.queueError=true;assert.equal((await request('/environment/install',{directory:fixture.root})).status,502);assert.equal(environment.status(),null);
   fixture.controls.queueError=false;fixture.controls.queueOffline=true;assert.equal((await request('/environment/install',{directory:fixture.root})).status,202);assert.equal((await settleInstall(environment)).status,'completed');fixture.controls.queueOffline=false;
-  assert.deepEqual((await request('/comfy/workflows',undefined,'GET')).data,[BUNDLED_WORKFLOW_PATH,BUNDLED_CAMERA_PATH]);
+  assert.deepEqual((await request('/comfy/workflows',undefined,'GET')).data,fixture.manifest.resources.filter(row=>row.kind==='workflow').map(row=>row.target.replace('user/default/workflows/','')));
   const originalWorkflow=store.read().workflow;
   store.mutate(state=>{delete state.cameraWorkflow;delete state.settings.cameraWorkflowPath;state.cameraWorkflowError='ComfyUI 404: ';});
   const cameraLoaded=await request('/camera-workflow/load');

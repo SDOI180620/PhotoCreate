@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {resolveCameraSource,resolveSelectedPhotoSource} from '../shared/camera-source.js';
+import {resolveCameraSource,resolveSelectedPhotoSource,photoCameraSettings} from '../shared/camera-source.js';
 import {buildRemakePlans} from '../shared/remakes.js';
 import {buildShotPlans} from '../shared/domain.js';
 import {createApp} from '../server/index.js';
@@ -13,6 +13,18 @@ import {CAMERA_TEMPLATE} from './camera-fixtures.js';
 
 const image = filename => ({filename,subfolder:'PhotoCreate/original-test',type:'output'});
 const original = () => ({...buildShotPlans(fixtureState(),{...DRAFT,cameraMode:'multiangle'})[0],status:'completed',createdAt:new Date().toISOString(),images:[image('final.png')],comfyUrl:'http://original-comfy:8188',stageResults:{base:{completed:true,images:[image('original-base.png')],comfyUrl:'http://original-comfy:8188'}}});
+
+test('角度繼承追溯最近已套用鏡位與模型快照，隔離帳號並避免循環或猜測缺失來源',()=>{
+  const root={...original(),cameraEnabled:false,visitorId:'alice'},angle={horizontalAngle:145,verticalAngle:-16,zoom:3.2};
+  const saved={...root,id:'saved-camera',jobKind:'angle-edit',sourceJobId:root.id,cameraEnabled:true,camera:{name:'保存鏡位',angle},cameraWorkflowSnapshot:structuredClone(CAMERA_TEMPLATE),angleSteps:31,refineDenoise:0.15};
+  const legacy={...root,id:'legacy-custom',jobKind:'photo-edit',sourceJobId:saved.id},refined={...legacy,id:'refined',jobKind:'refine-edit',sourceJobId:legacy.id};
+  const state={jobs:[root,saved,legacy,refined],cameraWorkflow:{changed:true}},settings=photoCameraSettings(state,refined);
+  assert.deepEqual(settings.camera.angle,angle);assert.equal(settings.cameraEnabled,true);assert.equal(settings.angleSteps,31);assert.equal(settings.refineDenoise,0.15);assert.deepEqual(settings.cameraWorkflowSnapshot,CAMERA_TEMPLATE);assert.notEqual(settings.camera,saved.camera);assert.notEqual(settings.cameraWorkflowSnapshot,saved.cameraWorkflowSnapshot);
+  assert.deepEqual(photoCameraSettings(state,root),{});
+  assert.deepEqual(photoCameraSettings({...state,jobs:[root,{...saved,visitorId:'bob'},legacy,refined]},refined),{});
+  assert.deepEqual(photoCameraSettings({...state,jobs:[root,{...legacy,sourceJobId:refined.id},refined]},refined),{});
+  assert.deepEqual(photoCameraSettings({...state,jobs:[root,refined]},refined),{});
+});
 
 test('不同角度拍攝使用所選版本與圖片索引，不追溯原圖或偷偷換成另一張',() => {
   const root=original(),edit={...root,id:'selected-version',jobKind:'angle-edit',rootJobId:root.id,sourceJobId:root.id,images:[image('version-2.png'),image('version-2-second.png')],comfyUrl:'http://selected-comfy:8188'};

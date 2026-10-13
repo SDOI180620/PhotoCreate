@@ -31,7 +31,7 @@ function comparableRecipe(state,recipe) {
     ['steps','resolution','angleSteps','refineDenoise'].includes(key) ? Number(settings[key])
       : ['negative','extra','sceneInteraction'].includes(key) ? settings[key].trim() : settings[key]]));
   const characters=recipe.characterIds ?? state.characters.filter(row=>!row.visitorId).map(row=>row.id);
-  const pools=Object.fromEntries(Object.entries(recipe.pools).map(([key,rows])=>[key,rows.filter(Boolean).map(row=>pick(row,key==='garment'
+  const pools=Object.fromEntries(Object.entries({gaze:[],...recipe.pools}).map(([key,rows])=>[key,rows.filter(Boolean).map(row=>pick(row,key==='garment'
     ? ['id','name','sourceType','prompt','description','tags','fileName','image','mime']
     : ['id','category','name','prompt','tags','angle'])).sort((a,b)=>a.id.localeCompare(b.id))]));
   // Review marks and camera-mapping notes are operator bookkeeping, not customer changes.

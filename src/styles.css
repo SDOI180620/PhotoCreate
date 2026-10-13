@@ -664,6 +664,10 @@ code,pre {font-family:var(--font-mono)}
 .environment-progress > div {display:flex;justify-content:space-between;align-items:center;gap:12px}.environment-progress p {margin:0;overflow-wrap:anywhere;font-size:12px}
 .environment-progress progress {width:100%;accent-color:var(--color-primary);height:9px}.environment-progress small {color:var(--color-text-dim)}
 .environment-workflow-selection[open],.environment-manual-workflow[open] {display:grid;gap:14px}
+.video-environment details[open] {display:grid;gap:16px;min-width:0}
+.video-environment summary {cursor:pointer;font-size:15px;font-weight:500}
+.video-environment label,.video-environment select {min-width:0;max-width:100%}
+.video-environment .field-help {margin:0}
 
 .settings-tabs {display:flex;gap:22px;padding:0 26px;border-bottom:1px solid var(--color-border);flex-shrink:0}
 .settings-tabs button {background:none;border:0;border-bottom:2px solid transparent;padding:15px 1px;color:var(--color-text-dim);font-size:13px;cursor:pointer}
@@ -693,3 +697,24 @@ code,pre {font-family:var(--font-mono)}
 .transfer-draft-choice input {width:16px;height:16px;accent-color:var(--color-primary);margin:0}
 .transfer-status {display:flex;align-items:center;gap:9px;margin:0;font-size:12px;color:var(--color-primary)}
 .transfer-scope {line-height:1.8;margin:0}
+
+/* One installation action for the selected photo and video environment. */
+.environment-overview{padding:18px 20px;border:1px solid var(--border,#e2e5da);border-radius:12px;background:var(--surface,#fffefa)}
+.environment-overview-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.environment-overview h3,.video-environment h3{margin:0;font-size:16px;font-weight:600}
+.environment-status-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #e9ece3}
+.environment-status-row>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.environment-status-row strong{font-size:14px}.environment-status-row small{color:var(--muted,#91988a);font-size:12px}
+.environment-status-row>span{font-size:12px;color:#456149;white-space:nowrap}
+.environment-advanced{border-top:1px solid #e2e6db;padding-top:16px}
+.environment-advanced>summary{cursor:pointer;font-size:14px;font-weight:600;color:#48634d}
+.environment-advanced-content{display:flex;flex-direction:column;gap:18px;padding-top:20px}
+.environment-advanced-content .video-environment{border-top:1px solid #e2e6db;padding-top:20px}
+.environment-advanced-content label{min-width:0}.environment-advanced-content select{max-width:100%}
+.environment-install-bar{position:sticky;bottom:-24px;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px;background:#f5f6ef;border-top:1px solid #d9dfd2;box-shadow:0 -7px 18px #28352c08;margin:4px -20px -24px}
+.environment-install-bar>div{display:flex;flex-direction:column;gap:5px;min-width:0}
+.environment-install-bar strong{font-size:14px}.environment-install-bar small{font-size:12px;color:#7f8b77}
+.environment-install-bar>.button{flex:none;width:auto;min-width:140px;justify-content:center}
+.environment-notice{padding:14px 16px;color:#3b5a42;background:#ecf3e8;border-radius:8px;font-size:13px}
+.gallery-card{position:relative}.gallery-video-badge{position:absolute;top:12px;left:12px;z-index:2;display:flex;align-items:center;gap:5px;padding:7px 9px;background:#fbf6fff2;border:1px solid #d6c3e4;border-radius:8px;color:#704687;font-size:12px;cursor:pointer}.gallery-video-badge span{font-size:10px}
+@media(max-width:600px){.environment-overview{padding:14px}.environment-install-bar{bottom:-24px;margin-left:-16px;margin-right:-16px;padding:14px 16px;gap:10px}.environment-install-bar>.button{min-width:116px;padding:12px}.environment-install-bar small{font-size:11px}.environment-status-row>span{font-size:11px}}

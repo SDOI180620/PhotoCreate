@@ -1,3 +1,4 @@
+import {cameraPrompt21} from './camera-21.js';
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
@@ -26636,6 +26637,7 @@ class CameraWidget {
     this.container = options.container;
     this.onStateChange = options.onStateChange;
     this.state = {
+      modelVersion: options.initialState?.modelVersion ?? "2511",
       azimuth: ((_a = options.initialState) == null ? void 0 : _a.azimuth) ?? 0,
       elevation: ((_b = options.initialState) == null ? void 0 : _b.elevation) ?? 0,
       distance: ((_c = options.initialState) == null ? void 0 : _c.distance) ?? 5,
@@ -27081,6 +27083,7 @@ class CameraWidget {
     }
   }
   generatePrompt() {
+    if (this.state.modelVersion === "2.1") return cameraPrompt21({horizontalAngle:this.state.azimuth,verticalAngle:this.state.elevation,zoom:this.state.distance});
     const hAngle = this.state.azimuth % 360;
     let hDirection;
     if (hAngle < 22.5 || hAngle >= 337.5) {
@@ -27132,6 +27135,7 @@ class CameraWidget {
     return prompt;
   }
   setState(newState) {
+    if (newState.modelVersion !== void 0) this.state.modelVersion = newState.modelVersion;
     if (newState.azimuth !== void 0) {
       this.state.azimuth = newState.azimuth;
       this.liveAzimuth = newState.azimuth;
@@ -27264,6 +27268,7 @@ class CameraWidget {
   }
 }
 function useCameraWidget(initialState = {}, onExternalStateChange) {
+  const modelVersion = ref(initialState.modelVersion ?? "2511");
   const azimuth = ref(initialState.azimuth ?? 0);
   const elevation = ref(initialState.elevation ?? 0);
   const distance = ref(initialState.distance ?? 5);
@@ -27284,6 +27289,7 @@ function useCameraWidget(initialState = {}, onExternalStateChange) {
     widget = new CameraWidget({
       container,
       initialState: {
+        modelVersion: modelVersion.value,
         azimuth: azimuth.value,
         elevation: elevation.value,
         distance: distance.value
@@ -27313,6 +27319,7 @@ function useCameraWidget(initialState = {}, onExternalStateChange) {
   }, { flush: "sync" });
   function setState(state) {
     updatingFromExternal = true;
+    if (state.modelVersion !== void 0) modelVersion.value = state.modelVersion;
     if (state.azimuth !== void 0) azimuth.value = state.azimuth;
     if (state.elevation !== void 0) elevation.value = state.elevation;
     if (state.distance !== void 0) distance.value = state.distance;
@@ -27431,6 +27438,7 @@ function writeStoredProps(node, patch) {
 function readStateFromNode(node) {
   const stored = readStoredProps(node);
   return {
+    modelVersion: getWidgetValue(node, "model_version", "2511"),
     azimuth: (stored == null ? void 0 : stored.azimuth) ?? getWidgetValue(node, "horizontal_angle", 0),
     elevation: (stored == null ? void 0 : stored.elevation) ?? getWidgetValue(node, "vertical_angle", 0),
     distance: (stored == null ? void 0 : stored.distance) ?? getWidgetValue(node, "zoom", 5)
@@ -27514,6 +27522,9 @@ function bindWidgetCallbacks(node, exposed) {
     const distance = Number(v);
     exposed.setState({ distance });
     writeStoredProps(node, { distance });
+  });
+  wire("model_version", (v) => {
+    exposed.setState({ modelVersion: String(v) });
   });
   wire("camera_view", (v) => {
     const cameraView = Boolean(v);

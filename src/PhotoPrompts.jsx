@@ -3,7 +3,7 @@ import {Check,Copy,Loader2,ArrowUpRight} from 'lucide-react';
 import ImageViewer from './ImageViewer.jsx';
 import PhotoSettings from './PhotoSettings.jsx';
 
-const selectionLabels={character:'角色',garment:'服裝',pose:'動作',expression:'表情',clothingState:'服裝狀態',interaction:'場景',camera:'鏡位',lighting:'光線',color:'色彩',quality:'畫質'};
+const selectionLabels={character:'角色',garment:'服裝',pose:'動作',expression:'表情',gaze:'視線',clothingState:'服裝狀態',interaction:'場景',camera:'鏡位',lighting:'光線',color:'色彩',quality:'畫質'};
 const parameterLabels={seed:'Seed',steps:'步數',cfg:'CFG',denoise:'修正強度',sampler_name:'採樣器',scheduler:'排程'};
 async function copyText(text) {
   if(navigator.clipboard?.writeText) {await navigator.clipboard.writeText(text);return;}
@@ -13,7 +13,7 @@ async function copyText(text) {
 }
 
 export default function PhotoPrompts({job,api}) {
-  const [data,setData]=useState(null),[error,setError]=useState(''),[stageId,setStageId]=useState('base'),[copied,setCopied]=useState(false),[retry,setRetry]=useState(0);
+  const [data,setData]=useState(null),[error,setError]=useState(''),[stageId,setStageId]=useState(null),[copied,setCopied]=useState(false),[retry,setRetry]=useState(0);
   const [viewer,setViewer]=useState(null),[reservedHeight,setReservedHeight]=useState(0);
   const panel=useRef(null);
   useEffect(()=>{
@@ -21,8 +21,9 @@ export default function PhotoPrompts({job,api}) {
     api(`/jobs/${job.id}/prompts`).then(value=>{if(current) setData(value);}).catch(cause=>{if(current) setError(cause.message);});
     return ()=>{current=false;};
   },[job.id,job.status,job.stage,job.pipelineStage,api,retry]);
+  useEffect(()=>{setStageId(null);},[job.id]);
   useEffect(()=>{setCopied(false);},[job.id,stageId]);
-  const details=data?.id===job.id ? data : null,stage=details?.stages.find(row=>row.id===stageId) || details?.stages[0];
+  const details=data?.id===job.id ? data : null,stage=details?.stages.find(row=>row.id===(stageId ?? details.defaultStage)) || details?.stages[0];
   // Reserve the previous panel while another version's prompts are being fetched.
   useLayoutEffect(()=>{if(details) setReservedHeight(panel.current.getBoundingClientRect().height);},[details,stage]);
   const copy=async()=>{try {await copyText(`${stage.label}\n\n正面提詞\n${stage.positive ?? '未保存文字'}\n\n負面提詞\n${stage.negative ?? '未保存文字'}\n\n參數\n${Object.entries(stage.settings).map(([key,value])=>`${parameterLabels[key]}: ${value}`).join('\n')}${stage.angle ? `\n水平: ${stage.angle.horizontalAngle}°\n俯仰: ${stage.angle.verticalAngle}°\nZoom: ${stage.angle.zoom}` : ''}`);setCopied(true);} catch(cause) {setError(cause.message);}};

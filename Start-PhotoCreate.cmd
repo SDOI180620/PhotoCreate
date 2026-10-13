@@ -7,11 +7,6 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-node --input-type=module -e "try { const response = await fetch('http://127.0.0.1:8764/api/health', { signal: AbortSignal.timeout(1000) }); const data = await response.json(); process.exit(data.app === 'PhotoCreate' ? 0 : 1); } catch { process.exit(1); }" >nul 2>nul
-if not errorlevel 1 (
-  start "" "http://127.0.0.1:8764"
-  exit /b 0
-)
 call npm ls --depth=0 >nul 2>nul
 if errorlevel 1 (
   echo Installing or updating project dependencies.
@@ -22,6 +17,11 @@ if errorlevel 1 (
   )
 )
 call npm run build
+if errorlevel 1 (
+  pause
+  exit /b 1
+)
+node --env-file-if-exists=.env.local scripts/stop-existing-studio.mjs
 if errorlevel 1 (
   pause
   exit /b 1

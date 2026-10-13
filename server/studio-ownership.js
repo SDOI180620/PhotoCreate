@@ -13,10 +13,12 @@ export function jobSummary(job) {
 
 export function operatorState(state) {
   const own={...state};
-  for(const kind of ['characters','garments','scenes','jobs']) own[kind]=state[kind].filter(row=>belongsToStudio(row));
+  for(const kind of ['characters','garments','scenes','jobs']) own[kind]=state[kind].filter(row=>belongsToStudio(row) && (kind!=='jobs' || !row.videoTestSourceId));
   const batches=new Set(own.jobs.map(job=>job.batchId));
   own.batches=state.batches.filter(row=>belongsToStudio(row) && batches.has(row.id));
   // These metadata collections contain private customer records, not operator UI settings.
   delete own.galleryEntries;delete own.galleryFolders;
+  delete own.customerPrompts;
+  delete own.photoVideos;
   return own;
 }

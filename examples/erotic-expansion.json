@@ -1,64 +1,622 @@
 [
-  { "id": "pose-cup-breasts", "category": "pose", "name": "雙手托胸", "prompt": "Cupping both breasts upward with both hands from below, soft flesh lifted and pressed together.", "tags": ["托胸", "乳溝"] },
-  { "id": "pose-palm-chest", "category": "pose", "name": "單手撫胸", "prompt": "One hand resting flat on her own chest, fingers spread softly across the skin.", "tags": ["撫胸", "胸口"] },
-  { "id": "pose-pinch-nipple", "category": "pose", "name": "捏乳頭", "prompt": "Fingertips gently pinching the nipple, skin slightly puckered around them.", "tags": ["乳頭", "捏"] },
-  { "id": "pose-knead-breast", "category": "pose", "name": "揉胸", "prompt": "One hand kneading the breast softly, flesh compressing under the palm.", "tags": ["揉", "柔軟"] },
-  { "id": "pose-squeeze-cleavage", "category": "pose", "name": "擠乳溝", "prompt": "Arms pressing the breasts together from the sides, deep cleavage formed in the center.", "tags": ["乳溝", "擠"] },
-  { "id": "pose-bra-strap-flick", "category": "pose", "name": "彈內衣肩帶", "prompt": "Fingers hooking the bra strap and flicking it off the shoulder.", "tags": ["肩帶", "內衣"] },
-  { "id": "pose-lower-belly", "category": "pose", "name": "撫小腹", "prompt": "Hand sliding down to rest on the lower abdomen, fingers near the navel.", "tags": ["小腹", "肚臍"] },
-  { "id": "pose-panty-waist", "category": "pose", "name": "勾內褲邊", "prompt": "Thumb hooked into the panty waistband, fabric pulled down slightly.", "tags": ["內褲", "腰"] },
-  { "id": "pose-skirt-lift", "category": "pose", "name": "掀裙襬", "prompt": "Lifting the skirt hem upward with one hand, thighs exposed.", "tags": ["裙襬", "大腿"] },
-  { "id": "pose-bite-finger", "category": "pose", "name": "咬手指", "prompt": "Fingertip resting lightly between parted lips, teeth grazing the finger.", "tags": ["咬唇", "手指"] },
-  { "id": "pose-inner-thigh", "category": "pose", "name": "撫大腿內側", "prompt": "Hand resting on the inner thigh, fingers relaxed and soft.", "tags": ["大腿", "內側"] },
-  { "id": "pose-lift-top-navel", "category": "pose", "name": "撩上衣露臍", "prompt": "Lifting the hem of the top with one hand, midriff and navel exposed.", "tags": ["露臍", "上衣"] },
-  { "id": "pose-tilt-chin", "category": "pose", "name": "托下巴", "prompt": "Fingers tilting the chin upward, neck stretched and exposed.", "tags": ["下巴", "頸部"] },
-  { "id": "pose-clutch-sheet", "category": "pose", "name": "抓床單", "prompt": "Hands clutching the bedsheet, fabric bunched tightly in the fists.", "tags": ["床單", "緊抓"] },
-  { "id": "pose-cross-arms", "category": "pose", "name": "抱胸", "prompt": "Arms crossed over the chest, breasts slightly compressed upward.", "tags": ["抱胸", "交叉"] },
-  { "id": "pose-back-neck", "category": "pose", "name": "摸後頸", "prompt": "Hand resting behind the neck with the elbow lifted, armpit exposed.", "tags": ["後頸", "腋下"] },
-  { "id": "pose-raise-arms", "category": "pose", "name": "舉手露腋", "prompt": "Both arms raised above the head, ribcage stretched, armpits exposed.", "tags": ["舉手", "腋下"] },
-  { "id": "pose-twist-hips", "category": "pose", "name": "扭腰", "prompt": "Hips twisted to one side with the waist curved, weight resting on one leg.", "tags": ["扭腰", "曲線"] },
-  { "id": "pose-collarbone-trace", "category": "pose", "name": "撫鎖骨", "prompt": "Fingertips tracing along the collarbone, shoulder slightly hunched.", "tags": ["鎖骨", "撫"] },
-  { "id": "pose-hair-up", "category": "pose", "name": "盤起頭髮", "prompt": "Both hands lifting the hair up off the neck, exposing the nape and jawline.", "tags": ["盤髮", "頸後"] },
-
-  { "id": "camera-nipple-closeup", "category": "camera", "name": "乳頭特寫", "prompt": "extreme close-up of the nipple, soft skin texture filling the frame", "tags": ["乳頭", "特寫"] },
-  { "id": "camera-half-chest", "category": "camera", "name": "半胸特寫", "prompt": "close-up framing one breast and the cleavage line, face softly cropped out above", "tags": ["半胸", "特寫"] },
-  { "id": "camera-cleavage-closeup", "category": "camera", "name": "乳溝特寫", "prompt": "close-up of the cleavage line between the breasts, soft shadow in the crease", "tags": ["乳溝", "特寫"] },
-  { "id": "camera-collarbone-closeup", "category": "camera", "name": "鎖骨特寫", "prompt": "close-up of the collarbone and neckline, delicate bone structure", "tags": ["鎖骨", "特寫"] },
-  { "id": "camera-side-breast", "category": "camera", "name": "側胸特寫", "prompt": "side view close-up of the breast curve and soft side flesh", "tags": ["側胸", "曲線"] },
-  { "id": "camera-underbust", "category": "camera", "name": "胸下緣特寫", "prompt": "close-up of the underbust line where the breast meets the torso", "tags": ["下胸", "曲線"] },
-  { "id": "camera-shoulder-neck", "category": "camera", "name": "肩頸特寫", "prompt": "close-up of the shoulder and neck line, soft skin", "tags": ["肩頸", "特寫"] },
-  { "id": "camera-lips-closeup", "category": "camera", "name": "唇部特寫", "prompt": "extreme close-up of slightly parted glossy lips", "tags": ["嘴唇", "特寫"] },
-  { "id": "camera-side-neck", "category": "camera", "name": "頸側特寫", "prompt": "close-up of the side of the neck with a loose strand of hair across it", "tags": ["頸側", "髮絲"] },
-  { "id": "camera-armpit", "category": "camera", "name": "腋下特寫", "prompt": "close-up of the raised armpit, soft skin and shadow", "tags": ["腋下", "特寫"] },
-  { "id": "camera-side-waist", "category": "camera", "name": "腰側特寫", "prompt": "close-up of the side waist and hip curve", "tags": ["腰側", "曲線"] },
-  { "id": "camera-hip-curve", "category": "camera", "name": "臀曲線特寫", "prompt": "close-up of the hip and buttock curve seen from behind", "tags": ["臀部", "曲線"] },
-  { "id": "camera-thigh-root", "category": "camera", "name": "大腿根特寫", "prompt": "close-up of the upper thigh and groin line", "tags": ["大腿根", "特寫"] },
-  { "id": "camera-ankle", "category": "camera", "name": "腳踝特寫", "prompt": "close-up of the ankle and calf", "tags": ["腳踝", "小腿"] },
-  { "id": "camera-hair-strand", "category": "camera", "name": "髮絲特寫", "prompt": "close-up of loose hair strands falling across the collarbone", "tags": ["髮絲", "鎖骨"] },
-  { "id": "camera-upper-breast", "category": "camera", "name": "乳上緣特寫", "prompt": "close-up of the upper edge of the breast and the neckline", "tags": ["上胸", "特寫"] },
-  { "id": "camera-three-quarter-breast", "category": "camera", "name": "側乳特寫", "prompt": "three-quarter close-up of one breast, face blurred above", "tags": ["側乳", "特寫"] },
-  { "id": "camera-macro-chest", "category": "camera", "name": "貼胸微距", "prompt": "macro shot pressed close to the chest, skin and fabric filling the frame", "tags": ["微距", "胸部"] },
-  { "id": "camera-low-hug-chest", "category": "camera", "name": "貼胸仰角", "prompt": "camera pressed low and close to the chest, looking up along the body", "tags": ["貼胸", "仰角"] },
-  { "id": "camera-collarbone-down", "category": "camera", "name": "鎖骨往下", "prompt": "camera just above the collarbone tilting down toward the chest", "tags": ["鎖骨", "俯角"] },
-
-  { "id": "interaction-changing-room", "category": "interaction", "name": "在更衣室", "prompt": "In a changing room, standing among hanging clothes with soft warm lighting.", "tags": ["更衣室", "衣物"] },
-  { "id": "interaction-rooftop", "category": "interaction", "name": "在屋頂", "prompt": "On a rooftop terrace, city skyline softly blurred behind, open sky above.", "tags": ["屋頂", "天際線"] },
-  { "id": "interaction-sofa", "category": "interaction", "name": "在沙發", "prompt": "Sinking into a soft sofa, cushions supporting the body naturally.", "tags": ["沙發", "客廳"] },
-  { "id": "interaction-bathroom", "category": "interaction", "name": "在浴室", "prompt": "In a bathroom, misty air and water droplets on the skin, soft humid light.", "tags": ["浴室", "水氣"] },
-  { "id": "interaction-tatami", "category": "interaction", "name": "在榻榻米", "prompt": "Reclining on tatami mats in a traditional room, warm natural light through shoji screens.", "tags": ["榻榻米", "和室"] },
-  { "id": "interaction-car-seat", "category": "interaction", "name": "在車後座", "prompt": "Reclining in a car back seat, sunlight streaming through the windows.", "tags": ["車內", "後座"] },
-  { "id": "interaction-beach", "category": "interaction", "name": "在沙灘", "prompt": "On a sandy beach, wet sand beneath and ocean light reflecting onto the skin.", "tags": ["沙灘", "海邊"] },
-  { "id": "interaction-bamboo", "category": "interaction", "name": "在竹林", "prompt": "Amid a bamboo grove, dappled green light filtering through the stalks.", "tags": ["竹林", "綠意"] },
-  { "id": "interaction-shrine", "category": "interaction", "name": "在神社", "prompt": "At a shrine with vermilion torii gates, soft evening light and stone lanterns.", "tags": ["神社", "鳥居"] },
-  { "id": "interaction-cafe", "category": "interaction", "name": "在咖啡廳", "prompt": "At a café table by the window, warm afternoon light and blurred interior behind.", "tags": ["咖啡廳", "窗邊"] },
-  { "id": "interaction-office", "category": "interaction", "name": "在辦公室", "prompt": "In an office after hours, leaning against a desk with city lights through the window.", "tags": ["辦公室", "夜晚"] },
-  { "id": "interaction-elevator", "category": "interaction", "name": "在電梯", "prompt": "Inside an elevator, mirrored walls reflecting soft overhead light.", "tags": ["電梯", "鏡面"] },
-  { "id": "interaction-fitting-room", "category": "interaction", "name": "在試衣間", "prompt": "In a fitting room, half-changed clothes held in front, warm enclosed light.", "tags": ["試衣間", "更衣"] },
-  { "id": "interaction-staircase", "category": "interaction", "name": "在樓梯間", "prompt": "On a staircase, body framed diagonally along the steps with soft directional light.", "tags": ["樓梯", "斜角"] },
-  { "id": "interaction-window-ledge", "category": "interaction", "name": "在窗台", "prompt": "Sitting on a wide window ledge, daylight wrapping around the body from behind.", "tags": ["窗台", "日光"] },
-  { "id": "interaction-onsen-edge", "category": "interaction", "name": "在溫泉池邊", "prompt": "At the stone edge of an open-air bath, steam curling around wet skin.", "tags": ["溫泉", "石邊"] },
-  { "id": "interaction-garden", "category": "interaction", "name": "在花園", "prompt": "In a garden among blooming flowers, soft petals and dappled sunlight.", "tags": ["花園", "花朵"] },
-  { "id": "interaction-bookshelf", "category": "interaction", "name": "在書架旁", "prompt": "Beside a tall bookshelf, books softly blurred behind in warm light.", "tags": ["書架", "室內"] },
-  { "id": "interaction-bar", "category": "interaction", "name": "在吧台", "prompt": "At a bar counter, neon and warm lights glowing softly in the background.", "tags": ["吧台", "霓虹"] },
-  { "id": "interaction-cafe-curtain", "category": "interaction", "name": "在窗簾後", "prompt": "Behind a sheer curtain, diffused daylight tracing the silhouette of the body.", "tags": ["窗簾", "剪影"] }
+  {
+    "id": "pose-cup-breasts",
+    "category": "pose",
+    "name": "坐地伸腿雙手托胸",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nCupping both breasts upward with both hands from below, soft flesh lifted and pressed together.",
+    "tags": [
+      "托胸",
+      "乳溝",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-palm-chest",
+    "category": "pose",
+    "name": "坐地伸腿單手撫胸",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nOne hand resting flat on her own chest, fingers spread softly across the skin.",
+    "tags": [
+      "撫胸",
+      "胸口",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-pinch-nipple",
+    "category": "pose",
+    "name": "坐地伸腿捏乳頭",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nFingertips gently pinching the nipple, skin slightly puckered around them.",
+    "tags": [
+      "乳頭",
+      "捏",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-knead-breast",
+    "category": "pose",
+    "name": "坐地伸腿揉胸",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nOne hand kneading the breast softly, flesh compressing under the palm.",
+    "tags": [
+      "揉",
+      "柔軟",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-squeeze-cleavage",
+    "category": "pose",
+    "name": "坐地伸腿擠乳溝",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nArms pressing the breasts together from the sides, deep cleavage formed in the center.",
+    "tags": [
+      "乳溝",
+      "擠",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-bra-strap-flick",
+    "category": "pose",
+    "name": "坐地伸腿彈內衣肩帶",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nFingers hooking the bra strap and flicking it off the shoulder.",
+    "tags": [
+      "肩帶",
+      "內衣",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-lower-belly",
+    "category": "pose",
+    "name": "坐地伸腿撫小腹",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nHand sliding down to rest on the lower abdomen, fingers near the navel.",
+    "tags": [
+      "小腹",
+      "肚臍",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-panty-waist",
+    "category": "pose",
+    "name": "坐地伸腿勾內褲邊",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nThumb hooked into the panty waistband, fabric pulled down slightly.",
+    "tags": [
+      "內褲",
+      "腰",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-skirt-lift",
+    "category": "pose",
+    "name": "坐地伸腿掀裙襬",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nLifting the skirt hem upward with one hand, thighs exposed.",
+    "tags": [
+      "裙襬",
+      "大腿",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-bite-finger",
+    "category": "pose",
+    "name": "坐地伸腿咬手指",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nFingertip resting lightly between parted lips, teeth grazing the finger.",
+    "tags": [
+      "咬唇",
+      "手指",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-inner-thigh",
+    "category": "pose",
+    "name": "坐地伸腿撫大腿內側",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nHand resting on the inner thigh, fingers relaxed and soft.",
+    "tags": [
+      "大腿",
+      "內側",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-lift-top-navel",
+    "category": "pose",
+    "name": "坐地伸腿撩上衣露臍",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nLifting the hem of the top with one hand, midriff and navel exposed.",
+    "tags": [
+      "露臍",
+      "上衣",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-tilt-chin",
+    "category": "pose",
+    "name": "跪坐托下巴",
+    "prompt": "Kneeling with the hips resting on the heels, both knees bent and both shins fully supported by a flat padded surface. The torso angles gently forward.\nFingers tilting the chin upward, neck stretched and exposed.",
+    "tags": [
+      "下巴",
+      "頸部",
+      "跪坐"
+    ]
+  },
+  {
+    "id": "pose-clutch-sheet",
+    "category": "pose",
+    "name": "仰躺抓床單",
+    "prompt": "Lying on the back on a flat padded surface with the head, shoulders and hips supported. Bend one knee with that foot on the surface while the other leg extends along it.\nHands clutching the bedsheet, fabric bunched tightly in the fists.",
+    "tags": [
+      "床單",
+      "緊抓",
+      "仰躺"
+    ]
+  },
+  {
+    "id": "pose-cross-arms",
+    "category": "pose",
+    "name": "坐地伸腿抱胸",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nArms crossed over the chest, breasts slightly compressed upward.",
+    "tags": [
+      "抱胸",
+      "交叉",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-back-neck",
+    "category": "pose",
+    "name": "跪坐摸後頸",
+    "prompt": "Kneeling with the hips resting on the heels, both knees bent and both shins fully supported by a flat padded surface. The torso angles gently forward.\nHand resting behind the neck with the elbow lifted, armpit exposed.",
+    "tags": [
+      "後頸",
+      "腋下",
+      "跪坐"
+    ]
+  },
+  {
+    "id": "pose-raise-arms",
+    "category": "pose",
+    "name": "跪坐舉手露腋",
+    "prompt": "Kneeling with the hips resting on the heels, both knees bent and both shins fully supported by a flat padded surface. The torso angles gently forward.\nBoth arms raised above the head, ribcage stretched, armpits exposed.",
+    "tags": [
+      "舉手",
+      "腋下",
+      "跪坐"
+    ]
+  },
+  {
+    "id": "pose-twist-hips",
+    "category": "pose",
+    "name": "坐地伸腿扭腰",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nHips twisted to one side with the waist curved, weight resting on one leg.",
+    "tags": [
+      "扭腰",
+      "曲線",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-collarbone-trace",
+    "category": "pose",
+    "name": "坐地伸腿撫鎖骨",
+    "prompt": "Sitting on a flat padded surface with both hips supported and both legs extended straight forward along the surface. Lean the torso slightly forward from the hips.\nFingertips tracing along the collarbone, shoulder slightly hunched.",
+    "tags": [
+      "鎖骨",
+      "撫",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-hair-up",
+    "category": "pose",
+    "name": "跪坐盤起頭髮",
+    "prompt": "Kneeling with the hips resting on the heels, both knees bent and both shins fully supported by a flat padded surface. The torso angles gently forward.\nBoth hands lifting the hair up off the neck, exposing the nape and jawline.",
+    "tags": [
+      "盤髮",
+      "頸後",
+      "跪坐"
+    ]
+  },
+  {
+    "id": "camera-nipple-closeup",
+    "category": "camera",
+    "name": "乳頭特寫",
+    "prompt": "extreme close-up of the nipple, soft skin texture filling the frame",
+    "tags": [
+      "乳頭",
+      "特寫"
+    ]
+  },
+  {
+    "id": "camera-half-chest",
+    "category": "camera",
+    "name": "半胸特寫",
+    "prompt": "close-up framing one breast and the cleavage line, face softly cropped out above",
+    "tags": [
+      "半胸",
+      "特寫"
+    ]
+  },
+  {
+    "id": "camera-cleavage-closeup",
+    "category": "camera",
+    "name": "乳溝特寫",
+    "prompt": "close-up of the cleavage line between the breasts, soft shadow in the crease",
+    "tags": [
+      "乳溝",
+      "特寫"
+    ]
+  },
+  {
+    "id": "camera-collarbone-closeup",
+    "category": "camera",
+    "name": "鎖骨特寫",
+    "prompt": "close-up of the collarbone and neckline, delicate bone structure",
+    "tags": [
+      "鎖骨",
+      "特寫"
+    ]
+  },
+  {
+    "id": "camera-side-breast",
+    "category": "camera",
+    "name": "側胸特寫",
+    "prompt": "side view close-up of the breast curve and soft side flesh",
+    "tags": [
+      "側胸",
+      "曲線"
+    ]
+  },
+  {
+    "id": "camera-underbust",
+    "category": "camera",
+    "name": "胸下緣特寫",
+    "prompt": "close-up of the underbust line where the breast meets the torso",
+    "tags": [
+      "下胸",
+      "曲線"
+    ]
+  },
+  {
+    "id": "camera-shoulder-neck",
+    "category": "camera",
+    "name": "肩頸特寫",
+    "prompt": "close-up of the shoulder and neck line, soft skin",
+    "tags": [
+      "肩頸",
+      "特寫"
+    ]
+  },
+  {
+    "id": "camera-lips-closeup",
+    "category": "camera",
+    "name": "唇部特寫",
+    "prompt": "extreme close-up of slightly parted glossy lips",
+    "tags": [
+      "嘴唇",
+      "特寫"
+    ]
+  },
+  {
+    "id": "camera-side-neck",
+    "category": "camera",
+    "name": "頸側特寫",
+    "prompt": "close-up of the side of the neck with a loose strand of hair across it",
+    "tags": [
+      "頸側",
+      "髮絲"
+    ]
+  },
+  {
+    "id": "camera-armpit",
+    "category": "camera",
+    "name": "腋下特寫",
+    "prompt": "close-up of the raised armpit, soft skin and shadow",
+    "tags": [
+      "腋下",
+      "特寫"
+    ]
+  },
+  {
+    "id": "camera-side-waist",
+    "category": "camera",
+    "name": "腰側特寫",
+    "prompt": "close-up of the side waist and hip curve",
+    "tags": [
+      "腰側",
+      "曲線"
+    ]
+  },
+  {
+    "id": "camera-hip-curve",
+    "category": "camera",
+    "name": "臀曲線特寫",
+    "prompt": "close-up of the hip and buttock curve seen from behind",
+    "tags": [
+      "臀部",
+      "曲線"
+    ]
+  },
+  {
+    "id": "camera-thigh-root",
+    "category": "camera",
+    "name": "大腿根特寫",
+    "prompt": "close-up of the upper thigh and groin line",
+    "tags": [
+      "大腿根",
+      "特寫"
+    ]
+  },
+  {
+    "id": "camera-ankle",
+    "category": "camera",
+    "name": "腳踝特寫",
+    "prompt": "close-up of the ankle and calf",
+    "tags": [
+      "腳踝",
+      "小腿"
+    ]
+  },
+  {
+    "id": "camera-hair-strand",
+    "category": "camera",
+    "name": "髮絲特寫",
+    "prompt": "close-up of loose hair strands falling across the collarbone",
+    "tags": [
+      "髮絲",
+      "鎖骨"
+    ]
+  },
+  {
+    "id": "camera-upper-breast",
+    "category": "camera",
+    "name": "乳上緣特寫",
+    "prompt": "close-up of the upper edge of the breast and the neckline",
+    "tags": [
+      "上胸",
+      "特寫"
+    ]
+  },
+  {
+    "id": "camera-three-quarter-breast",
+    "category": "camera",
+    "name": "側乳特寫",
+    "prompt": "three-quarter close-up of one breast, face blurred above",
+    "tags": [
+      "側乳",
+      "特寫"
+    ]
+  },
+  {
+    "id": "camera-macro-chest",
+    "category": "camera",
+    "name": "貼胸微距",
+    "prompt": "macro shot pressed close to the chest, skin and fabric filling the frame",
+    "tags": [
+      "微距",
+      "胸部"
+    ]
+  },
+  {
+    "id": "camera-low-hug-chest",
+    "category": "camera",
+    "name": "貼胸仰角",
+    "prompt": "camera pressed low and close to the chest, looking up along the body",
+    "tags": [
+      "貼胸",
+      "仰角"
+    ]
+  },
+  {
+    "id": "camera-collarbone-down",
+    "category": "camera",
+    "name": "鎖骨往下",
+    "prompt": "camera just above the collarbone tilting down toward the chest",
+    "tags": [
+      "鎖骨",
+      "俯角"
+    ]
+  },
+  {
+    "id": "interaction-changing-room",
+    "category": "interaction",
+    "name": "在更衣室",
+    "prompt": "In a changing room, standing among hanging clothes with soft warm lighting.",
+    "tags": [
+      "更衣室",
+      "衣物"
+    ]
+  },
+  {
+    "id": "interaction-rooftop",
+    "category": "interaction",
+    "name": "在屋頂",
+    "prompt": "On a rooftop terrace, city skyline softly blurred behind, open sky above.",
+    "tags": [
+      "屋頂",
+      "天際線"
+    ]
+  },
+  {
+    "id": "interaction-sofa",
+    "category": "interaction",
+    "name": "在沙發",
+    "prompt": "Sinking into a soft sofa, cushions supporting the body naturally.",
+    "tags": [
+      "沙發",
+      "客廳"
+    ]
+  },
+  {
+    "id": "interaction-bathroom",
+    "category": "interaction",
+    "name": "在浴室",
+    "prompt": "In a bathroom, misty air and water droplets on the skin, soft humid light.",
+    "tags": [
+      "浴室",
+      "水氣"
+    ]
+  },
+  {
+    "id": "interaction-tatami",
+    "category": "interaction",
+    "name": "在榻榻米",
+    "prompt": "Reclining on tatami mats in a traditional room, warm natural light through shoji screens.",
+    "tags": [
+      "榻榻米",
+      "和室"
+    ]
+  },
+  {
+    "id": "interaction-car-seat",
+    "category": "interaction",
+    "name": "在車後座",
+    "prompt": "Reclining in a car back seat, sunlight streaming through the windows.",
+    "tags": [
+      "車內",
+      "後座"
+    ]
+  },
+  {
+    "id": "interaction-beach",
+    "category": "interaction",
+    "name": "在沙灘",
+    "prompt": "On a sandy beach, wet sand beneath and ocean light reflecting onto the skin.",
+    "tags": [
+      "沙灘",
+      "海邊"
+    ]
+  },
+  {
+    "id": "interaction-bamboo",
+    "category": "interaction",
+    "name": "在竹林",
+    "prompt": "Amid a bamboo grove, dappled green light filtering through the stalks.",
+    "tags": [
+      "竹林",
+      "綠意"
+    ]
+  },
+  {
+    "id": "interaction-shrine",
+    "category": "interaction",
+    "name": "在神社",
+    "prompt": "At a shrine with vermilion torii gates, soft evening light and stone lanterns.",
+    "tags": [
+      "神社",
+      "鳥居"
+    ]
+  },
+  {
+    "id": "interaction-cafe",
+    "category": "interaction",
+    "name": "在咖啡廳",
+    "prompt": "At a café table by the window, warm afternoon light and blurred interior behind.",
+    "tags": [
+      "咖啡廳",
+      "窗邊"
+    ]
+  },
+  {
+    "id": "interaction-office",
+    "category": "interaction",
+    "name": "在辦公室",
+    "prompt": "In an office after hours, leaning against a desk with city lights through the window.",
+    "tags": [
+      "辦公室",
+      "夜晚"
+    ]
+  },
+  {
+    "id": "interaction-elevator",
+    "category": "interaction",
+    "name": "在電梯",
+    "prompt": "Inside an elevator, mirrored walls reflecting soft overhead light.",
+    "tags": [
+      "電梯",
+      "鏡面"
+    ]
+  },
+  {
+    "id": "interaction-fitting-room",
+    "category": "interaction",
+    "name": "在試衣間",
+    "prompt": "In a fitting room, half-changed clothes held in front, warm enclosed light.",
+    "tags": [
+      "試衣間",
+      "更衣"
+    ]
+  },
+  {
+    "id": "interaction-staircase",
+    "category": "interaction",
+    "name": "在樓梯間",
+    "prompt": "On a staircase, body framed diagonally along the steps with soft directional light.",
+    "tags": [
+      "樓梯",
+      "斜角"
+    ]
+  },
+  {
+    "id": "interaction-window-ledge",
+    "category": "interaction",
+    "name": "在窗台",
+    "prompt": "Sitting on a wide window ledge, daylight wrapping around the body from behind.",
+    "tags": [
+      "窗台",
+      "日光"
+    ]
+  },
+  {
+    "id": "interaction-onsen-edge",
+    "category": "interaction",
+    "name": "在溫泉池邊",
+    "prompt": "At the stone edge of an open-air bath, steam curling around wet skin.",
+    "tags": [
+      "溫泉",
+      "石邊"
+    ]
+  },
+  {
+    "id": "interaction-garden",
+    "category": "interaction",
+    "name": "在花園",
+    "prompt": "In a garden among blooming flowers, soft petals and dappled sunlight.",
+    "tags": [
+      "花園",
+      "花朵"
+    ]
+  },
+  {
+    "id": "interaction-bookshelf",
+    "category": "interaction",
+    "name": "在書架旁",
+    "prompt": "Beside a tall bookshelf, books softly blurred behind in warm light.",
+    "tags": [
+      "書架",
+      "室內"
+    ]
+  },
+  {
+    "id": "interaction-bar",
+    "category": "interaction",
+    "name": "在吧台",
+    "prompt": "At a bar counter, neon and warm lights glowing softly in the background.",
+    "tags": [
+      "吧台",
+      "霓虹"
+    ]
+  },
+  {
+    "id": "interaction-cafe-curtain",
+    "category": "interaction",
+    "name": "在窗簾後",
+    "prompt": "Behind a sheer curtain, diffused daylight tracing the silhouette of the body.",
+    "tags": [
+      "窗簾",
+      "剪影"
+    ]
+  }
 ]

@@ -1,6 +1,6 @@
 import {imagePreview} from './image-preview.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Download, FileText, Images, Loader2, LockKeyhole, RefreshCw, RotateCcw, Rotate3d, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Download, FileText, Film, Images, Loader2, LockKeyhole, RefreshCw, RotateCcw, Rotate3d, SlidersHorizontal, Trash2, X } from 'lucide-react';
 import { PENDING_REMAKE_STATUSES, collectGalleryItems, pendingRemakeRoots, rootJobId } from '../shared/remakes.js';
 import { Empty, SearchBox } from './ui.jsx';
 import ShotOptions from './ShotOptions.jsx';
@@ -22,7 +22,7 @@ function RemakeNotice({job}) {
   return <p className={`gallery-remake-note ${pending ? 'is-pending' : job.status === 'failed' ? 'is-failed' : 'is-stopped'}`}>{pending && <LockKeyhole size={12}/>}<span>{message}</span></p>;
 }
 
-function GalleryLightbox({item,presets,onOpenPreset,position,total,navigation,onClose,onMove,onInspect,onAngle,onCustom,onRemake,remakeReady,customReady,angleReady,selected,onSelect,selectable,remakeJob,onDelete,busy}) {
+function GalleryLightbox({item,presets,onOpenPreset,position,total,navigation,onClose,onMove,onInspect,onAngle,onCustom,onVideo,onRemake,remakeReady,customReady,angleReady,selected,onSelect,selectable,remakeJob,onDelete,busy}) {
   const ref = useRef(null);
   const [viewer,setViewer]=useState(false);
   useEffect(() => {
@@ -51,13 +51,14 @@ function GalleryLightbox({item,presets,onOpenPreset,position,total,navigation,on
       <div className="gallery-lightbox-image"><button aria-label="上一張成果" disabled={position === 0} onClick={() => onMove(-1)}><ChevronLeft size={26}/></button><button className="gallery-expand" aria-label="放大這張成果" onClick={()=>setViewer(true)}><img src={`/api/jobs/${item.job.id}/image/${item.index}`} alt={item.job.name}/></button><button aria-label="下一張成果" disabled={position + 1 === total} onClick={() => onMove(1)}><ChevronRight size={26}/></button></div>
       <div className="gallery-lightbox-options"><ShotOptions job={item.job} presets={presets} onOpenPreset={onOpenPreset ? preset=>{onClose();onOpenPreset(preset);} : undefined}/><RemakeNotice job={remakeJob}/></div>
       {onCustom && <button className="button action-view gallery-custom" disabled={busy || !customReady || !selectable} onClick={()=>{onClose();onCustom(item.job,item.index);}}>自訂拍攝</button>}
+      {onVideo && <button className="button action-view" disabled={busy} onClick={()=>{onClose();onVideo(item.job,item.index);}}><Film size={14}/>產影片</button>}
       {onRemake && <button className="button action-view gallery-remake" aria-label={`重製 ${item.job.name}`} title="使用新的 Seed 重製，保留原成果。" disabled={busy || !remakeReady || !selectable} onClick={()=>onRemake(item)}><RotateCcw size={14}/>重製</button>}
       <div className="gallery-lightbox-footer"><label><input type="checkbox" checked={selected} disabled={!selectable} onChange={onSelect}/>{remakeJob && PENDING_REMAKE_STATUSES.includes(remakeJob.status) ? '已送出重製 · 勾選已鎖定' : '勾選這張成果'}</label><span>{remakeJob && REMAKE_LABELS[remakeJob.status] || (item.job.remakeVersion ? `重製 ${item.job.remakeVersion}` : '原始成果')}</span><button className="button action-view" onClick={() => {onClose();onInspect(item.job);}}><FileText size={14}/>詳細</button>{onAngle && <button className="button action-view gallery-angle" title="不同角度拍攝" aria-label={`不同角度拍攝 ${item.job.name}`} disabled={!angleReady || !selectable} onClick={() => {onClose();onAngle(item.job,item.index);}}><Rotate3d size={14}/>不同角度拍攝</button>}<div className="gallery-download-actions"><a className="button action-export" href={`/api/jobs/${item.job.id}/image/${item.index}?download=1`} download><Download size={15}/>下載原圖</a><button className="button action-delete" disabled={busy || !selectable} onClick={onDelete} title="刪除這次拍攝的成果"><Trash2 size={15}/>刪除照片</button></div></div>
     </div>{viewer && <ImageViewer src={`/api/jobs/${item.job.id}/image/${item.index}`} alt={item.job.name} navigation={navigation} onClose={()=>setViewer(false)}/>}
   </div>;
 }
 
-export default function ResultGallery({state,onOpenPreset,batchId:fixedBatchId = '',onRemake,onDeleteOutputs,onSubmit,onSync,onInspect,onAngle,onCustom,folderActions,busy,connected}) {
+export default function ResultGallery({state,onOpenPreset,batchId:fixedBatchId = '',onRemake,onDeleteOutputs,onSubmit,onSync,onInspect,onAngle,onCustom,onVideo,folderActions,busy,connected}) {
   const [batchId,setBatchId] = useState('');
   const [query,setQuery] = useState('');
   const [latestOnly,setLatestOnly] = useState(true);
@@ -121,15 +122,22 @@ export default function ResultGallery({state,onOpenPreset,batchId:fixedBatchId =
       const root = rootJobId(item.job),remakeJob = latestRemakes.get(root);
       const locked = pending.has(root),failed = remakeJob?.status === 'failed';
       const label = remakeJob && REMAKE_LABELS[remakeJob.status] || (item.job.remakeVersion ? `重製 ${item.job.remakeVersion}` : '原始成果');
+      const clips=(state.videos || []).filter(row=>row.status==='completed' && row.jobId===item.job.id && row.imageIndex===item.index);
+      const relatedIds=new Set(state.jobs.filter(job=>rootJobId(job)===root).map(job=>job.id));
+      const relatedClips=(state.videos || []).filter(row=>row.status==='completed' && relatedIds.has(row.jobId));
+      const visibleClips=clips.length ? clips : relatedClips;
+      const videoSource=visibleClips[0],videoJob=videoSource && state.jobs.find(job=>job.id===videoSource.jobId);
       return <article key={item.id} data-job-id={item.job.id} {...photoDrag.cardProps(selectedIds.includes(item.job.id) ? selectedIds : [item.job.id])} className={`gallery-card ${selectedIds.includes(item.job.id) ? 'selected' : ''} ${locked ? 'remaking' : failed ? 'remake-failed' : ''}`}>
         <div className="gallery-photo"><button aria-label={`放大成果 ${item.job.name} 第 ${item.index + 1} 張`} onClick={() => setViewId(item.id)}><img decoding="async" draggable={false} loading="lazy" width={item.job.outputWidth || undefined} height={item.job.outputHeight || undefined} src={imagePreview(`/api/jobs/${item.job.id}/image/${item.index}`)} alt={item.job.name}/></button><label className="gallery-check" title={locked ? '已加入重製，完成前勾選已鎖定。' : '勾選成果'}><input aria-label={`勾選成果 ${item.job.name} 第 ${item.index + 1} 張`} aria-describedby={`remake-status-${item.job.id}-${item.index}`} type="checkbox" checked={locked || selectedIds.includes(item.job.id)} disabled={!selectable(item.job)} onChange={() => setSelected(toggle(selected,item.job.id))}/><span><Check size={14}/></span></label><span id={`remake-status-${item.job.id}-${item.index}`} className={`gallery-version ${locked ? 'is-remaking' : failed ? 'is-failed' : ''}`}>{locked && <LockKeyhole size={11}/>} {label}</span></div>
+        {visibleClips.length>0 && <button type="button" className="gallery-video-badge" aria-label={`查看影片 ${item.job.name}`} title={clips.length ? `這張成果已有 ${clips.length} 段影片` : `原圖或其他版本已有 ${relatedClips.length} 段影片`} disabled={busy || !onVideo || !videoJob} onClick={()=>onVideo(videoJob,videoSource.imageIndex)}><Film size={15}/>{visibleClips.length}{!clips.length && <span>其他版本</span>}</button>}
         <div className="gallery-caption">
           <strong>{item.job.garment.name}</strong>
           {item.batchName !== item.job.garment.name && <small>拍攝組：{item.batchName}</small>}
           <ShotOptions job={item.job} presets={state.presets} onOpenPreset={onOpenPreset}/>
           <RemakeNotice job={remakeJob}/>
           <div className="gallery-card-actions">
-            {(onAngle || onCustom || onRemake) && <div className="gallery-shoot-actions">
+            {(onAngle || onCustom || onRemake || onVideo) && <div className="gallery-shoot-actions">
+              {onVideo && <button className="button action-view" aria-label={`產影片 ${item.job.name}`} disabled={busy} onClick={()=>onVideo(item.job,item.index)}><Film size={14}/>產影片（{clips.length}）</button>}
               {onAngle && <button className="button action-view gallery-angle" title="不同角度拍攝" aria-label={`不同角度拍攝 ${item.job.name}`} disabled={busy || locked || !connected || !state.cameraWorkflow?.ready} onClick={() => onAngle(item.job,item.index)}><Rotate3d size={14}/>不同角度拍攝</button>}
               {onCustom && <button className="button primary gallery-custom" aria-label={`自訂拍攝 ${item.job.name}`} disabled={busy || locked || !connected || !state.workflow?.ready} onClick={()=>onCustom(item.job,item.index)}><SlidersHorizontal size={14}/>自訂拍攝</button>}
               {onRemake && <button className="button action-view gallery-remake" aria-label={`重製 ${item.job.name}`} title="使用新的 Seed 重製，保留原成果。" disabled={busy || locked || !canRemake} onClick={()=>remakeOne(item)}><RotateCcw size={14}/>重製</button>}
@@ -144,6 +152,6 @@ export default function ResultGallery({state,onOpenPreset,batchId:fixedBatchId =
     })}</div> : <Empty icon={Images} title={query ? '沒有符合的成果' : '生成完成的照片會出現在這裡'} description={query ? '試試其他名稱或拍攝組。' : '先在拍攝清單送出生成，完成後即可放大查看、勾選重製或刪除。'}/>}
     {items.length > PAGE_SIZE && <div className="pagination"><button className="button secondary" disabled={pageOffset === 0} onClick={() => changePage(Math.max(0,pageOffset - PAGE_SIZE))}><ChevronLeft size={16}/>上一頁</button><span>{pageOffset + 1}–{Math.min(pageOffset + PAGE_SIZE,items.length)} / {items.length} 張</span><button className="button secondary" disabled={pageOffset + PAGE_SIZE >= items.length} onClick={() => changePage(pageOffset + PAGE_SIZE)}>下一頁<ChevronRight size={16}/></button></div>}
     {photoDrag.preview}
-    {viewItem && <GalleryLightbox item={viewItem} presets={state.presets} onOpenPreset={onOpenPreset} position={viewPosition} total={items.length} navigation={{index:viewerPosition,total:viewerGroup.length,onMove:delta=>{const next=viewerGroup[viewerPosition+delta];if(next) setViewId(next.id);}}} onClose={() => setViewId('')} onMove={delta => setViewId(items[Math.max(0,Math.min(items.length - 1,viewPosition + delta))].id)} onInspect={onInspect} onAngle={onAngle} onCustom={onCustom} onRemake={onRemake ? remakeOne : undefined} remakeReady={canRemake} customReady={connected && state.workflow?.ready} angleReady={connected && state.cameraWorkflow?.ready} selected={pending.has(rootJobId(viewItem.job)) || selectedIds.includes(viewItem.job.id)} onSelect={() => setSelected(toggle(selected,viewItem.job.id))} selectable={selectable(viewItem.job)} remakeJob={latestRemakes.get(rootJobId(viewItem.job))} busy={busy} onDelete={()=>removeOne(viewItem)}/>}
+    {viewItem && <GalleryLightbox item={viewItem} presets={state.presets} onOpenPreset={onOpenPreset} position={viewPosition} total={items.length} navigation={{index:viewerPosition,total:viewerGroup.length,onMove:delta=>{const next=viewerGroup[viewerPosition+delta];if(next) setViewId(next.id);}}} onClose={() => setViewId('')} onMove={delta => setViewId(items[Math.max(0,Math.min(items.length - 1,viewPosition + delta))].id)} onInspect={onInspect} onAngle={onAngle} onCustom={onCustom} onVideo={onVideo} onRemake={onRemake ? remakeOne : undefined} remakeReady={canRemake} customReady={connected && state.workflow?.ready} angleReady={connected && state.cameraWorkflow?.ready} selected={pending.has(rootJobId(viewItem.job)) || selectedIds.includes(viewItem.job.id)} onSelect={() => setSelected(toggle(selected,viewItem.job.id))} selectable={selectable(viewItem.job)} remakeJob={latestRemakes.get(rootJobId(viewItem.job))} busy={busy} onDelete={()=>removeOne(viewItem)}/>}
   </div>;
 }

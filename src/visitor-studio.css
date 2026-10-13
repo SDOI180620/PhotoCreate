@@ -249,7 +249,8 @@
 .pc-photo-details span {font-size:10px;color:#8b739f;background:#f1ebf7;border-radius:5px;padding:4px 9px}
 .pc-version-picker {margin-top:20px;color:#8b739f;font-size:10px}
 .pc-version-picker>div {display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
-.pc-version-picker button {padding:5px 10px;border:1px solid #e6ddf0;border-radius:5px;color:#9576ab}
+.pc-version-picker button {display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid #e6ddf0;border-radius:5px;color:#9576ab}
+.pc-version-video {display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600}
 .pc-version-picker button[aria-pressed=true] {background:#eee6f7;border-color:#bda7e7;color:#6d45f5}
 .pc-download {margin-bottom:16px}
 .pc-photo-actions {display:flex;flex-direction:column;gap:10px}

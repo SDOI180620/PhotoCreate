@@ -16,6 +16,7 @@ from comfy_api.latest import ComfyExtension, io, UI
 from comfy_api.latest._io import _UIOutput, FolderType
 from comfy_api.latest._ui import ImageSaveHelper, SavedResult
 from typing_extensions import override
+from .camera_prompt_21 import camera_prompt_21
 
 from .camera_glossary import (
     TARGET_LANGUAGE_OPTIONS,
@@ -107,6 +108,11 @@ class QwenMultiangleCameraNode(io.ComfyNode):
                     optional=True,
                     tooltip="Optional input image to display in the 3D scene",
                 ),
+                io.Combo.Input(
+                    "model_version",
+                    options=["2511", "2.1"], default="2511", optional=True,
+                    tooltip="Match the loaded camera LoRA. Negative elevations in 2.1 use experimental text guidance.",
+                ),
             ],
             outputs=[
                 io.String.Output("prompt", display_name="Prompt"),
@@ -124,6 +130,7 @@ class QwenMultiangleCameraNode(io.ComfyNode):
         default_prompts=True,
         camera_view=False,
         image=None,
+        model_version="2511",
     ) -> io.NodeOutput:
         horizontal_angle = max(0, min(360, int(horizontal_angle)))
         vertical_angle = max(-90, min(60, int(vertical_angle)))
@@ -174,6 +181,9 @@ class QwenMultiangleCameraNode(io.ComfyNode):
         elif zoom >= 9:
             prompt += "\nExtreme close-up: tightly frame the face or main focal detail of the subject. The subject fills nearly the entire frame, with most of the surrounding background outside the frame."
 
+        if model_version == "2.1":
+            prompt = camera_prompt_21(horizontal_angle, vertical_angle, zoom)
+
         # Save image to temp file for the frontend 3D widget
         ui_results: list[SavedResult] = []
         if image is not None:
@@ -203,8 +213,9 @@ class QwenMultiangleCameraNode(io.ComfyNode):
         default_prompts=True,
         camera_view=False,
         image=None,
+        model_version="2511",
     ):
-        parts = [str(horizontal_angle), str(vertical_angle), str(zoom)]
+        parts = [str(horizontal_angle), str(vertical_angle), str(zoom), model_version]
         if image is not None:
             parts.append(str(image.shape))
             try:

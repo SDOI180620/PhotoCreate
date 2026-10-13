@@ -1,0 +1,862 @@
+{
+  "id": "e4605a3b-7606-4d45-a836-1f14fb1673ba",
+  "revision": 0,
+  "last_node_id": 14,
+  "last_link_id": 14,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "pos": [
+        -1120,
+        -20
+      ],
+      "size": [
+        510,
+        90
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "unet_name",
+          "name": "unet_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "unet_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "MODEL",
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "models": [
+          {
+            "name": "qwen-image-2.1-UC-int8_convrot.safetensors",
+            "url": "https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/qwen-image-2.1-UC-int8_convrot.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen-image-2.1-UC-int8_convrot.safetensors",
+        "default"
+      ],
+      "widgets_values_named": {
+        "unet_name": "qwen-image-2.1-UC-int8_convrot.safetensors",
+        "weight_dtype": "default"
+      }
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "pos": [
+        -1120,
+        150
+      ],
+      "size": [
+        510,
+        120
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "clip_name",
+          "name": "clip_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "CLIP",
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader",
+        "models": [
+          {
+            "name": "qwen3vl_8b_bf16.safetensors",
+            "url": "https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/text_encoders/qwen3vl_8b_bf16.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen3vl_8b_bf16.safetensors",
+        "qwen_image",
+        "default"
+      ],
+      "widgets_values_named": {
+        "clip_name": "qwen3vl_8b_bf16.safetensors",
+        "type": "qwen_image",
+        "device": "default"
+      }
+    },
+    {
+      "id": 3,
+      "type": "VAELoader",
+      "pos": [
+        -1120,
+        320
+      ],
+      "size": [
+        510,
+        70
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "vae_name",
+          "name": "vae_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "VAE",
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            3,
+            10
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "models": [
+          {
+            "name": "qwen_image_2.1_vae_bf16.safetensors",
+            "url": "https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF/resolve/main/vae/qwen_image_2.1_vae_bf16.safetensors",
+            "directory": "vae"
+          }
+        ]
+      },
+      "widgets_values": [
+        "qwen_image_2.1_vae_bf16.safetensors"
+      ],
+      "widgets_values_named": {
+        "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+      }
+    },
+    {
+      "id": 4,
+      "type": "QwenImage21Cache",
+      "pos": [
+        -480,
+        -20
+      ],
+      "size": [
+        300,
+        90
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "model",
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        },
+        {
+          "localized_name": "device",
+          "name": "device",
+          "type": "COMBO",
+          "widget": {
+            "name": "device"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "dtype",
+          "name": "dtype",
+          "type": "COMBO",
+          "widget": {
+            "name": "dtype"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "MODEL",
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "QwenImage21Cache"
+      },
+      "widgets_values": [
+        "auto",
+        "default"
+      ],
+      "widgets_values_named": {
+        "device": "auto",
+        "dtype": "default"
+      },
+      "title": "Qwen 2.1 快取"
+    },
+    {
+      "id": 7,
+      "type": "KSampler",
+      "pos": [
+        780,
+        300
+      ],
+      "size": [
+        300,
+        280
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "model",
+          "name": "model",
+          "type": "MODEL",
+          "link": 4
+        },
+        {
+          "localized_name": "positive",
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 6
+        },
+        {
+          "localized_name": "negative",
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 7
+        },
+        {
+          "localized_name": "latent_image",
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 8
+        },
+        {
+          "localized_name": "seed",
+          "name": "seed",
+          "type": "INT",
+          "widget": {
+            "name": "seed"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "steps",
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "cfg",
+          "name": "cfg",
+          "type": "FLOAT",
+          "widget": {
+            "name": "cfg"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "sampler_name",
+          "name": "sampler_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler_name"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "scheduler",
+          "name": "scheduler",
+          "type": "COMBO",
+          "widget": {
+            "name": "scheduler"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "LATENT",
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            9
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        251190,
+        "randomize",
+        40,
+        1,
+        "euler",
+        "simple",
+        1
+      ],
+      "widgets_values_named": {
+        "seed": 92847561032741,
+        "control_after_generate": "randomize",
+        "steps": 40,
+        "cfg": 1,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "denoise": 1
+      },
+      "title": "Qwen Image 2.1 · 換角度"
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [
+        1160,
+        330
+      ],
+      "size": [
+        230,
+        60
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "samples",
+          "name": "samples",
+          "type": "LATENT",
+          "link": 9
+        },
+        {
+          "localized_name": "vae",
+          "name": "vae",
+          "type": "VAE",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            11
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": [],
+      "title": "VAE 解碼"
+    },
+    {
+      "id": 9,
+      "type": "SaveImage",
+      "pos": [
+        1450,
+        250
+      ],
+      "size": [
+        620,
+        540
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "images",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 11
+        },
+        {
+          "localized_name": "filename_prefix",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "PhotoCreate/angles-21"
+      ],
+      "widgets_values_named": {
+        "filename_prefix": "Qwen_Image_2.1_Uncensored_I2I"
+      },
+      "title": "儲存圖生圖"
+    },
+    {
+      "id": 11,
+      "type": "LoadImage",
+      "pos": [
+        -480,
+        130
+      ],
+      "size": [
+        520,
+        520
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "image",
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        },
+        {
+          "localized_name": "choose file to upload",
+          "name": "upload",
+          "type": "IMAGEUPLOAD",
+          "widget": {
+            "name": "upload"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "IMAGE",
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            5,
+            13
+          ]
+        },
+        {
+          "localized_name": "MASK",
+          "name": "MASK",
+          "type": "MASK",
+          "slot_index": 1,
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "",
+        "image"
+      ],
+      "color": "#432",
+      "bgcolor": "#653",
+      "title": "載入參考圖"
+    },
+    {
+      "id": 12,
+      "type": "TextEncodeQwenImage21",
+      "pos": [
+        120,
+        130
+      ],
+      "size": [
+        560,
+        650
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "clip",
+          "name": "clip",
+          "type": "CLIP",
+          "link": 2
+        },
+        {
+          "localized_name": "image_1",
+          "name": "images.image_1",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 5
+        },
+        {
+          "localized_name": "vae",
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": 3
+        },
+        {
+          "localized_name": "prompt",
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": 14
+        },
+        {
+          "localized_name": "negative_prompt",
+          "name": "negative_prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "negative_prompt"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "localized_name": "positive",
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            6
+          ]
+        },
+        {
+          "localized_name": "negative",
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            7
+          ]
+        },
+        {
+          "localized_name": "latent",
+          "name": "latent",
+          "type": "LATENT",
+          "links": [
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TextEncodeQwenImage21"
+      },
+      "widgets_values": [
+        "",
+        1024
+      ],
+      "widgets_values_named": {
+        "prompt": "Use the reference image as the composition and identity anchor. Re-render it as a cinematic high-end editorial photograph with natural anatomy, realistic skin and material texture, controlled depth of field, coherent lighting, clean background details, and no text or watermark.",
+        "negative_prompt": "",
+        "resolution": 1536
+      },
+      "title": "Qwen Image 2.1 · 相機角度提示詞"
+    },
+    {
+      "id": 10,
+      "type": "MarkdownNote",
+      "pos": [
+        -1120,
+        480
+      ],
+      "size": [
+        520,
+        640
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "圖生圖使用說明與 5090 設定",
+      "properties": {},
+      "widgets_values": [
+        "## Qwen Image 2.1 · Multiple-Angles v2\n\n載入一張參考照片，拖曳 3D 相機或調整角度，按 Run 生成新視角。相機節點的 model_version 必須為 2.1。\n\n沿用 PhotoCreate 已安裝的 Qwen Image 2.1 INT8 ConvRot 模型、Qwen3-VL 編碼器與 2.1 VAE，搭配 akhaliq/Qwen-Image-2.1-Multiple-Angles-LoRA 的 v2 step 1500。LoRA 放入 models/loras。\n\n保留 −90° 到 60° 的歷史角度範圍、0–360° 水平角度與 Zoom 0–10 五級取景。2.1 LoRA 原生每 30° 一個水平標籤；負角度仰拍與特殊取景採用延伸提示詞，未新增訓練能力。\n\n後台的「視角拍攝版本」可切換 2511 或 2.1。兩個版本的換角度成果都可接續 Qwen 2.1 低強度高清修正。"
+      ],
+      "widgets_values_named": {
+        "text": "## 圖生圖｜RTX 5090 高畫質\n\n1. 在「載入參考圖」選擇圖片。\n2. 在「圖生圖提示詞」描述要保留與修改的內容。\n3. 執行工作流；輸出尺寸會跟隨參考圖比例。\n\n參考圖解析度預設 1536，並沿用 40 steps、CFG 1、Euler／Simple。這是 Qwen Image 2.1 的參考圖條件路徑，KSampler denoise 保持 1.0。\n\n## 已選模型\n\n這兩份工作流沿用 **Uncensored INT8 ConvRot** 擴散模型、BF16 文字編碼器與 BF16 VAE，適合 RTX 5090 高畫質生成。\n\n## 模型位置\n\n**models/diffusion_models**\n- `qwen-image-2.1-UC-int8_convrot.safetensors`\n\n**models/text_encoders**\n- `qwen3vl_8b_bf16.safetensors`\n\n**models/vae**\n- `qwen_image_2.1_vae_bf16.safetensors`\n"
+      },
+      "color": "#223",
+      "bgcolor": "#112"
+    },
+    {
+      "id": 13,
+      "type": "LoraLoaderModelOnly",
+      "pos": [
+        40,
+        560
+      ],
+      "size": [
+        480,
+        100
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoraLoaderModelOnly"
+      },
+      "widgets_values": [
+        "angles_v2_full_qwen21_multiple_angles_v2_qwen21_multiple_angles_v2_000001500.safetensors",
+        1
+      ],
+      "color": "#432",
+      "bgcolor": "#653",
+      "title": "Multiple-Angles v2 · Qwen Image 2.1",
+      "widgets_values_named": {
+        "lora_name": "qwen-image-edit-2511-multiple-angles-lora.safetensors",
+        "strength_model": 0.9
+      }
+    },
+    {
+      "id": 14,
+      "type": "QwenMultiangleCameraNode",
+      "pos": [
+        430,
+        540
+      ],
+      "size": [
+        650,
+        720
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "title": "拖曳 3D 相機 · Qwen Image 2.1",
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "shape": 7,
+          "link": 13
+        }
+      ],
+      "outputs": [
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "slot_index": 0,
+          "links": [
+            14
+          ]
+        },
+        {
+          "name": "camera_info",
+          "type": "LOAD3D_CAMERA",
+          "slot_index": 1,
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "QwenMultiangleCameraNode",
+        "qwenCameraState": {
+          "azimuth": 0,
+          "elevation": 0,
+          "distance": 5,
+          "cameraView": false
+        }
+      },
+      "widgets_values": [
+        0,
+        0,
+        5,
+        true,
+        false,
+        "2.1"
+      ],
+      "widgets_values_named": {
+        "horizontal_angle": 45,
+        "vertical_angle": 0,
+        "zoom": 5,
+        "default_prompts": true,
+        "camera_view": false
+      },
+      "color": "#234",
+      "bgcolor": "#345"
+    }
+  ],
+  "links": [
+    [
+      1,
+      13,
+      0,
+      4,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      2,
+      0,
+      12,
+      0,
+      "CLIP"
+    ],
+    [
+      3,
+      3,
+      0,
+      12,
+      2,
+      "VAE"
+    ],
+    [
+      4,
+      4,
+      0,
+      7,
+      0,
+      "MODEL"
+    ],
+    [
+      5,
+      11,
+      0,
+      12,
+      1,
+      "IMAGE"
+    ],
+    [
+      6,
+      12,
+      0,
+      7,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      7,
+      12,
+      1,
+      7,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      8,
+      12,
+      2,
+      7,
+      3,
+      "LATENT"
+    ],
+    [
+      9,
+      7,
+      0,
+      8,
+      0,
+      "LATENT"
+    ],
+    [
+      10,
+      3,
+      0,
+      8,
+      1,
+      "VAE"
+    ],
+    [
+      11,
+      8,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      12,
+      1,
+      0,
+      13,
+      0,
+      "MODEL"
+    ],
+    [
+      13,
+      11,
+      0,
+      14,
+      0,
+      "IMAGE"
+    ],
+    [
+      14,
+      14,
+      0,
+      12,
+      3,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.72,
+      "offset": [
+        1180,
+        250
+      ]
+    },
+    "frontendVersion": "1.53.6"
+  },
+  "version": 0.4
+}

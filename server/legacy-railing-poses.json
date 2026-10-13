@@ -1,0 +1,98 @@
+[
+  {
+    "id": "pose-portrait-forest-bridge",
+    "category": "pose",
+    "name": "彎腰扶欄背身回眸",
+    "prompt": "Bending forward from the hips beside a side rail, with both knees bent and the hips shifted backward. Rest both forearms on the rail, keep the torso on a clear forward diagonal and turn the head over one shoulder while both feet remain on the bridge planks.",
+    "tags": [
+      "寫真",
+      "彎腰",
+      "回眸",
+      "扶欄"
+    ]
+  },
+  {
+    "id": "pose-portrait-riverside-park",
+    "category": "pose",
+    "name": "蹲下扶低欄",
+    "prompt": "Crouching beside a low sturdy railing with both knees deeply bent, hips near the heels and feet on the walkway. Rest one hand on the low rail and the other on the knee, with the torso visibly lowered and inclined forward.",
+    "tags": [
+      "寫真",
+      "蹲姿",
+      "扶欄"
+    ]
+  },
+  {
+    "id": "pose-portrait-waterfall-platform",
+    "category": "pose",
+    "name": "彎腰單臂扶欄側身",
+    "prompt": "Bending forward from the hips beside a sturdy railing, with both knees visibly bent and the hips shifted backward. Support one forearm on the rail and rest the free hand on the nearer thigh, keeping the torso on a clear forward diagonal and both feet on the dry walkway.",
+    "tags": [
+      "寫真",
+      "彎腰",
+      "扶欄",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-coastal-rail",
+    "category": "pose",
+    "name": "彎腰單臂扶木欄",
+    "prompt": "Bending forward clearly from the hips beside a wooden railing, with both knees bent and the hips shifted backward. Support one forearm on the rail and rest the other hand on the knee, keeping the torso on a forward diagonal and both feet on the walkway.",
+    "tags": [
+      "寫真",
+      "彎腰",
+      "扶欄",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-mountain-lookout",
+    "category": "pose",
+    "name": "彎腰雙臂扶欄遠眺",
+    "prompt": "Bending forward from the hips with both knees clearly bent and the hips shifted backward. Rest both forearms on a sturdy rail with the torso forming a strong forward diagonal, keeping both feet on the viewing deck and the head angled toward the distant view.",
+    "tags": [
+      "寫真",
+      "彎腰",
+      "扶欄",
+      "遠眺"
+    ]
+  },
+  {
+    "id": "pose-portrait-guesthouse-balcony",
+    "category": "pose",
+    "name": "彎腰雙手扶欄側轉",
+    "prompt": "Bending forward from the hips beside a sturdy rail, with both knees clearly bent and the hips shifted backward. Rest both hands on the rail with softly bent elbows, turn the shoulders slightly to one side and keep the torso on a strong forward diagonal.",
+    "tags": [
+      "寫真",
+      "彎腰",
+      "扶欄",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-rail-forward-bend",
+    "category": "pose",
+    "name": "彎腰雙手扶欄杆",
+    "prompt": "An adult person bends forward clearly from the hips beside a sturdy railing, moving the hips back and flexing both knees. Support both forearms on the top rail with the torso on a strong forward diagonal, keeping both feet on the walkway and the lower back naturally aligned.",
+    "tags": [
+      "寫真",
+      "欄杆",
+      "扶欄",
+      "彎腰",
+      "前傾"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-rail-squat",
+    "category": "pose",
+    "name": "蹲下扶低欄杆",
+    "prompt": "An adult person crouches low beside a low sturdy rail with both knees deeply bent, hips close to the heels and feet firmly grounded. Rest both hands on the low rail at upper-torso height, elbows softly bent, keeping the entire body visibly lowered.",
+    "tags": [
+      "寫真",
+      "欄杆",
+      "扶欄",
+      "蹲姿"
+    ]
+  }
+]

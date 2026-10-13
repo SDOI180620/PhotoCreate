@@ -29,7 +29,7 @@ test('獨立確認 API 保存至 SQLite，保持內容、草稿、正式成果�
   const after=f.store.read();
   for(const key of ['draft','customerRecipe','jobs']) assert.deepEqual(after[key],before[key]);
   assert.equal(customerRecipeMatches(after,draft),true);
-  assert.equal((await f.request('/presets/search?q=自然站姿')).data.rows[0].reviewed,true);
+  assert.equal((await f.request(`/presets/search?q=${encodeURIComponent(preset.name)}`)).data.rows[0].reviewed,true);
   const reopened=createStore(f.dataDir);
   try {assert.equal(reopened.read().presets.find(row=>row.id===preset.id).reviewed,true);} finally {reopened.close();}
   assert.equal((await f.request('/presets/pose-standing/review',{reviewed:false},'PATCH')).data.reviewed,false);

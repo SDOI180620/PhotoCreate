@@ -13,7 +13,7 @@ export function PresetPoolField({category,selected,optional = false,onOpen,onCle
   const all = allCount !== undefined;
   const summary = all ? `全庫 ${allCount} 項候選` : selected.length
     ? `已選：${selected.slice(0,2).map(row => row.name).join('、')}${selected.length > 2 ? `，另 ${selected.length - 2} 項` : ''}`
-    : optional ? '已選：無' : '尚未選擇';
+    : category==='gaze' ? '未指定：自然配合動作' : optional ? '已選：無' : '尚未選擇';
   return <div role="group" aria-label={plural} className="preset-pool-field">
     <div className="pool-field-heading"><span>{label}<small>{optional ? '可複選 · 選填' : '可複選'}</small></span></div>
     <button className="pool-summary" aria-label={`選擇${label}提詞`} aria-haspopup="dialog" title={summary} onClick={onOpen}><span className="pool-open-copy"><strong>{all ? '瀏覽並限定候選' : selected.length ? '修改提詞選擇' : '選擇提詞'}</strong><small>{summary}</small></span><span className="pool-count">{all ? allCount : selected.length}</span><ChevronRight size={18} aria-hidden="true"/></button>
@@ -85,8 +85,8 @@ export default function PresetPoolPicker({category,presets,selectedIds,onApply,o
   };
   return <>
     <div className="modal-body pool-picker-body">
-      <p className="field-help">{multi ? '可複選候選；每張照片只會使用此類的一項提詞。選擇會跨確認分類、搜尋與分頁保留。' : '選擇一項提詞，或保持「無」。'}</p>
-      {optional && <p className="field-help">選了就加入搭配；清空已選後不使用這類提詞。</p>}
+      <p className="field-help">{category==='video' ? '勾選要開放給顧客的影片提詞。選擇會跨確認分類、搜尋與分頁保留；回首頁套用至顧客攝影棚後生效。' : multi ? '可複選候選；每張照片只會使用此類的一項提詞。選擇會跨確認分類、搜尋與分頁保留。' : '選擇一項提詞，或保持「無」。'}</p>
+      {optional && <p className="field-help">{category==='video' ? '清空已選可關閉官方影片提詞，顧客仍可自行輸入。' : category==='gaze' ? '可固定一種視線，或複選讓每張照片隨機搭配；清空後視線自然配合動作與場景。' : '選了就加入搭配；清空已選後不使用這類提詞。'}</p>}
       {randomAll && <p className="field-help">目前隨機使用全部提詞庫；保存所選後會切換為「僅已選候選」，各類使用首頁保存的候選。</p>}
       <SearchBox disabled={selectingAll} value={query} onChange={value => {setQuery(value);setOffset(0);}} placeholder={`搜尋${label}名稱、標籤、提詞…`}/>
       <div className="filter-tabs pool-review-filters" role="group" aria-label="提詞確認分類">{REVIEW_FILTERS.map(item=><button key={item.id} type="button" aria-label={item.label} aria-pressed={reviewFilter===item.id} className={reviewFilter===item.id?'active':''} disabled={selectingAll} onClick={()=>{setReviewFilter(item.id);setOffset(0);setError('');}}>{item.label}<span aria-hidden="true">{reviewCounts[item.id]}</span></button>)}</div>

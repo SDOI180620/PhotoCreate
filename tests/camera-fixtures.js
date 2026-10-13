@@ -1,3 +1,13 @@
+import {TEMPLATE} from './fixtures.js';
+
+export const CAMERA_21_LORA = 'angles_v2_full_qwen21_multiple_angles_v2_qwen21_multiple_angles_v2_000001500.safetensors';
+export const CAMERA_21_TEMPLATE = structuredClone(TEMPLATE);
+CAMERA_21_TEMPLATE['13'] = {class_type:'LoraLoaderModelOnly',inputs:{model:['1',0],lora_name:CAMERA_21_LORA,strength_model:1}};
+CAMERA_21_TEMPLATE['4'].inputs.model = ['13',0];
+CAMERA_21_TEMPLATE['14'] = {class_type:'QwenMultiangleCameraNode',inputs:{horizontal_angle:0,vertical_angle:0,zoom:5,default_prompts:true,camera_view:false,image:['11',0],model_version:'2.1'}};
+CAMERA_21_TEMPLATE['12'].inputs.prompt = ['14',0];
+CAMERA_21_TEMPLATE['12'].inputs.resolution = 1024;
+
 export const CAMERA_TEMPLATE = {
   "1": {
     "class_type": "UNETLoader",

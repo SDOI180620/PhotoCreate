@@ -31,7 +31,7 @@ await page.route('**/api/preset-previews/*/jobs/*/image/*',async route=>{
 fs.mkdirSync('test-results',{recursive:true});
 const editor=page.getByRole('dialog',{name:'編輯提詞',exact:true});
 const ratio=()=>editor.getByRole('combobox',{name:'試拍比例',exact:true});
-const openPreset=async()=>{await page.locator('.preset-card').filter({has:page.getByRole('heading',{name:'自然站姿',exact:true})}).click();await expect(editor).toBeVisible();await expect(editor.getByRole('button',{name:'試拍一張',exact:true})).toBeEnabled();};
+const openPreset=async()=>{await page.locator('.preset-card').filter({has:page.getByRole('heading',{name:plan.pose.name,exact:true})}).click();await expect(editor).toBeVisible();await expect(editor.getByRole('button',{name:'試拍一張',exact:true})).toBeEnabled();};
 try {
   await loginBrowser(page,f.base);
   await page.getByRole('button',{name:'提詞資料庫',exact:true}).click();await openPreset();
@@ -57,7 +57,7 @@ try {
   f.complete(f.submitted[0].id);await f.presetPreviews.sync();
   await expect(editor.locator('.preset-trial .preset-photo-tile')).toHaveCount(1);await expect(editor.getByRole('button',{name:'再試拍一張',exact:true})).toBeEnabled();
   await f.presetPreviews.sync();assert.equal(f.submitted.length,1,'Original-image completion does not queue angle or refine even with a camera workflow installed');
-  await expect(editor.locator('.preset-trial-details')).toContainText('自然站姿');await expect(editor.locator('.preset-bound')).toContainText('固定');
+  await expect(editor.locator('.preset-trial-details')).toContainText(plan.pose.name);await expect(editor.locator('.preset-bound')).toContainText('固定');
   await expect(editor.locator('.preset-trial-size')).toHaveText('橫式 16:9 · 1536 × 864');
   assert.equal(f.store.read().presets.find(row=>row.id==='pose-standing').prompt.includes('UNSAVED'),false,'Trial does not save editing changes');
   assert.equal(f.store.read().jobs.length,27,'Trial does not enter the real gallery');
@@ -125,7 +125,7 @@ try {
   const oldState=(await f.request('/state')).data;delete oldState.features.presetPreviews;
   await page.route('**/api/state',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(oldState)}));
   const openedBefore=sessions.length;await page.reload();await page.getByRole('button',{name:'提詞資料庫',exact:true}).click();
-  await page.locator('.preset-card').filter({has:page.getByRole('heading',{name:'自然站姿',exact:true})}).click();
+  await page.locator('.preset-card').filter({has:page.getByRole('heading',{name:plan.pose.name,exact:true})}).click();
   await expect(editor.locator('.preset-related')).toContainText('重新啟動 PhotoCreate');await expect(editor.getByRole('button',{name:'試拍一張',exact:true})).toBeDisabled();
   assert.equal(sessions.length,openedBefore,'Old backend does not receive unsupported preview API calls');await page.keyboard.press('Escape');
   assert.deepEqual(errors,[]);

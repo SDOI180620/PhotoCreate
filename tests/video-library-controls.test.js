@@ -1,0 +1,64 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {videoFixture} from './photo-video-fixture.js';
+import {PNG} from './fixtures.js';
+import {adminFetch} from './auth-client.js';
+import {videoUiTemplate,convertVideoWorkflow,videoTemplate} from '../server/video-workflow.js';
+
+const fixture=async t=>{const f=await videoFixture();t.after(()=>f.close());return f;};
+test('video prompts use ordinary preset CRUD, search and review; drafts publish through the shared customer apply action',async t=> {
+  const f=await fixture(t);
+  assert.equal(f.store.read().settings.photoVideo.prompts,undefined);
+  assert.equal((await f.request('/presets/search?category=video')).data.rows[0].id,'natural');
+  const prompt={id:'video-upper-body',category:'video',name:'Upper body',prompt:'Sway gently and slowly move the camera closer.',tags:['upper-catalog']};
+  assert.equal((await f.request('/presets',prompt)).status,200);
+  assert.equal((await f.request('/presets/video-upper-body/review',{reviewed:true},'PATCH')).data.reviewed,true);
+  assert.equal((await f.request('/presets/search?category=video&q=upper-catalog')).data.total,1);
+  assert.equal(f.photoVideos.settings().prompts.length,2);assert.equal(f.photoVideos.publicSettings().prompts.length,1);
+  await f.request('/photo-videos/selection',{selectedPromptIds:[prompt.id]},'PATCH');
+  assert.equal(f.photoVideos.publicSettings().prompts[0].id,'natural');
+  const state=f.store.read(),body={...state.draft,mode:'random',randomPoolMode:'all',characterIds:['character']};
+  assert.equal((await f.request('/customer-recipe',body,'PUT')).status,200);
+  assert.deepEqual(f.photoVideos.publicSettings().prompts.map(row=>row.id),[prompt.id]);
+  await f.request('/presets',{...prompt,prompt:'A new draft.'});assert.equal(f.photoVideos.publicSettings().prompts[0].prompt,prompt.prompt);
+  await f.request('/presets/'+prompt.id,undefined,'DELETE');assert.equal(f.photoVideos.publicSettings().prompts.length,0);
+  await f.request('/presets/natural',undefined,'DELETE');await f.restart();assert.deepEqual(f.photoVideos.settings().prompts,[]);
+});
+test('editing video parameters saves the editable workflow and changes the next real API snapshot without altering other nodes',async t=> {
+  const f=await fixture(t);f.control.workflows.set('workflows/PhotoCreate/01 FastH3 Trim - 圖生影片.json',videoUiTemplate());
+  const before=videoTemplate(),parameters=(await f.request('/photo-videos/parameters')).data;
+  assert.equal(parameters.megapixels,1);assert.ok(parameters.samplers.includes('euler'));assert.ok(parameters.schedulers.includes('simple'));
+  const changed={sampler:'res_multistep',scheduler:'beta',steps:12,megapixels:0.7};
+  const result=await f.request('/photo-videos/settings',{defaultDuration:7,workflowParameters:changed,workflowRevision:parameters.revision},'PUT');assert.equal(result.status,200);
+  const ui=f.control.workflows.get('workflows/PhotoCreate/01 FastH3 Trim - 圖生影片.json'),api=convertVideoWorkflow(ui,f.info);
+  for(const [id,node] of Object.entries(before)) if(!['sampler','schedule','resolution'].includes(id)) assert.deepEqual(api[id].inputs,node.inputs,id);
+  assert.equal(api.sparse.inputs['selection.keep_percent'],10);assert.equal(api.resolution.inputs.megapixels,0.7);assert.ok([...f.control.workflows.keys()].some(key=>key.startsWith('photocreate-backups/')));
+  const queued=await f.request('/jobs/original/video',{requestId:'control-next-001',mode:'custom',prompt:'A steady portrait.',aspectRatio:'16:9'});assert.equal(queued.status,202);
+  await f.photoVideos.tick();assert.equal(f.submitted[0].prompt.sampler.inputs.sampler_name,'res_multistep');assert.equal(f.submitted[0].prompt.schedule.inputs.scheduler,'beta');assert.equal(f.submitted[0].prompt.schedule.inputs.steps,12);assert.equal(f.submitted[0].prompt.resolution.inputs.megapixels,0.7);
+  assert.equal((await f.request('/photo-videos/settings',{workflowParameters:changed,workflowRevision:parameters.revision},'PUT')).status,409);
+  const current=(await f.request('/photo-videos/parameters')).data;assert.equal((await f.request('/photo-videos/settings',{workflowParameters:{...changed,megapixels:0.01},workflowRevision:current.revision},'PUT')).status,400);
+  assert.deepEqual(f.control.workflows.get('workflows/PhotoCreate/01 FastH3 Trim - 圖生影片.json'),ui);
+});
+test('prompt testing uses an owned generated photo and an unsaved prompt without publishing or adding clips to the photo library',async t=> {
+  const f=await fixture(t),customer=await f.customer('test-private');
+  f.store.mutate(state=>state.jobs.push({...state.jobs[0],id:'foreign-photo',visitorId:customer.ownerId}));
+  const choices=await f.request('/photo-videos/test-images');assert.equal(choices.data.total,2);assert.ok(choices.data.items.every(item=>item.jobId==='original'));
+  const body={sessionId:'video-test-session',requestId:'video-test-request',jobId:'original',imageIndex:1,prompt:'An unsaved test prompt.',duration:5,aspectRatio:'reference'};
+  assert.equal((await f.request('/photo-videos/tests',{...body,jobId:'foreign-photo'})).status,404);
+  const result=await f.request('/photo-videos/tests',body);assert.equal(result.status,202);assert.equal(f.photoVideos.list('admin').length,0);
+  assert.equal((await f.request('/photo-videos/tests?sessionId=video-test-session')).data.length,1);assert.equal(f.photoVideos.publicSettings().prompts.length,1);
+  await f.photoVideos.tick();assert.equal(f.submitted[0].prompt.encode.inputs.prompt,body.prompt);assert.ok(f.calls.some(call=>new URL(call.url).searchParams.get('filename')==='second.png'));
+  assert.equal((await f.request('/photo-videos/tests',body)).data.video.id,result.data.video.id);
+  const response=await fetch(f.base+'/api/photo-videos/tests',{headers:{Cookie:customer.cookie}});assert.equal(response.status,403);
+});
+test('temporary image tests survive restart, stay outside the shooting list, and delete their source with the test clip',async t=> {
+  const f=await fixture(t),body=new FormData();
+  for(const [key,value] of Object.entries({sessionId:'upload-test-session',requestId:'upload-test-request',prompt:'The body sways naturally.',duration:7,aspectRatio:'1:1'})) body.append(key,String(value));
+  body.append('image',new Blob([PNG],{type:'image/png'}),'temporary.png');
+  const response=await adminFetch(f.base+'/api/photo-videos/tests',{method:'POST',body});assert.equal(response.status,202);const result=await response.json(),row=f.store.read().photoVideos[0];
+  const file=path.join(f.dataDir,'photo-videos','test-sources',row.testSourceId+'.png');assert.ok(fs.existsSync(file));assert.equal((await f.request('/state')).data.jobs.length,1);
+  await f.restart();await f.photoVideos.tick();assert.equal(f.submitted[0].prompt.encode.inputs.prompt,'The body sways naturally.');assert.equal(f.submitted[0].prompt.trim_frames.inputs.length,168);
+  await f.finish();assert.equal((await f.request('/photo-videos/'+result.video.id,undefined,'DELETE')).status,200);assert.ok(!fs.existsSync(file));assert.equal(f.store.read().jobs.length,1);assert.equal(f.store.read().photoVideos.length,0);
+});

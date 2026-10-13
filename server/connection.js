@@ -3,6 +3,7 @@ import path from 'node:path';
 import {convertWorkflow} from './workflow.js';
 import {validateCameraWorkflow,buildCameraStage} from './camera-workflow.js';
 import {BUNDLE_DIR} from './environment.js';
+import {cameraVersion,cameraBundlePath,cameraWorkflowVersion} from '../shared/camera-version.js';
 
 export function normalizeComfyUrl(value) {
   let url;try {url=new URL(value);} catch {throw new Error('請輸入完整的 ComfyUI 網址。');}
@@ -35,7 +36,8 @@ export function checkGraphAvailability(graph,schemas) {
   return [...new Set(errors)];
 }
 
-export async function testComfyConnection({comfyUrl,workflowPath='bundled',cameraWorkflowPath='bundled'},comfyJson,{bundleDir=BUNDLE_DIR}={}) {
+export async function testComfyConnection({comfyUrl,workflowPath='bundled',cameraWorkflowPath='bundled',cameraVersion:version='2511'},comfyJson,{bundleDir=BUNDLE_DIR,baseWorkflow}={}) {
+  cameraVersion(version);
   const url=normalizeComfyUrl(comfyUrl),schemas={},requests=new Map();
   const schemaFor=type => {
     if(!requests.has(type)) requests.set(type,comfyJson(`/object_info/${encodeURIComponent(type)}`,{},url).then(info => {Object.assign(schemas,info);return info;}));
@@ -43,7 +45,7 @@ export async function testComfyConnection({comfyUrl,workflowPath='bundled',camer
   };
   const read = async (workflowPath,kind) => {
     if(typeof workflowPath!=='string' || workflowPath!=='bundled' && (!workflowPath.endsWith('.json') || /\.\.|[\\\0]/.test(workflowPath))) throw new Error('工作流路徑無效。');
-    const relative=kind==='base' ? 'workflows/Qwen Image 2.1/02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖.json' : 'workflows/Qwen Multiangle/01 Qwen 2511 - 單圖 3D 相機換角度.json';
+    const relative=kind==='base' ? 'workflows/Qwen Image 2.1/02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖.json' : cameraBundlePath(version);
     const ui=workflowPath==='bundled' ? JSON.parse(fs.readFileSync(path.join(bundleDir,relative),'utf8')) : await comfyJson(`/userdata/${encodeURIComponent('workflows/'+workflowPath)}`,{},url);
     const types=[...new Set(ui.nodes?.filter(node=>!['MarkdownNote','Note'].includes(node.type)).map(node=>node.type) || [])];
     if(!types.length) throw new Error('工作流沒有可執行的節點。');
@@ -54,7 +56,9 @@ export async function testComfyConnection({comfyUrl,workflowPath='bundled',camer
   const stages=[];
   try {
     const stats=await comfyJson('/system_stats',{},url);
-    [base,angle]=await Promise.all([read(workflowPath,'base'),read(cameraWorkflowPath,'angle')]);
+    [base,angle]=await Promise.all([baseWorkflow ? {graph:baseWorkflow} : read(workflowPath,'base'),read(cameraWorkflowPath,'angle')]);
+    const detectedVersion = cameraWorkflowVersion(angle.graph);
+    if(detectedVersion !== version) throw new Error(`相機工作流是 ${cameraVersion(detectedVersion).label}，請選擇相符的拍攝版本。`);
     const shot={id:'environment-check',cameraMode:'multiangle',camera:{angle:{horizontalAngle:133,verticalAngle:-90,zoom:10}},angleSteps:20,refineDenoise:0.2,steps:40,seed:1,resolution:1536,aspectRatio:'16:9',outputWidth:2048,outputHeight:1152,prompt:'Photographic portrait.',negative:'blurry'};
     for(const [stage,name,images] of [['base','原圖',{character:'PhotoCreate/check-character.png',garment:'PhotoCreate/check-garment.png'}],['angle','換角度',{source:'PhotoCreate/check-original.png'}],['refine','高清修正',{source:'PhotoCreate/check-angle.png'}]]) {
       const graph=buildCameraStage(base.graph,angle.graph,shot,stage,images);
@@ -74,8 +78,8 @@ export async function testComfyConnection({comfyUrl,workflowPath='bundled',camer
     await schemaFor('ImageScaleToTotalPixels');
     const errors=checkGraphAvailability({resize:{class_type:'ImageScaleToTotalPixels',inputs:{image:['image',0],upscale_method:'lanczos',megapixels:2.359296,resolution_steps:32}},image:{class_type:'LoadImage',inputs:{image:'PhotoCreate/check.png'}}},schemas);
     if(errors.length) {stages[2].errors.push(...errors);stages[2].ready=false;}
-    return {ready:stages.every(stage=>stage.ready),comfyUrl:url,device:stats.devices?.[0]?.name || 'ComfyUI',stages,workflowPath,cameraWorkflowPath,checkedAt:new Date().toISOString(),base,angle};
-  } catch(error) {return {ready:false,comfyUrl:url,stages,error:error.message,workflowPath,cameraWorkflowPath};}
+    return {ready:stages.every(stage=>stage.ready),comfyUrl:url,device:stats.devices?.[0]?.name || 'ComfyUI',stages,workflowPath,cameraWorkflowPath,cameraVersion:version,checkedAt:new Date().toISOString(),base,angle};
+  } catch(error) {return {ready:false,comfyUrl:url,stages,error:error.message,workflowPath,cameraWorkflowPath,cameraVersion:version};}
 }
 
 export function publicConnectionTest(result) {

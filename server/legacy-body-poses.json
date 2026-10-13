@@ -1,0 +1,1568 @@
+[
+  {
+    "id": "pose-standing",
+    "category": "pose",
+    "name": "自然站姿",
+    "prompt": "Standing naturally with weight on one leg, relaxed shoulders, hands resting gently by the sides, looking into the camera.",
+    "tags": [
+      "站姿",
+      "自然"
+    ]
+  },
+  {
+    "id": "pose-sitting",
+    "category": "pose",
+    "name": "側坐回眸",
+    "prompt": "Sitting sideways on a chair with an upright relaxed posture, turning the head toward the camera, one hand resting on the knee.",
+    "tags": [
+      "坐姿",
+      "回眸"
+    ]
+  },
+  {
+    "id": "pose-walking",
+    "category": "pose",
+    "name": "漫步瞬間",
+    "prompt": "Walking slowly toward the camera, a natural mid-step pose, subtle movement in the clothing, relaxed candid expression.",
+    "tags": [
+      "走路",
+      "動態"
+    ]
+  },
+  {
+    "id": "pose-leaning",
+    "category": "pose",
+    "name": "倚牆凝視",
+    "prompt": "Leaning lightly against a wall with one shoulder, arms relaxed, chin slightly raised, a calm gaze toward the camera.",
+    "tags": [
+      "倚靠",
+      "時尚"
+    ]
+  },
+  {
+    "id": "pose-profile",
+    "category": "pose",
+    "name": "側身整理髮絲",
+    "prompt": "Three-quarter profile, gently brushing hair behind one ear, soft expression, relaxed natural hands.",
+    "tags": [
+      "側身",
+      "日常"
+    ]
+  },
+  {
+    "id": "pose-over-shoulder",
+    "category": "pose",
+    "name": "背身回頭",
+    "prompt": "Standing with the back turned slightly to the camera, looking over one shoulder, relaxed posture, showing the back details of the garment.",
+    "tags": [
+      "背身",
+      "回眸"
+    ]
+  },
+  {
+    "id": "pose-portrait-forest-path",
+    "category": "pose",
+    "name": "漫步輕拂葉片",
+    "prompt": "Taking a relaxed mid-step on a path, with one hand lightly brushing a nearby leaf and the other arm relaxed. Keep the supporting foot firmly grounded.",
+    "tags": [
+      "寫真",
+      "漫步",
+      "觸葉"
+    ]
+  },
+  {
+    "id": "pose-portrait-cedar-tree",
+    "category": "pose",
+    "name": "肩倚樹幹",
+    "prompt": "Leaning one shoulder lightly against a tree trunk, with one hand resting on the bark and balanced weight through both feet.",
+    "tags": [
+      "寫真",
+      "倚靠",
+      "樹幹"
+    ]
+  },
+  {
+    "id": "pose-portrait-bamboo-walk",
+    "category": "pose",
+    "name": "站姿輕觸葉片",
+    "prompt": "Standing in a relaxed balanced posture, gently touching a low leaf with the fingertips of one hand. Keep the free arm relaxed and the leaf intact.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "觸葉"
+    ]
+  },
+  {
+    "id": "pose-portrait-moss-log",
+    "category": "pose",
+    "name": "側坐倒木",
+    "prompt": "Sitting on a sturdy fallen log with both feet supported on the ground and one palm resting on the wood beside the hip. Keep natural seated weight and fabric folds.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "倒木"
+    ]
+  },
+  {
+    "id": "pose-portrait-forest-boardwalk",
+    "category": "pose",
+    "name": "站姿輕扶木欄",
+    "prompt": "Standing beside a wooden railing with one hand gently resting on its top, the torso turned slightly to the side and both feet supported.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶欄"
+    ]
+  },
+  {
+    "id": "pose-portrait-stream-stones",
+    "category": "pose",
+    "name": "踏石平衡站姿",
+    "prompt": "Pausing upright on a broad dry stepping stone, with both feet firmly supported, relaxed shoulders and hands resting naturally by the sides.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "踏石"
+    ]
+  },
+  {
+    "id": "pose-portrait-forest-picnic",
+    "category": "pose",
+    "name": "野餐毯側坐",
+    "prompt": "Sitting comfortably on a picnic blanket with folded legs and one hand resting beside the body on the fabric. Keep natural seated weight and cloth compression.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "野餐毯"
+    ]
+  },
+  {
+    "id": "pose-portrait-forest-bridge",
+    "category": "pose",
+    "name": "扶欄背身回眸",
+    "prompt": "Standing with the back turned partly away, one hand lightly holding a side rail and the head turned over one shoulder toward the camera. Keep a stable stance.",
+    "tags": [
+      "寫真",
+      "回眸",
+      "扶欄"
+    ]
+  },
+  {
+    "id": "pose-portrait-misty-forest",
+    "category": "pose",
+    "name": "站姿抬頭仰望",
+    "prompt": "Standing upright with relaxed shoulders, gently tilting the head upward and keeping both hands naturally near the body.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "仰望"
+    ]
+  },
+  {
+    "id": "pose-portrait-woodland-cabin",
+    "category": "pose",
+    "name": "扶門框自然站姿",
+    "prompt": "Standing at a doorway with one hand resting against the doorframe, relaxed weight on one leg and both feet on the level threshold.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "門框"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-bench",
+    "category": "pose",
+    "name": "長椅側坐",
+    "prompt": "Sitting slightly sideways on a bench, with one hand resting on the seat beside the hip and both feet grounded. Keep relaxed shoulders and natural clothing folds.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "長椅"
+    ]
+  },
+  {
+    "id": "pose-portrait-fallen-leaves",
+    "category": "pose",
+    "name": "漫步停步回眸",
+    "prompt": "Pausing in a natural mid-step with the head turned back over one shoulder, both hands relaxed and the supporting foot planted on the path.",
+    "tags": [
+      "寫真",
+      "漫步",
+      "回眸"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-lawn",
+    "category": "pose",
+    "name": "草地側坐撐手",
+    "prompt": "Sitting on grass with both legs comfortably folded to one side and one palm lightly supporting the torso beside the hip. Keep natural seated contact.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "草地"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-fountain",
+    "category": "pose",
+    "name": "站姿輕扶石邊",
+    "prompt": "Standing beside a dry stone ledge with one hand resting lightly on its surface, relaxed shoulders and both feet firmly supported by the paving.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶靠"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-pergola",
+    "category": "pose",
+    "name": "扶柱微側身",
+    "prompt": "Standing beside a post with one hand gently touching it and the torso turned slightly to one side. Keep the shoulders relaxed and weight balanced.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶柱"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-lake",
+    "category": "pose",
+    "name": "雙手扶欄遠望",
+    "prompt": "Standing beside a railing with both hands gently supported on its top and the gaze directed into the distance. Keep the forearms relaxed and feet grounded.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶欄",
+      "遠望"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-shade",
+    "category": "pose",
+    "name": "自然擺臂漫步",
+    "prompt": "Walking at an easy pace with a single natural mid-step, relaxed shoulders and arms gently swinging beside the torso.",
+    "tags": [
+      "寫真",
+      "漫步",
+      "動態"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-pavilion",
+    "category": "pose",
+    "name": "肩倚木柱",
+    "prompt": "Leaning one shoulder lightly against a wooden column, keeping the other arm relaxed at the side and body weight balanced through grounded feet.",
+    "tags": [
+      "寫真",
+      "倚靠",
+      "木柱"
+    ]
+  },
+  {
+    "id": "pose-portrait-riverside-park",
+    "category": "pose",
+    "name": "漫步輕扶欄",
+    "prompt": "Taking a slow natural step beside a low railing, with one hand gently touching the rail and the other arm relaxed. Keep a grounded supporting foot.",
+    "tags": [
+      "寫真",
+      "漫步",
+      "扶欄"
+    ]
+  },
+  {
+    "id": "pose-portrait-botanical-leaves",
+    "category": "pose",
+    "name": "站姿托葉",
+    "prompt": "Standing beside a plant and gently supporting the edge of a broad leaf between relaxed fingertips, without bending or pulling the leaf.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "觀葉"
+    ]
+  },
+  {
+    "id": "pose-portrait-waterfall-platform",
+    "category": "pose",
+    "name": "單臂扶欄側身",
+    "prompt": "Standing with one forearm lightly supported on a railing and the torso angled slightly to the side. Keep both feet on the walkway and shoulders relaxed.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶欄",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-waterfall-rock",
+    "category": "pose",
+    "name": "平岩自然站姿",
+    "prompt": "Standing comfortably on a broad level rock with hands relaxed at the sides, balanced weight and both feet firmly supported.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "岩石"
+    ]
+  },
+  {
+    "id": "pose-portrait-waterfall-mist",
+    "category": "pose",
+    "name": "回眸整理髮絲",
+    "prompt": "Turning the head gently back toward the camera while one hand keeps loose hair away from the face. Keep the torso relaxed and both feet supported.",
+    "tags": [
+      "寫真",
+      "回眸",
+      "整理頭髮"
+    ]
+  },
+  {
+    "id": "pose-portrait-valley-bridge",
+    "category": "pose",
+    "name": "橋上扶欄停步",
+    "prompt": "Pausing on a wooden walkway with one hand resting on a side rail, relaxed shoulders and both feet planted firmly on the planks.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶欄"
+    ]
+  },
+  {
+    "id": "pose-portrait-stream-bank",
+    "category": "pose",
+    "name": "岸邊岩石坐姿",
+    "prompt": "Sitting on a dry rock with both feet supported on the bank and one hand resting on the rock beside the hip. Keep realistic seated weight and fabric contact.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "岩石"
+    ]
+  },
+  {
+    "id": "pose-portrait-beach-breeze",
+    "category": "pose",
+    "name": "站姿攏髮",
+    "prompt": "Standing in a balanced relaxed posture, with one hand gently gathering loose hair away from the face and the other arm resting naturally at the side.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "整理頭髮"
+    ]
+  },
+  {
+    "id": "pose-portrait-coastal-rail",
+    "category": "pose",
+    "name": "側身單臂倚欄",
+    "prompt": "Resting one forearm on a wooden railing, with the torso turned slightly to the side and both feet comfortably supporting the body.",
+    "tags": [
+      "寫真",
+      "側身",
+      "倚欄"
+    ]
+  },
+  {
+    "id": "pose-portrait-harbor-pier",
+    "category": "pose",
+    "name": "輕扶欄杆遠望",
+    "prompt": "Standing in a relaxed stance, lightly holding a railing with one hand and directing the gaze into the distance. Keep realistic finger placement and grounded feet.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶欄",
+      "遠望"
+    ]
+  },
+  {
+    "id": "pose-portrait-lake-dock",
+    "category": "pose",
+    "name": "碼頭長椅坐姿",
+    "prompt": "Sitting comfortably on a wide bench with both feet on the planks and one hand resting on the seat. Keep natural seated weight and relaxed clothing folds.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "長椅"
+    ]
+  },
+  {
+    "id": "pose-portrait-reed-path",
+    "category": "pose",
+    "name": "漫步輕觸蘆葦",
+    "prompt": "Walking slowly with one natural grounded step and one hand gently touching a nearby reed stem. Keep the shoulders relaxed and the face clear of the plant.",
+    "tags": [
+      "寫真",
+      "漫步",
+      "觸葉"
+    ]
+  },
+  {
+    "id": "pose-portrait-grassy-hill",
+    "category": "pose",
+    "name": "草坡屈膝坐姿",
+    "prompt": "Sitting with knees comfortably bent and one hand supporting the torso on the ground beside the hip. Keep natural seated weight and relaxed fabric folds.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "屈膝"
+    ]
+  },
+  {
+    "id": "pose-portrait-mountain-lookout",
+    "category": "pose",
+    "name": "扶欄眺望",
+    "prompt": "Standing beside a railing with one hand resting on it and the head gently turned toward a distant view. Keep balanced weight and relaxed shoulders.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶欄",
+      "遠眺"
+    ]
+  },
+  {
+    "id": "pose-portrait-tea-garden",
+    "category": "pose",
+    "name": "轉身輕拂葉面",
+    "prompt": "Pausing with the torso turned gently toward the camera and one hand lightly brushing the tops of nearby leaves. Keep both feet supported on the path.",
+    "tags": [
+      "寫真",
+      "轉身",
+      "觸葉"
+    ]
+  },
+  {
+    "id": "pose-portrait-rice-terraces",
+    "category": "pose",
+    "name": "站姿微側轉",
+    "prompt": "Standing in a relaxed balanced posture with a slight turn of the torso to one side, hands resting naturally and both feet grounded.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-cherry-walk",
+    "category": "pose",
+    "name": "輕拂肩上花瓣",
+    "prompt": "Standing comfortably while gently brushing a fallen petal from one shoulder with relaxed fingertips. Keep the other arm natural and realistic hand-to-fabric contact.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "拂花瓣"
+    ]
+  },
+  {
+    "id": "pose-portrait-flower-field",
+    "category": "pose",
+    "name": "花旁輕步伸手",
+    "prompt": "Taking a relaxed mid-step on a path, with one hand hovering gently above nearby blossoms and the supporting foot firmly grounded.",
+    "tags": [
+      "寫真",
+      "漫步",
+      "伸手"
+    ]
+  },
+  {
+    "id": "pose-portrait-lavender-garden",
+    "category": "pose",
+    "name": "低頭聞花",
+    "prompt": "Gently lowering the head toward a flower sprig while supporting its stem with one relaxed hand, without pulling it from the plant. Keep the torso balanced.",
+    "tags": [
+      "寫真",
+      "聞花",
+      "低頭"
+    ]
+  },
+  {
+    "id": "pose-portrait-rose-arbor",
+    "category": "pose",
+    "name": "輕扶花架",
+    "prompt": "Standing beside a garden frame with one hand resting lightly on its smooth surface, relaxed shoulders and the fingers clear of thorns.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶架"
+    ]
+  },
+  {
+    "id": "pose-portrait-ginkgo-autumn",
+    "category": "pose",
+    "name": "指尖拿落葉",
+    "prompt": "Standing in a relaxed posture while loosely holding one fallen leaf between the fingertips. Keep natural finger spacing and the other hand relaxed.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "拿葉片"
+    ]
+  },
+  {
+    "id": "pose-portrait-lotus-bridge",
+    "category": "pose",
+    "name": "橋上扶欄側轉",
+    "prompt": "Standing on a walkway with one hand resting on the rail and the torso turned slightly to the side. Keep both feet supported and shoulders relaxed.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶欄",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-old-town",
+    "category": "pose",
+    "name": "停步背身回眸",
+    "prompt": "Pausing in a grounded stance with the back turned slightly away and the head looking over one shoulder toward the camera. Keep both hands relaxed.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "回眸"
+    ]
+  },
+  {
+    "id": "pose-portrait-white-colonnade",
+    "category": "pose",
+    "name": "輕扶柱單腿承重",
+    "prompt": "Standing with relaxed weight on one leg while one hand lightly touches a column. Keep the other arm natural and both feet supported by the floor.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶柱"
+    ]
+  },
+  {
+    "id": "pose-portrait-brick-wall",
+    "category": "pose",
+    "name": "肩倚牆自然站姿",
+    "prompt": "Resting one shoulder lightly against a wall, keeping both hands relaxed and the feet firmly supported by the pavement.",
+    "tags": [
+      "寫真",
+      "倚靠",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-courtyard-fountain",
+    "category": "pose",
+    "name": "石椅自然坐姿",
+    "prompt": "Sitting comfortably on a dry stone bench with one hand on the seat and both feet supported by the paving. Keep realistic seated weight and relaxed shoulders.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "長椅"
+    ]
+  },
+  {
+    "id": "pose-portrait-cafe-window",
+    "category": "pose",
+    "name": "桌邊坐姿捧杯",
+    "prompt": "Sitting comfortably at a table and gently holding a ceramic cup close to the tabletop. Keep believable finger placement and relaxed supported forearms.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "捧杯"
+    ]
+  },
+  {
+    "id": "pose-portrait-bookshop-window",
+    "category": "pose",
+    "name": "桌前站姿翻書",
+    "prompt": "Standing at a low counter and gently turning one page of an open book supported by the surface. Keep realistic hand contact and relaxed shoulders.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "翻書"
+    ]
+  },
+  {
+    "id": "pose-portrait-gallery-corridor",
+    "category": "pose",
+    "name": "慢步側望",
+    "prompt": "Taking a slow grounded step with the head turned slightly to one side, shoulders relaxed and both arms resting naturally beside the torso.",
+    "tags": [
+      "寫真",
+      "漫步",
+      "側望"
+    ]
+  },
+  {
+    "id": "pose-portrait-glass-greenhouse",
+    "category": "pose",
+    "name": "門口扶框站姿",
+    "prompt": "Standing just inside a doorway with one hand resting lightly on the doorframe and both feet supported by the level floor. Keep the other arm relaxed.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "門框"
+    ]
+  },
+  {
+    "id": "pose-portrait-guesthouse-balcony",
+    "category": "pose",
+    "name": "雙手扶欄側轉",
+    "prompt": "Standing with both hands gently resting on a railing and the torso turned toward one side. Keep relaxed forearms and balanced weight through the feet.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "扶欄",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-studio-window",
+    "category": "pose",
+    "name": "窗邊輕扶窗台",
+    "prompt": "Standing beside a window with one hand resting lightly on the sill, relaxed shoulders and both feet grounded. Keep natural hand contact without pressing the torso against the frame.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "窗台"
+    ]
+  },
+  {
+    "id": "pose-scene-window-rest",
+    "category": "pose",
+    "name": "輕扶窗台",
+    "prompt": "Standing beside a window with one hand gently resting on the windowsill, relaxed shoulders and a balanced stance.",
+    "tags": [
+      "站姿",
+      "窗台"
+    ]
+  },
+  {
+    "id": "pose-scene-railing-rest",
+    "category": "pose",
+    "name": "手臂輕扶欄杆",
+    "prompt": "Standing beside a railing with one hand and forearm gently supported on the top rail, relaxed shoulders and both feet grounded.",
+    "tags": [
+      "站姿",
+      "扶欄"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-plush-hug",
+    "category": "pose",
+    "name": "胸前抱娃娃",
+    "prompt": "An adult person stands with both forearms wrapped around one soft plush toy at mid-torso. The toy rests against the body, with both hands visible on its sides and both feet grounded.",
+    "tags": [
+      "寫真",
+      "道具",
+      "娃娃",
+      "抱物",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-plush-shoulder",
+    "category": "pose",
+    "name": "娃娃靠肩",
+    "prompt": "An adult person stands holding one plush toy against a shoulder, with one palm supporting its base and the other hand stabilizing its back. Keep the elbows below shoulder height and the weight balanced.",
+    "tags": [
+      "寫真",
+      "道具",
+      "娃娃",
+      "抱物",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-plush-overhead",
+    "category": "pose",
+    "name": "雙手舉娃娃",
+    "prompt": "An adult person stands holding one plush toy above the head with both hands, one on either side of the toy. Keep the elbows slightly bent, the toy separate from the head and both feet on the ground.",
+    "tags": [
+      "寫真",
+      "道具",
+      "娃娃",
+      "舉物",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-plush-side-seated",
+    "category": "pose",
+    "name": "抱娃娃側坐",
+    "prompt": "An adult person sits slightly sideways on a seat, holding one plush toy on the lap with both forearms around it. Keep both feet supported on the ground and the seated weight resting on the seat.",
+    "tags": [
+      "寫真",
+      "道具",
+      "娃娃",
+      "抱物",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-book-page-turn",
+    "category": "pose",
+    "name": "坐著翻書",
+    "prompt": "An adult person sits with one open book resting across the lap. One hand supports the lower edge while the other lifts a single page to turn it; the head is angled toward the pages and both feet are grounded.",
+    "tags": [
+      "寫真",
+      "道具",
+      "看書",
+      "翻頁",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-book-seated-reading",
+    "category": "pose",
+    "name": "坐著看書",
+    "prompt": "An adult person sits upright with one open book held above the lap, one hand supporting each lower corner. The head angles downward toward the pages, with the elbows close to the body and both feet supported.",
+    "tags": [
+      "寫真",
+      "道具",
+      "看書",
+      "坐姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-book-standing-hold",
+    "category": "pose",
+    "name": "站姿捧書",
+    "prompt": "An adult person stands holding one closed book vertically against the lower torso, with both hands around its lower corners. Keep the shoulders level, the elbows close to the body and the weight evenly supported.",
+    "tags": [
+      "寫真",
+      "道具",
+      "書本",
+      "捧物",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-book-under-arm",
+    "category": "pose",
+    "name": "腋下夾書",
+    "prompt": "An adult person stands with one closed book tucked securely between an upper arm and the side of the torso. That hand supports the lower edge of the book while the free hand rests beside the opposite thigh.",
+    "tags": [
+      "寫真",
+      "道具",
+      "書本",
+      "夾物",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-apple-bite",
+    "category": "pose",
+    "name": "小口吃蘋果",
+    "prompt": "An adult person stands holding one apple in one hand and taking a small bite from its upper edge. Keep the apple visibly in contact with the mouth, the other hand beside the body and the stance balanced.",
+    "tags": [
+      "寫真",
+      "道具",
+      "水果",
+      "蘋果",
+      "吃東西"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-apple-offer",
+    "category": "pose",
+    "name": "單手遞蘋果",
+    "prompt": "An adult person stands extending one forearm slightly forward, with one whole apple resting securely in that palm. Keep the elbow softly bent, the other hand by the side and both feet grounded.",
+    "tags": [
+      "寫真",
+      "道具",
+      "水果",
+      "蘋果",
+      "遞物"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-banana-bite",
+    "category": "pose",
+    "name": "小口吃香蕉",
+    "prompt": "An adult person stands holding one partially peeled banana upright in one hand and taking a small bite from the exposed end. The peel remains attached and hangs below the holding hand; the free arm rests by the side.",
+    "tags": [
+      "寫真",
+      "道具",
+      "水果",
+      "香蕉",
+      "吃東西"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-banana-peel",
+    "category": "pose",
+    "name": "雙手剝香蕉",
+    "prompt": "An adult person stands with one hand holding the lower part of a single banana while the other hand pulls one strip of peel downward. Keep the fruit and its attached peel intact, with both elbows close to the torso.",
+    "tags": [
+      "寫真",
+      "道具",
+      "水果",
+      "香蕉",
+      "剝皮"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-single-peace",
+    "category": "pose",
+    "name": "單手比耶",
+    "prompt": "An adult person stands with one hand raised beside the shoulder, the index and middle fingers forming a V and the other fingers folded into the palm. Keep the other arm by the side and both feet grounded.",
+    "tags": [
+      "寫真",
+      "可愛",
+      "手勢",
+      "比耶",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-double-peace",
+    "category": "pose",
+    "name": "雙手比耶",
+    "prompt": "An adult person stands with both hands raised beside the head, each index and middle finger forming a V while the remaining fingers are folded. Keep the elbows bent below shoulder level and the stance balanced.",
+    "tags": [
+      "寫真",
+      "可愛",
+      "手勢",
+      "比耶",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-hand-heart",
+    "category": "pose",
+    "name": "雙手大愛心",
+    "prompt": "An adult person stands joining both hands in front of the upper torso, with the thumbs forming the lower point and the curved index fingers forming the top of a single heart. Keep the elbows lowered and both feet grounded.",
+    "tags": [
+      "寫真",
+      "可愛",
+      "手勢",
+      "愛心",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-finger-heart",
+    "category": "pose",
+    "name": "單手指愛心",
+    "prompt": "An adult person stands raising one hand to shoulder height, with the thumb and index finger crossing to form a small finger heart. Keep the remaining fingers naturally folded and the free hand beside the body.",
+    "tags": [
+      "寫真",
+      "可愛",
+      "手勢",
+      "愛心",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-cat-paw-hands",
+    "category": "pose",
+    "name": "貓爪手勢",
+    "prompt": "An adult person stands with both elbows bent and both hands loosely curled in front of the upper torso, palms angled downward in a small paw-like gesture. Keep the wrists gently bent and the weight balanced through both feet.",
+    "tags": [
+      "寫真",
+      "可愛",
+      "手勢",
+      "貓爪",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-rabbit-ear-hands",
+    "category": "pose",
+    "name": "頭頂兔耳手勢",
+    "prompt": "An adult person stands raising both hands just above the head, with each index and middle finger extended upward like rabbit ears and the remaining fingers folded. Keep a clear gap between the hands and a stable stance.",
+    "tags": [
+      "寫真",
+      "可愛",
+      "手勢",
+      "兔耳",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-hands-behind-back",
+    "category": "pose",
+    "name": "站姿雙手背後",
+    "prompt": "An adult person stands with both hands loosely clasped behind the lower back, the torso slightly inclined forward from the hips and one toe placed just ahead of the supporting foot. Keep both feet in contact with the ground.",
+    "tags": [
+      "寫真",
+      "可愛",
+      "站姿",
+      "背手",
+      "前傾"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-tiptoe-wave",
+    "category": "pose",
+    "name": "踮腳抬手招呼",
+    "prompt": "An adult person stands with both heels lifted slightly while the toes stay firmly grounded. One hand is raised to shoulder height with an open palm for a small wave; the other arm rests by the side.",
+    "tags": [
+      "寫真",
+      "可愛",
+      "手勢",
+      "踮腳",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-side-s-curve",
+    "category": "pose",
+    "name": "側身 S 曲線",
+    "prompt": "An adult person stands at a three-quarter side angle with the weight on the rear leg, the nearer knee softened and the pelvis angled slightly opposite the shoulders. One hand rests on the waist and the other beside the thigh, forming a gentle S-shaped body line.",
+    "tags": [
+      "寫真",
+      "性感",
+      "曲線",
+      "側身",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-back-turn-waist",
+    "category": "pose",
+    "name": "背身回眸扶腰",
+    "prompt": "An adult person stands with the back turned three-quarters away and the head turned over one shoulder. One hand rests on the waist and the other beside the thigh; keep the hips angled and both feet securely grounded.",
+    "tags": [
+      "寫真",
+      "性感",
+      "回眸",
+      "扶腰",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-single-hand-hair-waist",
+    "category": "pose",
+    "name": "單手束髮扭腰",
+    "prompt": "An adult person stands with one hand gathering the hair at the nape and the other resting on the waist. Turn the shoulders slightly opposite the hips, with a gentle back arch and the weight supported on one leg.",
+    "tags": [
+      "寫真",
+      "性感",
+      "束髮",
+      "扭腰",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-both-hands-hair",
+    "category": "pose",
+    "name": "雙手束髮挺身",
+    "prompt": "An adult person stands with both hands gathering the hair behind the head and the elbows open to the sides. Keep the torso lengthened with a gentle back arch, one knee softened and both feet supported.",
+    "tags": [
+      "寫真",
+      "性感",
+      "束髮",
+      "伸展",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-hands-waist-step",
+    "category": "pose",
+    "name": "雙手扶腰跨步",
+    "prompt": "An adult person stands with both hands resting on the waist and one foot placed diagonally forward. Shift the weight onto the rear leg, angle the pelvis slightly and keep the forward knee softly bent.",
+    "tags": [
+      "寫真",
+      "性感",
+      "扶腰",
+      "跨步",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-wall-side-arch",
+    "category": "pose",
+    "name": "扶牆側身拱背",
+    "prompt": "An adult person stands sideways beside a vertical support with one palm resting against it at shoulder height and the other hand on the waist. Keep a gentle back arch, one hip angled outward and both feet firmly grounded.",
+    "tags": [
+      "寫真",
+      "性感",
+      "倚靠",
+      "拱背",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-overhead-stretch",
+    "category": "pose",
+    "name": "高舉雙臂伸展",
+    "prompt": "An adult person stands with both arms extended overhead, one hand lightly holding the opposite wrist. Lengthen the torso with a gentle back arch, soften one knee and keep both feet on the ground.",
+    "tags": [
+      "寫真",
+      "性感",
+      "伸展",
+      "曲線",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-rail-torso-twist",
+    "category": "pose",
+    "name": "扶欄扭身",
+    "prompt": "An adult person stands beside a waist-high support, one hand resting on its top and the other on the waist. Turn the shoulders slightly away from the hips while keeping the pelvis balanced and both feet grounded.",
+    "tags": [
+      "寫真",
+      "性感",
+      "扶欄",
+      "扭身",
+      "站姿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-seated-crossed-legs",
+    "category": "pose",
+    "name": "側坐交疊腿",
+    "prompt": "An adult person sits slightly sideways on a seat with one knee crossed over the other and the lower foot resting on the ground. One hand rests on the upper knee and the other on the seat beside the hip; keep the torso gently lengthened.",
+    "tags": [
+      "寫真",
+      "性感",
+      "坐姿",
+      "交疊腿",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-seat-edge-lean",
+    "category": "pose",
+    "name": "椅邊扶膝前傾",
+    "prompt": "An adult person sits near the front edge of a seat with both feet grounded and both palms resting on the knees. Incline the torso forward from the hips with a gentle lower-back curve, keeping the neck aligned with the torso.",
+    "tags": [
+      "寫真",
+      "性感",
+      "坐姿",
+      "前傾",
+      "扶膝"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-seated-waist-twist",
+    "category": "pose",
+    "name": "側坐扭腰扶椅",
+    "prompt": "An adult person sits sideways on a chair with one hand holding the backrest and the other resting on the nearer knee. Turn the torso slightly toward the backrest while keeping the seated weight supported and both feet on the ground.",
+    "tags": [
+      "寫真",
+      "性感",
+      "坐姿",
+      "扭腰",
+      "扶椅"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-reverse-chair-seat",
+    "category": "pose",
+    "name": "椅背反坐",
+    "prompt": "An adult person sits facing the backrest of a chair, one grounded foot on each side of the seat, with both forearms resting across the top of the backrest. Keep the torso lengthened and the knees comfortably bent beside the chair.",
+    "tags": [
+      "寫真",
+      "性感",
+      "坐姿",
+      "反坐",
+      "扶椅"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-upright-kneeling",
+    "category": "pose",
+    "name": "跪坐直身",
+    "prompt": "An adult person kneels with the hips resting lightly above the heels and both hands placed on the thighs. Keep the torso upright with a gentle back arch, the knees comfortably together and the lower legs supported by the surface.",
+    "tags": [
+      "寫真",
+      "性感",
+      "跪坐",
+      "挺身",
+      "曲線"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-side-folded-kneeling",
+    "category": "pose",
+    "name": "側跪收腿",
+    "prompt": "An adult person kneels with both lower legs folded toward one side and the weight supported beside the heels. One palm rests on the surface beside the hip and the other hand on the upper thigh, with the torso turned slightly toward the bent legs.",
+    "tags": [
+      "寫真",
+      "性感",
+      "跪坐",
+      "側身",
+      "收腿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-one-knee-upright",
+    "category": "pose",
+    "name": "單膝跪地挺身",
+    "prompt": "An adult person kneels on one knee with the opposite foot planted forward and that knee bent at a comfortable angle. One hand rests on the forward thigh and the other on the waist; keep the torso upright with a gentle back arch.",
+    "tags": [
+      "寫真",
+      "性感",
+      "跪姿",
+      "挺身",
+      "扶腰"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-side-lying-bent-legs",
+    "category": "pose",
+    "name": "側躺曲腿",
+    "prompt": "An adult person lies on one side with the lower forearm supporting the upper torso and both legs stacked with softly bent knees. The upper hand rests on the outer hip, with the lower hip and forearm clearly supported by the horizontal surface.",
+    "tags": [
+      "寫真",
+      "性感",
+      "側躺",
+      "曲腿",
+      "曲線"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-prone-bent-knees",
+    "category": "pose",
+    "name": "俯臥屈膝",
+    "prompt": "An adult person lies on the front with both forearms supported beneath the shoulders and the upper torso gently raised. Bend both knees so the lower legs angle upward, keeping the hips and thighs resting on the horizontal surface.",
+    "tags": [
+      "寫真",
+      "性感",
+      "俯臥",
+      "屈膝",
+      "撐身"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-supine-one-knee",
+    "category": "pose",
+    "name": "仰躺單腿屈膝",
+    "prompt": "An adult person lies on the back with one knee bent and that foot resting on the surface while the other leg remains extended. One arm bends beside the head and the other hand rests on the waist; keep the shoulders and pelvis supported.",
+    "tags": [
+      "寫真",
+      "性感",
+      "仰躺",
+      "屈膝",
+      "扶腰"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-reclined-arm-support",
+    "category": "pose",
+    "name": "半躺手臂後撐",
+    "prompt": "An adult person sits in a reclined posture with both palms planted behind the hips, the elbows softly bent and the torso gently arched. Extend both legs forward with the ankles loosely crossed, keeping the hips supported by the surface.",
+    "tags": [
+      "寫真",
+      "性感",
+      "半躺",
+      "撐身",
+      "交疊腿"
+    ]
+  },
+  {
+    "id": "pose-portrait-action-supported-raised-leg",
+    "category": "pose",
+    "name": "抬腿扶椅側身",
+    "prompt": "An adult person stands beside a low seat with one foot resting securely on it and the other foot on the ground. One hand holds the backrest for support while the other rests on the raised knee; angle the hips slightly and keep a balanced torso.",
+    "tags": [
+      "寫真",
+      "性感",
+      "站姿",
+      "抬腿",
+      "扶椅"
+    ]
+  },
+  {
+    "id": "pose-scene-pool-edge-seat",
+    "category": "pose",
+    "name": "池邊坐姿垂足",
+    "prompt": "Sitting upright on a pool edge with both feet resting in the shallow water, hands lightly supported beside the hips and relaxed shoulders.",
+    "tags": [
+      "坐姿",
+      "池邊"
+    ]
+  },
+  {
+    "id": "pose-scene-desk-lean",
+    "category": "pose",
+    "name": "自然倚桌",
+    "prompt": "Leaning lightly against the edge of a desk with balanced weight, relaxed shoulders and hands resting naturally.",
+    "tags": [
+      "倚靠",
+      "桌子"
+    ]
+  },
+  {
+    "id": "pose-scene-cot-rest",
+    "category": "pose",
+    "name": "休息床上平躺",
+    "prompt": "Lying comfortably on a cot with the head supported by a pillow, shoulders relaxed and arms resting naturally beside the torso.",
+    "tags": [
+      "躺姿",
+      "休息床"
+    ]
+  },
+  {
+    "id": "pose-scene-spa-seat",
+    "category": "pose",
+    "name": "溫泉池內坐姿",
+    "prompt": "Sitting upright on a submerged spa bench with relaxed shoulders and hands resting naturally on a stone ledge. Keep a comfortable balanced posture.",
+    "tags": [
+      "坐姿",
+      "溫泉"
+    ]
+  },
+  {
+    "id": "pose-scene-relaxed-standing",
+    "category": "pose",
+    "name": "放鬆自然站姿",
+    "prompt": "Standing naturally with relaxed shoulders, balanced weight through both feet and hands resting gently by the sides.",
+    "tags": [
+      "站姿",
+      "自然"
+    ]
+  },
+  {
+    "id": "pose-scene-sofa-seat",
+    "category": "pose",
+    "name": "沙發舒展坐姿",
+    "prompt": "Sitting comfortably against sofa cushions with relaxed shoulders and arms resting naturally beside the torso. Keep realistic seated weight and cushion compression.",
+    "tags": [
+      "坐姿",
+      "沙發"
+    ]
+  },
+  {
+    "id": "pose-scene-tatami-rest",
+    "category": "pose",
+    "name": "榻榻米側臥休息",
+    "prompt": "Reclining comfortably on tatami mats with the torso supported by one forearm and relaxed legs. Keep natural contact with the floor.",
+    "tags": [
+      "躺姿",
+      "榻榻米"
+    ]
+  },
+  {
+    "id": "pose-scene-back-seat-rest",
+    "category": "pose",
+    "name": "後座放鬆倚坐",
+    "prompt": "Sitting comfortably against a back-seat cushion with relaxed shoulders, both feet supported and hands resting naturally on the lap.",
+    "tags": [
+      "坐姿",
+      "後座"
+    ]
+  },
+  {
+    "id": "pose-scene-hold-clothes",
+    "category": "pose",
+    "name": "雙手拿衣物",
+    "prompt": "Standing comfortably and holding a folded garment in both hands at waist height, with relaxed elbows and natural finger contact on the fabric.",
+    "tags": [
+      "站姿",
+      "拿衣物"
+    ]
+  },
+  {
+    "id": "pose-scene-window-ledge-seat",
+    "category": "pose",
+    "name": "窗台自然坐姿",
+    "prompt": "Sitting comfortably on a broad sturdy window ledge with one hand supporting the torso beside the hip and both feet naturally supported.",
+    "tags": [
+      "坐姿",
+      "窗台"
+    ]
+  },
+  {
+    "id": "pose-cup-breasts",
+    "category": "pose",
+    "name": "雙手托胸",
+    "prompt": "Cupping both breasts upward with both hands from below, soft flesh lifted and pressed together.",
+    "tags": [
+      "托胸",
+      "乳溝"
+    ]
+  },
+  {
+    "id": "pose-palm-chest",
+    "category": "pose",
+    "name": "單手撫胸",
+    "prompt": "One hand resting flat on her own chest, fingers spread softly across the skin.",
+    "tags": [
+      "撫胸",
+      "胸口"
+    ]
+  },
+  {
+    "id": "pose-pinch-nipple",
+    "category": "pose",
+    "name": "捏乳頭",
+    "prompt": "Fingertips gently pinching the nipple, skin slightly puckered around them.",
+    "tags": [
+      "乳頭",
+      "捏"
+    ]
+  },
+  {
+    "id": "pose-knead-breast",
+    "category": "pose",
+    "name": "揉胸",
+    "prompt": "One hand kneading the breast softly, flesh compressing under the palm.",
+    "tags": [
+      "揉",
+      "柔軟"
+    ]
+  },
+  {
+    "id": "pose-squeeze-cleavage",
+    "category": "pose",
+    "name": "擠乳溝",
+    "prompt": "Arms pressing the breasts together from the sides, deep cleavage formed in the center.",
+    "tags": [
+      "乳溝",
+      "擠"
+    ]
+  },
+  {
+    "id": "pose-bra-strap-flick",
+    "category": "pose",
+    "name": "彈內衣肩帶",
+    "prompt": "Fingers hooking the bra strap and flicking it off the shoulder.",
+    "tags": [
+      "肩帶",
+      "內衣"
+    ]
+  },
+  {
+    "id": "pose-lower-belly",
+    "category": "pose",
+    "name": "撫小腹",
+    "prompt": "Hand sliding down to rest on the lower abdomen, fingers near the navel.",
+    "tags": [
+      "小腹",
+      "肚臍"
+    ]
+  },
+  {
+    "id": "pose-panty-waist",
+    "category": "pose",
+    "name": "勾內褲邊",
+    "prompt": "Thumb hooked into the panty waistband, fabric pulled down slightly.",
+    "tags": [
+      "內褲",
+      "腰"
+    ]
+  },
+  {
+    "id": "pose-skirt-lift",
+    "category": "pose",
+    "name": "掀裙襬",
+    "prompt": "Lifting the skirt hem upward with one hand, thighs exposed.",
+    "tags": [
+      "裙襬",
+      "大腿"
+    ]
+  },
+  {
+    "id": "pose-bite-finger",
+    "category": "pose",
+    "name": "咬手指",
+    "prompt": "Fingertip resting lightly between parted lips, teeth grazing the finger.",
+    "tags": [
+      "咬唇",
+      "手指"
+    ]
+  },
+  {
+    "id": "pose-inner-thigh",
+    "category": "pose",
+    "name": "撫大腿內側",
+    "prompt": "Hand resting on the inner thigh, fingers relaxed and soft.",
+    "tags": [
+      "大腿",
+      "內側"
+    ]
+  },
+  {
+    "id": "pose-lift-top-navel",
+    "category": "pose",
+    "name": "撩上衣露臍",
+    "prompt": "Lifting the hem of the top with one hand, midriff and navel exposed.",
+    "tags": [
+      "露臍",
+      "上衣"
+    ]
+  },
+  {
+    "id": "pose-tilt-chin",
+    "category": "pose",
+    "name": "托下巴",
+    "prompt": "Fingers tilting the chin upward, neck stretched and exposed.",
+    "tags": [
+      "下巴",
+      "頸部"
+    ]
+  },
+  {
+    "id": "pose-clutch-sheet",
+    "category": "pose",
+    "name": "抓床單",
+    "prompt": "Hands clutching the bedsheet, fabric bunched tightly in the fists.",
+    "tags": [
+      "床單",
+      "緊抓"
+    ]
+  },
+  {
+    "id": "pose-cross-arms",
+    "category": "pose",
+    "name": "抱胸",
+    "prompt": "Arms crossed over the chest, breasts slightly compressed upward.",
+    "tags": [
+      "抱胸",
+      "交叉"
+    ]
+  },
+  {
+    "id": "pose-back-neck",
+    "category": "pose",
+    "name": "摸後頸",
+    "prompt": "Hand resting behind the neck with the elbow lifted, armpit exposed.",
+    "tags": [
+      "後頸",
+      "腋下"
+    ]
+  },
+  {
+    "id": "pose-raise-arms",
+    "category": "pose",
+    "name": "舉手露腋",
+    "prompt": "Both arms raised above the head, ribcage stretched, armpits exposed.",
+    "tags": [
+      "舉手",
+      "腋下"
+    ]
+  },
+  {
+    "id": "pose-twist-hips",
+    "category": "pose",
+    "name": "扭腰",
+    "prompt": "Hips twisted to one side with the waist curved, weight resting on one leg.",
+    "tags": [
+      "扭腰",
+      "曲線"
+    ]
+  },
+  {
+    "id": "pose-collarbone-trace",
+    "category": "pose",
+    "name": "撫鎖骨",
+    "prompt": "Fingertips tracing along the collarbone, shoulder slightly hunched.",
+    "tags": [
+      "鎖骨",
+      "撫"
+    ]
+  },
+  {
+    "id": "pose-hair-up",
+    "category": "pose",
+    "name": "盤起頭髮",
+    "prompt": "Both hands lifting the hair up off the neck, exposing the nape and jawline.",
+    "tags": [
+      "盤髮",
+      "頸後"
+    ]
+  },
+  {
+    "id": "pose-hair-sweep",
+    "category": "pose",
+    "name": "撩髮露頸",
+    "prompt": "Hand sweeping hair up and over one shoulder, exposing the bare neck, shoulder and jawline.",
+    "tags": [
+      "撩髮",
+      "露頸"
+    ]
+  },
+  {
+    "id": "pose-legs-crossed",
+    "category": "pose",
+    "name": "雙腿交纏",
+    "prompt": "Standing with knees together and legs crossed, thighs pressed tightly together, hips tilted.",
+    "tags": [
+      "交纏",
+      "大腿"
+    ]
+  },
+  {
+    "id": "pose-collar-pull",
+    "category": "pose",
+    "name": "拉開領口",
+    "prompt": "Fingers pulling the collar aside and downward, exposing the collarbone, shoulder and upper chest.",
+    "tags": [
+      "領口",
+      "拉開"
+    ]
+  },
+  {
+    "id": "pose-prone-bed",
+    "category": "pose",
+    "name": "俯臥床上",
+    "prompt": "Lying prone on a bed, upper body raised on elbows, legs bent behind, looking back over the shoulder.",
+    "tags": [
+      "俯臥",
+      "床上"
+    ]
+  },
+  {
+    "id": "pose-kabedon",
+    "category": "pose",
+    "name": "壁咚壓牆",
+    "prompt": "Back pressed flat against the wall, one arm pinned above the head, body pressed close and shoulders braced.",
+    "tags": [
+      "壁咚",
+      "壓牆"
+    ]
+  },
+  {
+    "id": "pose-bend-forward",
+    "category": "pose",
+    "name": "彎腰前傾",
+    "prompt": "Bending forward at the waist toward the camera, breasts swaying forward and downward, cleavage visible.",
+    "tags": [
+      "前傾",
+      "乳溝"
+    ]
+  },
+  {
+    "id": "pose-look-back",
+    "category": "pose",
+    "name": "回眸露背",
+    "prompt": "Twisting to look back over the shoulder, bare back and shoulder blades exposed, top slipped down.",
+    "tags": [
+      "回眸",
+      "裸背"
+    ]
+  },
+  {
+    "id": "pose-supine",
+    "category": "pose",
+    "name": "仰躺張腿",
+    "prompt": "Lying on the back with knees bent and legs apart, hips slightly raised off the surface.",
+    "tags": [
+      "仰躺",
+      "張腿"
+    ]
+  },
+  {
+    "id": "pose-kneel-lean",
+    "category": "pose",
+    "name": "跪坐後仰",
+    "prompt": "Kneeling with hips pressed forward, upper body leaning back, chest lifted toward the camera.",
+    "tags": [
+      "跪坐",
+      "後仰"
+    ]
+  },
+  {
+    "id": "pose-unhook",
+    "category": "pose",
+    "name": "反手解扣",
+    "prompt": "Reaching one arm behind the back to unhook the bra clasp, bare shoulder blades and back exposed.",
+    "tags": [
+      "解扣",
+      "背部"
+    ]
+  },
+  {
+    "id": "pose-beach-turn",
+    "category": "pose",
+    "name": "海邊回眸",
+    "prompt": "Standing near the shoreline, turning gently to look over one shoulder, relaxed hands, natural expression, subtle wind in the hair and clothing.",
+    "tags": [
+      "海邊",
+      "回眸",
+      "站姿"
+    ]
+  }
+]

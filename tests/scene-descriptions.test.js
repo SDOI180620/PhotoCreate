@@ -62,7 +62,7 @@ test('SQLite 升級一次，刪除抽出的動作後重新開啟不會補回',t=
   const first=PORTRAIT_SCENE_PAIRS[0];
   assert.equal(store.read().presets.find(row=>row.id===first.scene.id).prompt,first.scene.prompt);
   assert.deepEqual(store.read().jobs,prior.jobs);
-  assert.equal(store.searchPresets({category:'pose',q:'漫步輕拂葉片'}).rows[0].id,first.pose.id);
+  assert.equal(store.searchPresets({category:'pose',q:first.pose.name}).rows[0].id,first.pose.id);
   store.mutate(state=>{state.presets=state.presets.filter(row=>row.id!==first.pose.id);});
   store.close();store=createStore(directory);
   assert(!store.read().presets.some(row=>row.id===first.pose.id));

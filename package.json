@@ -21,11 +21,17 @@
     "test:preset-ui": "node tests/preset-editor-browser.mjs",
     "test:preset-photos-ui": "node tests/preset-photos-browser.mjs",
     "test:garments-ui": "node tests/garments-browser.mjs",
+    "test:photo-refinement-ui": "node tests/photo-refinement-browser.mjs",
+    "test:photo-video-ui": "node tests/photo-video-browser.mjs",
+    "test:customer-library-ui": "node tests/customer-library-browser.mjs",
     "test:preset-review-ui": "node tests/preset-review-browser.mjs",
     "test:gallery-ui": "node tests/gallery-layout-browser.mjs",
     "test:loading-ui": "node tests/image-loading-browser.mjs",
     "test:photo-selection-ui": "node tests/photo-selection-browser.mjs",
-    "test:folder-loading-ui": "node tests/photo-folders-on-demand-browser.mjs"
+    "test:folder-loading-ui": "node tests/photo-folders-on-demand-browser.mjs",
+    "test:video-environment-ui": "node tests/video-environment-browser.mjs",
+    "test:video-publishing-ui": "node tests/video-publishing-browser.mjs",
+    "test:video-library-ui": "node tests/video-library-browser.mjs"
   },
   "engines": {
     "node": ">=24.0.0"

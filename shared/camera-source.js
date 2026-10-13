@@ -1,7 +1,30 @@
+import {productionStages} from './production.js';
+import {REFINE_STEPS} from './camera.js';
+import {cameraWorkflowVersion} from './camera-version.js';
+
 const inputImage = input => {
   const parts = String(input).replaceAll('\\','/').split('/');
   return {filename:parts.pop(),subfolder:parts.join('/'),type:'input'};
 };
+
+// Custom photos and refinements inherit the latest camera that was actually
+// applied. Older custom versions saved its numbers but skipped its stages.
+export function photoCameraSettings(state,job) {
+  const records=new Map(state.jobs.filter(row=>(row.visitorId || 'admin')===(job.visitorId || 'admin')).map(row=>[row.id,row])),visited=new Set();
+  let current=job;
+  while(current && !visited.has(current.id)) {
+    visited.add(current.id);
+    if(productionStages(current).includes('angle') && current.camera?.angle) return {
+      cameraMode:'multiangle',cameraEnabled:true,executionMode:'staged',camera:structuredClone(current.camera),
+      angleSteps:current.angleSteps ?? 20,refineSteps:REFINE_STEPS,refineDenoise:current.refineDenoise ?? 0.2,
+      cameraWorkflowSnapshot:structuredClone(current.cameraWorkflowSnapshot || state.cameraWorkflow),
+      cameraVersion:cameraWorkflowVersion(current.cameraWorkflowSnapshot || state.cameraWorkflow),
+    };
+    if(!['angle-edit','refine-edit','photo-edit'].includes(current.jobKind)) break;
+    current=records.get(current.sourceJobId) || records.get(current.photoSource?.jobId) || records.get(current.cameraSource?.jobId);
+  }
+  return {};
+}
 
 // A new camera request always starts from the visible, selected output.
 export function resolveSelectedPhotoSource(state,job,imageIndex = 0) {

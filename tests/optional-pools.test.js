@@ -33,10 +33,10 @@ test('隨機模式遵守選填清單，空清單略過該類，即使舊啟用�
 test('舊草稿轉為複選仍保留啟用範圍；停用項目不會意外加入拍攝',()=>{
   const state=fixtureState(),legacy={...base,expressionId:'expression-smile',clothingStateId:'clothing-state-neat',interactionId:'interaction-window'};
   const combinations=optionalPresetSelections(state,legacy);
-  assert.deepEqual(combinations,{expressionIds:['expression-smile'],clothingStateIds:['clothing-state-neat'],interactionIds:['interaction-window']});
+  assert.deepEqual(combinations,{expressionIds:['expression-smile'],gazeIds:[],clothingStateIds:['clothing-state-neat'],interactionIds:['interaction-window']});
   const selected={...legacy,mode:'random',randomPoolMode:'selected',randomCount:4,randomOptional:{expression:true,clothing_state:false,interaction:true}};
   const migrated=optionalPresetSelections(state,selected);
-  assert.deepEqual(migrated,{expressionIds:['expression-smile'],clothingStateIds:[],interactionIds:['interaction-window']});
+  assert.deepEqual(migrated,{expressionIds:['expression-smile'],gazeIds:[],clothingStateIds:[],interactionIds:['interaction-window']});
   assert.deepEqual(buildShotPlans(state,{...selected,...migrated}).map(signature),buildShotPlans(state,selected).map(signature));
   const all={...selected,randomPoolMode:'all'},allSelections=optionalPresetSelections(state,all);
   assert.deepEqual(allSelections.expressionIds,state.presets.filter(row=>row.category==='expression').map(row=>row.id));

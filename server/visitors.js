@@ -9,16 +9,19 @@ import {STOPPABLE_STATUSES,RETRYABLE_STATUSES} from '../shared/batches.js';
 import {photoPromptDetails} from './photo-prompts.js';
 import {customerDraft,customerCharacters} from './customer-recipe.js';
 import {CUSTOMER_MAX_SHOOT_COUNT} from '../shared/customer-recipe.js';
-import {productionStages} from '../shared/production.js';
+import {productionStages,PHOTO_REFINEMENT_VERSION} from '../shared/production.js';
 import {CAMERA_FRAMING_VERSION} from '../shared/camera.js';
 import {PHOTO_CUSTOMIZATION_VERSION,PHOTO_PRESET_CATEGORIES,photoSettings} from '../shared/photo-customization.js';
 import {photoPresetGroupIds} from '../shared/photo-preset-groups.js';
 import {createFeaturedGallery} from './featured-gallery.js';
 import {characterProfile} from '../shared/character-profile.js';
 import {characterTurnaroundRouter,turnaroundImageType} from './character-turnarounds.js';
+import {createCustomerPrompts} from './customer-prompts.js';
+import {PHOTO_VIDEO_VERSION,videoIsActive} from '../shared/photo-video.js';
 
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const publicCharacter=(row,visitorId)=>({id:row.id,name:row.name,image:`/api/studio/characters/${row.id}/image${row.updatedAt ? `?v=${encodeURIComponent(row.updatedAt)}` : ''}`,...characterProfile(row),owned:row.visitorId===visitorId});
+const publicGarment=(row,visitorId)=>({id:row.id,name:row.name,sourceType:isPromptGarment(row) ? 'prompt' : 'image',...(row.visitorId===visitorId ? {owned:true} : {}),...(!isPromptGarment(row) ? {image:`/api/studio/garments/${row.id}/image`} : {})});
 const publicJob=job=>{
   const base=`/api/studio/jobs/${job.id}`;
   const images=(job.images || []).map((_,index)=>`${base}/image/${index}`);
@@ -33,9 +36,10 @@ const publicJob=job=>{
 };
 
 // Every read and mutation checks the authenticated account's stable owner ID.
-export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,getCustomerRecipe,getCharacterTurnarounds,getGalleryMusic,uploadCharacter,createShots,remakeShots,angleShot,customShot,queueShots,stopShots,purgeOutputs,sendImage,sendAngleSource,sendCharacterReference,sendAssetImage}) {
+export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,getCustomerRecipe,getCharacterTurnarounds,getGalleryMusic,getPhotoVideos,uploadCharacter,uploadGarment,createShots,remakeShots,angleShot,refineShot,customShot,queueShots,stopShots,purgeOutputs,sendImage,sendAngleSource,sendCharacterReference,sendAssetImage}) {
   const router=express.Router();
-  const gallery=createFeaturedGallery(store);
+  const gallery=createFeaturedGallery(store,ownerId=>getPhotoVideos().list(ownerId));
+  const customerPrompts=createCustomerPrompts(store);
   const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024,files:1,fields:1,parts:2,fieldSize:20000}}).single('image');
   const editUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024,files:1,fields:3,parts:4,fieldSize:20000}}).single('image');
   router.use((req,res,next)=>{
@@ -63,8 +67,13 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     if(jobs.some(job=>STOPPABLE_STATUSES.includes(job.status))) throw fail('請先停止拍攝，確認停止後才能刪除。',409);
     return jobs;
   };
+  const assertVideosStopped=jobs=>{
+    const ids=new Set(jobs.map(job=>job.id));
+    if(store.read(state=>(state.photoVideos || []).some(row=>ids.has(row.jobId) && videoIsActive(row)))) throw fail('請先停止這張照片的影片，確認停止後再刪除。',409);
+  };
   const permanentlyDelete=(jobs,folder)=>{
     if(jobs.some(job=>STOPPABLE_STATUSES.includes(job.status))) throw fail('請先暫停拍攝，確認停止後才能永久刪除。',409);
+    assertVideosStopped(jobs);
     const ids=new Set(jobs.map(job=>job.id));
     let deletedFiles;
     try {deletedFiles=purgeOutputs(jobs,true);} catch {throw fail('照片檔案暫時無法清理，請稍後再試或聯絡攝影棚管理員。');}
@@ -94,25 +103,64 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     const recipe=getCustomerRecipe();
     const state=store.read(current=>({
       characters:customerCharacters(current,recipe,visitorId).map(row=>publicCharacter(row,visitorId)),
+      garments:current.garments.filter(row=>row.visitorId===visitorId).map(row=>publicGarment(row,visitorId)),
       jobs:current.jobs.filter(job=>job.visitorId===visitorId && !job.visitorDeletedAt).map(publicJob),
       trash:current.jobs.filter(job=>job.visitorId===visitorId && job.visitorDeletedAt).map(job=>({...publicJob(job),deletedAt:job.visitorDeletedAt})),
       workflow:Boolean(current.workflow),cameraWorkflow:Boolean(current.cameraWorkflow),
     }));
-    return {characters:state.characters,
+    const videos=getPhotoVideos().list(visitorId),videoSettings=getPhotoVideos().publicSettings();
+    return {characters:state.characters,photoVideo:PHOTO_VIDEO_VERSION,videos,videoSettings:{defaultDuration:videoSettings.defaultDuration,defaultAspectRatio:videoSettings.defaultAspectRatio,prompts:videoSettings.prompts},
       folders:photoFolders.list(visitorId),
       gallery:gallery.list(visitorId),galleryFolders:gallery.folders(visitorId),
       music:getGalleryMusic().list(true),
-      jobs:state.jobs,trash:state.trash,
+      jobs:state.jobs.map(job=>({...job,videos:videos.filter(row=>row.jobId===job.id)})),trash:state.trash,
       ready:Boolean(recipe && ['garment','pose','lighting','color','quality'].every(key=>recipe.pools[key]?.length) && state.workflow && !isInstalling()),cameraReady:Boolean(state.workflow && state.cameraWorkflow && !isInstalling()),
       wardrobeCount:recipe?.pools.garment.length || 0,maxCount:CUSTOMER_MAX_SHOOT_COUNT,canQueueShoots:true,canStopShootBatches:true,canEditCharacters:true,canPermanentlyDeletePhotos:true,characterProfile:1,characterTurnaround:1,turnaroundReady:Boolean(state.workflow && !isInstalling()),photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION,
-      garmentSources:1,
-      garments:(recipe?.pools.garment || []).map(row=>({id:row.id,name:row.name,sourceType:isPromptGarment(row) ? 'prompt' : 'image',...(!isPromptGarment(row) ? {image:`/api/studio/garments/${row.id}/image`} : {})})),
+      garmentSources:1,photoRefinement:PHOTO_REFINEMENT_VERSION,refineReady:Boolean(state.workflow && !isInstalling()),
+      personalLibrary:1,customerPrompts:customerPrompts.list(visitorId),
+      garments:[...(recipe?.pools.garment || []).map(row=>publicGarment(row,visitorId)),...state.garments],
       presets:Object.entries(PHOTO_PRESET_CATEGORIES).flatMap(([key,category])=>(recipe?.pools[key==='scene' ? 'interaction' : key] || []).filter(row=>row.category===category).map(row=>({id:row.id,category,name:row.name,groupIds:photoPresetGroupIds(row)}))),
       cameras:(recipe?.pools.camera || []).map(row=>({id:row.id,name:row.name,angle:row.angle})),
     };
   };
   router.get('/state',(req,res)=>res.json(stateFor(req.visitorId)));
+  router.get('/prompts',(req,res)=>res.json(customerPrompts.list(req.visitorId)));
+  router.post('/prompts',(req,res)=>{
+    const result=customerPrompts.save(req.visitorId,req.body);
+    res.status(result.created ? 201 : 200).json(result.prompt);
+  });
+  router.patch('/prompts/:id',(req,res)=>res.json(customerPrompts.save(req.visitorId,req.body,req.params.id).prompt));
+  router.delete('/prompts/:id',(req,res)=>res.json(customerPrompts.remove(req.visitorId,req.params.id)));
+  router.post('/garments',upload,(req,res)=>{
+    if(!req.file) throw fail('請選擇 PNG、JPG 或 WebP 服裝圖片。');
+    const [garment]=uploadGarment([req.file],req.visitorId);
+    res.status(201).json(publicGarment(garment,req.visitorId));
+  });
+  router.patch('/garments/:id',(req,res)=>{
+    if(typeof req.body?.name!=='string' || !req.body.name.trim() || req.body.name.trim().length>200 || Object.keys(req.body).some(key=>key!=='name')) throw fail('服裝名稱需為 1–200 個字。');
+    const garment=store.mutate(state=>{
+      const row=state.garments.find(row=>row.id===req.params.id && row.visitorId===req.visitorId);
+      if(!row) throw fail('找不到你的服裝。',404);
+      row.name=req.body.name.trim();
+      return row;
+    });
+    res.json(publicGarment(garment,req.visitorId));
+  });
+  router.delete('/garments/:id',(req,res)=>{
+    store.mutate(state=>{
+      if(!state.garments.some(row=>row.id===req.params.id && row.visitorId===req.visitorId)) throw fail('找不到你的服裝。',404);
+      // Completed and pending photographs retain their own reference snapshots.
+      state.garments=state.garments.filter(row=>row.id!==req.params.id || row.visitorId!==req.visitorId);
+    });
+    res.json({ok:true});
+  });
   router.get('/music',(req,res)=>res.json(getGalleryMusic().list(true)));
+  router.get('/photo-videos/availability',async(req,res)=>{const {ready}=await getPhotoVideos().availability();res.json({ready,error:ready ? '' : '影片功能正在準備，請聯絡攝影棚管理員完成 H3 工作流與模型設定。'});});
+  router.get('/jobs/:id/videos',(req,res)=>{ownedJob(req.params.id,req.visitorId);res.json(getPhotoVideos().list(req.visitorId,req.params.id));});
+  router.post('/jobs/:id/video',async(req,res)=>{let result;try {result=await getPhotoVideos().generate(req.visitorId,req.params.id,req.body);} catch(error) {if(error.status===503) throw fail('影片功能正在準備，請聯絡攝影棚管理員完成設定。',503);throw error;}res.status(result.created ? 202 : 200).json(result);});
+  router.post('/photo-videos/:id/stop',async(req,res)=>res.json(await getPhotoVideos().stop(req.visitorId,req.params.id)));
+  router.delete('/photo-videos/:id',(req,res)=>res.json(getPhotoVideos().remove(req.visitorId,req.params.id)));
+  router.get('/photo-videos/:id/video',(req,res)=>{const file=getPhotoVideos().file(req.visitorId,req.params.id);if(req.query.download) res.attachment(`${req.params.id}.mp4`);res.type('video/mp4').sendFile(file);});
   router.get('/music/:id/audio',(req,res)=>res.sendFile(getGalleryMusic().audio(req.params.id,true)));
   router.get('/gallery',(req,res)=>res.json(gallery.list(req.visitorId)));
   router.post('/gallery',(req,res)=>{const result=gallery.add(req.visitorId,req.body);res.status(result.created ? 201 : 200).json(result);});
@@ -138,7 +186,7 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
   router.post('/photos/move',(req,res)=>res.json(photoFolders.move(req.visitorId,req.body?.ids,req.body?.folderId)));
   router.post('/photos/delete',(req,res)=>{
     if(permanentRequest(req)) return res.json(permanentlyDelete(selectedFamilies(req)));
-    const jobs=selectedFamilies(req),ids=new Set(jobs.map(job=>job.id)),deletedAt=new Date().toISOString();
+    const jobs=selectedFamilies(req),ids=new Set(jobs.map(job=>job.id)),deletedAt=new Date().toISOString();assertVideosStopped(jobs);
     store.mutate(state=>{for(const job of state.jobs) if(ids.has(job.id) && job.visitorId===req.visitorId) job.visitorDeletedAt ||= deletedAt;});
     res.json({ok:true,count:jobs.length});
   });
@@ -155,6 +203,7 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     const root=job.rootJobId || job.id;
     const jobs=allVersions ? store.read().jobs.filter(row=>row.visitorId===req.visitorId && (row.rootJobId || row.id)===root) : [job];
     if(deleting && permanentRequest(req)) return res.json(permanentlyDelete(jobs));
+    if(deleting) assertVideosStopped(jobs);
     if(jobs.some(row=>STOPPABLE_STATUSES.includes(row.status))) throw fail('照片正在拍攝，完成後才能刪除。',409);
     const ids=new Set(jobs.map(row=>row.id)),deletedAt=new Date().toISOString();
     store.mutate(state=>{for(const row of state.jobs) if(ids.has(row.id) && row.visitorId===req.visitorId) {if(deleting) row.visitorDeletedAt ||= deletedAt;else delete row.visitorDeletedAt;}});
@@ -207,7 +256,7 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     await sendAssetImage(row,req.query,res);
   });
   router.get('/garments/:id/image',async(req,res)=>{
-    const row=getCustomerRecipe()?.pools.garment.find(row=>row.id===req.params.id);
+    const row=store.read(state=>state.garments.find(row=>row.id===req.params.id && row.visitorId===req.visitorId)) || getCustomerRecipe()?.pools.garment.find(row=>row.id===req.params.id);
     if(isPromptGarment(row) || !row?.fileName || path.basename(row.fileName)!==row.fileName) throw fail('找不到服裝圖片。',404);
     const file=path.join(dataDir,'uploads',row.fileName);
     if(!fs.existsSync(file)) throw fail('服裝圖片已不存在。',404);
@@ -251,6 +300,13 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     ownedJob(req.params.id,req.visitorId);assertReady(false);
     const body=req.body || {};
     const result=customShot(req.params.id,{requestId:requestId(body.requestId,req.visitorId),imageIndex:body.imageIndex ?? 0,customization:body.customization},{visitorId:req.visitorId});
+    if(result.created) queueShots([result.job.id]);
+    res.status(result.created ? 202 : 200).json({job:publicJob(result.job),created:result.created});
+  });
+  router.post('/jobs/:id/refine',(req,res)=>{
+    ownedJob(req.params.id,req.visitorId);assertReady(false);
+    const body=req.body || {};
+    const result=refineShot(req.params.id,{requestId:requestId(body.requestId,req.visitorId),imageIndex:body.imageIndex ?? 0},{visitorId:req.visitorId});
     if(result.created) queueShots([result.job.id]);
     res.status(result.created ? 202 : 200).json({job:publicJob(result.job),created:result.created});
   });

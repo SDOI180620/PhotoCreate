@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {buildCameraStage} from './camera-workflow.js';
 import {jobUpdateFromComfy} from './job-status.js';
-import {PRODUCTION_STAGES,productionStages,nextProductionStage} from '../shared/production.js';
+import {PRODUCTION_STAGES,productionStages,nextProductionStage,isPhotoSourceJob} from '../shared/production.js';
 import {referenceKinds} from './workflow.js';
 
 const now = () => new Date().toISOString();
@@ -89,7 +89,7 @@ export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploa
           images[kind] = uploaded.get(asset.id);
           if(stopped(job.id)) break;
         }
-      } else images.source = stage === 'angle' && job.jobKind === 'angle-edit' ? await uploadAngleSource(job,run.comfyUrl) : await previousImage(job,stage,run.comfyUrl);
+      } else images.source = isPhotoSourceJob(job) && stage===productionStages(job)[0] ? await uploadAngleSource(job,run.comfyUrl) : await previousImage(job,stage,run.comfyUrl);
       if(stopped(job.id)) {mutateJob(job.id,row => {row.status = 'stopped';row.stageWaiting = true;});return;}
       const prompt = preparePrompt(buildCameraStage(job.workflowSnapshot,job.cameraWorkflowSnapshot,job,stage,images),job,stage),promptId = randomUUID();
       mutateJob(job.id,row => Object.assign(row,{promptId,apiPrompt:prompt,comfyUrl:run.comfyUrl,stageWaiting:false}));
@@ -111,7 +111,7 @@ export function createStageRunner({store,comfyJson,comfyAt,uploadReference,uploa
       if(queue.queue_running?.length || queue.queue_pending?.length) return false;
       const job = jobsFor(run).find(job => eligible(job) && !job.stopRequestedAt && nextProductionStage(job) === nextStage);
       if(!job) return false;
-      const image = nextStage === 'angle' && job.jobKind === 'angle-edit' ? await uploadAngleSource(job,run.comfyUrl) : await previousImage(job,nextStage,run.comfyUrl);
+      const image = isPhotoSourceJob(job) && nextStage===productionStages(job)[0] ? await uploadAngleSource(job,run.comfyUrl) : await previousImage(job,nextStage,run.comfyUrl);
       release = {nextStage,image,state:'requesting'};
       mutateRun(run.id,row => {row.release = release;});
     }

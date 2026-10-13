@@ -1,7 +1,8 @@
 import { buildComfyPrompt, validateTemplate } from './workflow.js';
 import { normalizeCameraAngle, cameraPrompt, cameraZoomLevel, REFINE_PROMPT, REFINE_NEGATIVE, REFINE_STEPS } from '../shared/camera.js';
-import {productionStages} from '../shared/production.js';
+import {productionStages,isPhotoSourceJob} from '../shared/production.js';
 import {withSingleSubjectPrompt,withSingleSubjectNegative} from '../shared/subject.js';
+import {cameraWorkflowVersion,cameraVersion} from '../shared/camera-version.js';
 
 export const CAMERA_WORKFLOW_PATH = 'Qwen Multiangle/01 Qwen 2511 - 單圖 3D 相機換角度.json';
 
@@ -12,7 +13,10 @@ export function validateCameraWorkflow(graph) {
     for(const value of Object.values(node.inputs)) if(Array.isArray(value) && value.length === 2 && typeof value[1] === 'number' && !graph[String(value[0])]) throw new Error(`相機節點 ${id} 的連線不存在。`);
   }
   for(const type of ['QwenMultiangleCameraNode','KSampler','SaveImage','LoadImage']) if(Object.values(graph).filter(node => node.class_type === type).length !== 1) throw new Error(`相機工作流須包含一個 ${type}。`);
-  if(!Object.values(graph).some(node => node.class_type === 'TextEncodeQwenImageEditPlus')) throw new Error('相機工作流缺少 Qwen 2511 編碼器。');
+  const sampler = Object.values(graph).find(node => node.class_type === 'KSampler');
+  const encoder = graph[sampler.inputs.positive?.[0]];
+  if(!['TextEncodeQwenImageEditPlus','TextEncodeQwenImage21'].includes(encoder?.class_type)) throw new Error('相機工作流缺少 Qwen 2511 或 2.1 正面提詞編碼器。');
+  if(encoder.class_type === 'TextEncodeQwenImage21' && (!Array.isArray(encoder.inputs.vae) || !Array.isArray(encoder.inputs.clip))) throw new Error('Qwen 2.1 相機編碼器必須連接 CLIP 與 VAE。');
   return graph;
 }
 
@@ -43,7 +47,7 @@ export function buildCameraStage(template,cameraTemplate,shot,stage,images) {
     if(productionStages(shot).length > 1) graph[nodeId(graph,'SaveImage')].inputs.filename_prefix = `PhotoCreate/_stages/${shot.id}/base`;
     return graph;
   }
-  const graph = buildCameraPipeline(template,cameraTemplate,{...shot,jobKind:'angle-edit',cameraEnabled:stage === 'angle'},images);
+  const graph = buildCameraPipeline(template,cameraTemplate,{...shot,jobKind:stage === 'angle' ? 'angle-edit' : 'refine-edit',cameraEnabled:stage === 'angle'},images);
   if(stage === 'angle') {
     graph.angle_save = {class_type:'SaveImage',inputs:{images:graph.refine_size.inputs.image,filename_prefix:`PhotoCreate/_stages/${shot.id}/angle`}};
     return keepOutput(graph,'angle_save');
@@ -54,41 +58,44 @@ export function buildCameraStage(template,cameraTemplate,shot,stage,images) {
 
 export function buildCameraPipeline(template,cameraTemplate,shot,images) {
   if(shot.cameraMode !== 'multiangle') return buildComfyPrompt(template,shot,images);
-  if(shot.cameraEnabled === false && shot.jobKind !== 'angle-edit') return buildComfyPrompt(template,shot,images);
+  if(shot.cameraEnabled === false && !isPhotoSourceJob(shot)) return buildComfyPrompt(template,shot,images);
   validateTemplate(template);
   const cameraEnabled = shot.cameraEnabled !== false;
   if(cameraEnabled) validateCameraWorkflow(cameraTemplate);
   if((cameraEnabled && (!Number.isInteger(shot.angleSteps) || shot.angleSteps < 1 || shot.angleSteps > 100)) || !Number.isFinite(shot.refineDenoise) || shot.refineDenoise < 0.05 || shot.refineDenoise > 0.4) throw new Error('相機製作參數無效。');
   let graph,source;
-  if(shot.jobKind === 'angle-edit') {
-    if(!images.source) throw new Error('換角度缺少原始成果圖。');
-    graph = {source:{class_type:'LoadImage',inputs:{image:images.source},_meta:{title:'已完成成果 · 僅調整相機'}}};source = ['source',0];
+  if(isPhotoSourceJob(shot)) {
+    if(!images.source) throw new Error('找不到選取的成果圖。');
+    graph = {source:{class_type:'LoadImage',inputs:{image:images.source},_meta:{title:shot.jobKind==='refine-edit' ? '目前選取的照片 · 畫質優化' : '已完成成果 · 僅調整相機'}}};source = ['source',0];
   } else {
     graph = buildComfyPrompt(template,shot,images);
     const save = nodeId(graph,'SaveImage');source = graph[save].inputs.images;delete graph[save];
   }
   let refineSource = source;
   if(cameraEnabled) {
+    const version = cameraWorkflowVersion(cameraTemplate);
     const angle = normalizeCameraAngle(shot.camera?.angle),camera = namespace(cameraTemplate,'angle_');
     const loader = nodeId(camera,'LoadImage'),save = nodeId(camera,'SaveImage'),sampler = nodeId(camera,'KSampler');
     refineSource = camera[save].inputs.images;
     for(const node of Object.values(camera)) for(const [key,value] of Object.entries(node.inputs)) if(Array.isArray(value) && value[0] === loader) node.inputs[key] = source;
     delete camera[loader];delete camera[save];
     Object.assign(camera[nodeId(camera,'QwenMultiangleCameraNode')].inputs,{horizontal_angle:angle.horizontalAngle,vertical_angle:angle.verticalAngle,zoom:angle.zoom,default_prompts:true,camera_view:false});
+    if(Object.hasOwn(camera[nodeId(camera,'QwenMultiangleCameraNode')].inputs,'model_version')) camera[nodeId(camera,'QwenMultiangleCameraNode')].inputs.model_version = version;
     Object.assign(camera[sampler].inputs,{seed:shot.seed + 1,steps:shot.angleSteps});
     const positiveEncoder = camera[camera[sampler].inputs.positive?.[0]];
-    if(positiveEncoder?.class_type !== 'TextEncodeQwenImageEditPlus') throw new Error('相機工作流缺少正面提詞編碼器。');
+    if(!['TextEncodeQwenImageEditPlus','TextEncodeQwenImage21'].includes(positiveEncoder?.class_type)) throw new Error('相機工作流缺少正面提詞編碼器。');
     // Materialize the installed camera node's prompt so every submission can
     // include the subject constraint without requiring another custom node.
-    positiveEncoder.inputs.prompt = withSingleSubjectPrompt(cameraPrompt(angle));
-    positiveEncoder._meta = {title:'不同角度拍攝 · 正面提詞',cameraAngle:angle};
+    positiveEncoder.inputs.prompt = withSingleSubjectPrompt(cameraPrompt(angle,version));
+    positiveEncoder._meta = {title:'不同角度拍攝 · 正面提詞',cameraAngle:angle,cameraVersion:version};
     const negativeEncoder = camera[camera[sampler].inputs.negative?.[0]];
-    if(negativeEncoder?.class_type === 'TextEncodeQwenImageEditPlus' && typeof negativeEncoder.inputs.prompt === 'string') {
-      negativeEncoder.inputs.prompt = withSingleSubjectNegative(negativeEncoder.inputs.prompt);
-      if(cameraZoomLevel(angle).max===10) negativeEncoder.inputs.prompt += ', wide shot, full-body framing, distant subject';
-      negativeEncoder._meta = {title:'不同角度拍攝 · 負面提詞'};
+    const negativeField = negativeEncoder?.class_type === 'TextEncodeQwenImage21' ? 'negative_prompt' : 'prompt';
+    if(['TextEncodeQwenImageEditPlus','TextEncodeQwenImage21'].includes(negativeEncoder?.class_type) && typeof negativeEncoder.inputs[negativeField] === 'string') {
+      negativeEncoder.inputs[negativeField] = withSingleSubjectNegative(negativeEncoder.inputs[negativeField]);
+      if(cameraZoomLevel(angle).max===10) negativeEncoder.inputs[negativeField] += ', wide shot, full-body framing, distant subject';
+      if(negativeEncoder !== positiveEncoder) negativeEncoder._meta = {title:'不同角度拍攝 · 負面提詞'};
     }
-    camera[sampler]._meta = {title:'Qwen 2511 · 換角度'};
+    camera[sampler]._meta = {title:`${cameraVersion(version).label} · 換角度`,cameraVersion:version};
     Object.assign(graph,camera);
   }
 
@@ -103,9 +110,9 @@ export function buildCameraPipeline(template,cameraTemplate,shot,images) {
     : {class_type:'ImageScaleToTotalPixels',inputs:{image:refineSource,upscale_method:'lanczos',megapixels:shot.resolution ** 2 / 1e6,resolution_steps:32}};
   graph.refine_size._meta = {title:'恢復指定解析度'};
   Object.assign(encoder.inputs,{prompt:REFINE_PROMPT,negative_prompt:REFINE_NEGATIVE,resolution:0,'images.image_1':['refine_size',0]});
-  graph.refine_latent = {class_type:'VAEEncode',inputs:{pixels:['refine_size',0],vae:encoder.inputs.vae},_meta:{title:'沿用換角度成果 · 低強度修正'}};
+  graph.refine_latent = {class_type:'VAEEncode',inputs:{pixels:['refine_size',0],vae:encoder.inputs.vae},_meta:{title:'沿用目前照片 · 低強度修正'}};
   Object.assign(refine[refineSampler].inputs,{seed:shot.seed + 2,steps:REFINE_STEPS,denoise:shot.refineDenoise,latent_image:['refine_latent',0]});
-  refine[refineSampler]._meta = {title:'Qwen 2.1 · 只修正清晰度'};
+  refine[refineSampler]._meta = {title:'Qwen 2.1 · 場景融合與畫質修復'};
   const date = new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei'}).format(new Date());
   refine[refineSave].inputs.filename_prefix = `PhotoCreate/${date}/${shot.id}`;
   Object.assign(graph,refine);

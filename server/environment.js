@@ -7,6 +7,8 @@ import {pipeline} from 'node:stream/promises';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {DEFAULT_COMFY_OUTPUT_DIR} from './outputs.js';
+import {cameraVersion} from '../shared/camera-version.js';
+import {normalizeVideoModels,VIDEO_MODEL_LABELS} from '../shared/photo-video.js';
 
 export const BUNDLE_DIR = fileURLToPath(new URL('../bundles/comfyui/',import.meta.url));
 export const BUNDLED_WORKFLOW_PATH = 'PhotoCreate/02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖.json';
@@ -85,7 +87,7 @@ export function environmentPath(root,relative) {
   return target;
 }
 
-export function createEnvironmentManager({dataDir,bundleDir=BUNDLE_DIR,manifest=JSON.parse(fs.readFileSync(path.join(bundleDir,'manifest.json'),'utf8')),fetchImpl=fetch}) {
+export function createEnvironmentManager({dataDir,bundleDir=BUNDLE_DIR,manifest=JSON.parse(fs.readFileSync(path.join(bundleDir,'manifest.json'),'utf8')),videoManifest=manifest.videoManifest ? JSON.parse(fs.readFileSync(environmentPath(fs.realpathSync(bundleDir),manifest.videoManifest),'utf8')) : null,fetchImpl=fetch}) {
   const journal=path.join(dataDir,'environment-install.json');
   let job=null,controller=null,lastSave=0,closed=false;
   if(fs.existsSync(journal)) {
@@ -98,20 +100,37 @@ export function createEnvironmentManager({dataDir,bundleDir=BUNDLE_DIR,manifest=
   };
   const update = values => {Object.assign(job,values,{updatedAt:new Date().toISOString()});save(true);};
   const status = () => job ? structuredClone(job) : null;
-  const plan = directory => {
+  const videoCatalog = () => structuredClone(videoManifest?.resources.filter(row=>row.kind==='model') || []);
+  const plan = (directory,{cameraVersion:version='2511',purpose='photo',videoModels}={}) => {
+    if(!['photo','video','studio'].includes(purpose)) throw new Error('環境安裝類型無效。');
+    cameraVersion(version);
     const root=validateComfyDirectory(directory);
-    const resources=manifest.resources.map(resource => {
+    let selected=manifest.resources.filter(resource => !resource.cameraVersions || resource.cameraVersions.includes(version));
+    if(purpose!=='photo') {
+      if(!videoManifest) throw new Error('此版本尚未包含 H3 安裝套件，請更新 PhotoCreate。');
+      const folders={unet:'diffusion_models',videoVae:'vae',audioVae:'vae',clip:'text_encoders',latentUpscaler:'latent_upscale_models'},models=normalizeVideoModels(videoModels),generationVersion=models.latentUpscaler ? 'two-pass' : 'single';
+      const video=[...videoManifest.resources.filter(row=>row.kind!=='model' && (!row.generationVersions || row.generationVersions.includes(generationVersion))),...Object.entries(models).map(([role,fileName])=>{
+        const known=videoManifest.resources.find(row=>row.kind==='model' && row.role===role && row.fileName===fileName);
+        return known || {id:'video-custom-'+role,kind:'model',role,fileName,label:fileName,target:`models/${folders[role]}/${fileName.replaceAll('\\','/')}`,size:0,downloadable:false};
+      })];
+      selected=purpose==='video' ? video : [...selected.map(row=>({...row,section:'photo'})),...video.map(row=>({...row,section:'video'}))];
+    }
+    selected=[...new Map(selected.map(row=>[row.target,row])).values()];
+    if(purpose==='studio') selected.sort((a,b)=>({node:0,workflow:1,model:2}[a.kind])-({node:0,workflow:1,model:2}[b.kind]));
+    const resources=selected.map(resource => {
       const file=environmentPath(root,resource.target),exists=fs.existsSync(file);
       if(exists && !fs.statSync(file).isFile()) throw new Error('安裝位置不是檔案：'+resource.target);
       const size=exists ? fs.statSync(file).size : 0;
-      const installed=exists && size===resource.size && (resource.kind==='model' ? hasSafetensorsHeader(file,size) : digest(fs.readFileSync(file))===resource.sha256);
+      let customized=false;
+      if(exists && purpose==='studio' && resource.kind==='workflow') try {const ui=JSON.parse(fs.readFileSync(file,'utf8'));customized=Array.isArray(ui.nodes) && ui.nodes.some(node=>!['Note','MarkdownNote'].includes(node.type)) && Array.isArray(ui.links) && digest(fs.readFileSync(file))!==resource.sha256;} catch { /* repair malformed files, keeping a backup */ }
+      const installed=customized || exists && (resource.downloadable===false || size===resource.size) && (resource.kind==='model' ? hasSafetensorsHeader(file,size) : digest(fs.readFileSync(file))===resource.sha256);
       const partial=resource.kind==='model' ? environmentPath(root,resource.target+'.photocreate.part') : null;
       const partialBytes=partial && fs.existsSync(partial) ? fs.statSync(partial).size : 0;
-      return {...resource,status:installed ? 'installed' : exists ? 'different' : 'missing',existingBytes:size,partialBytes:Math.min(partialBytes,resource.size)};
+      return {...resource,...(resource.downloadable===false && installed ? {size} : {}),customized,status:installed ? 'installed' : exists ? 'different' : 'missing',existingBytes:size,partialBytes:Math.min(partialBytes,resource.size)};
     });
     const models=resources.filter(row => row.kind==='model'),missing=models.filter(row => row.status!=='installed');
     let freeBytes=null;try {const disk=fs.statfsSync(root);freeBytes=disk.bavail*disk.bsize;} catch { /* report unknown, not zero */ }
-    return {directory:root,name:manifest.name,resources,missingModelBytes:missing.reduce((sum,row) => sum+row.size-row.partialBytes,0),modelBytes:models.reduce((sum,row)=>sum+row.size,0),freeBytes,modelsReady:!missing.length,filesReady:resources.filter(row=>row.kind!=='model').every(row=>row.status==='installed'),enhancements:manifest.enhancements};
+    return {directory:root,purpose,name:purpose==='video' ? videoManifest.name : manifest.name,resources,manualModels:missing.filter(row=>row.downloadable===false).map(row=>VIDEO_MODEL_LABELS[row.role]),missingModelBytes:missing.reduce((sum,row) => sum+row.size-row.partialBytes,0),modelBytes:models.reduce((sum,row)=>sum+row.size,0),freeBytes,modelsReady:!missing.length,filesReady:resources.filter(row=>row.kind!=='model').every(row=>row.status==='installed'),enhancements:manifest.enhancements};
   };
 
   function backup(root,relative) {
@@ -176,25 +195,32 @@ export function createEnvironmentManager({dataDir,bundleDir=BUNDLE_DIR,manifest=
           const target=environmentPath(snapshot.directory,resource.target),temporary=environmentPath(snapshot.directory,resource.target+'.photocreate.tmp');
           fs.mkdirSync(path.dirname(target),{recursive:true});fs.writeFileSync(temporary,bytes);
           replace(snapshot.directory,resource.target,resource.target+'.photocreate.tmp');
+          // Retire only the exact API-only file previously installed by us.
+          // Edited files remain in place; retired files remain recoverable.
+          for(const old of resource.retires || []) {
+            const file=environmentPath(snapshot.directory,old.target);
+            if(fs.existsSync(file) && fs.statSync(file).isFile() && digest(fs.readFileSync(file))===old.sha256) backup(snapshot.directory,old.target);
+          }
           if(resource.kind==='node' && /\.(py|js)$/.test(resource.target)) job.restartRequired=true;
         }
         job.completed.push(resource.id);job.completedBytes+=resource.size;save(true);
       }
-      update({status:'completed',finishedAt:new Date().toISOString(),message:job.restartRequired ? '安裝完成，請重新啟動 ComfyUI 後按「檢查並載入」。' : '安裝完成，可按「檢查並載入」。'});
+      update({status:'completed',finishedAt:new Date().toISOString(),message:job.purpose==='studio' ? '缺少的環境檔案已補齊，正在檢查工作流。' : job.purpose==='video' ? 'H3 工作流與模型安裝完成。請按「檢查 H3 環境」；若 ComfyUI 尚未列出新模型，請重新啟動 ComfyUI。' : job.restartRequired ? '安裝完成，請重新啟動 ComfyUI 後按「檢查並載入」。' : '安裝完成，可按「檢查並載入」。'});
     } catch(error) {update({status:signal.aborted ? 'paused' : 'failed',error:signal.aborted ? '' : error.message,message:signal.aborted ? '已暫停，下載進度已保留。' : error.message});}
     finally {controller=null;}
   }
 
   return {
-    plan,status,isActive:()=>active(job),
+    plan,videoCatalog,status,isActive:()=>active(job),
     activated() {if(job) update({restartRequired:false,message:'環境已就緒，工作流已載入。'});},
-    start(directory,{includeModels=true}={}) {
+    start(directory,{includeModels=true,cameraVersion:version='2511',purpose='photo',videoModels}={}) {
       if(active(job)) throw new Error('環境安裝正在進行，請先暫停。');
       if(typeof includeModels!=='boolean') throw new Error('下載模型設定無效。');
-      const snapshot=plan(directory),selected=snapshot.resources.filter(row=>row.status!=='installed' && (row.kind!=='model' || includeModels));
+      const snapshot=plan(directory,{cameraVersion:version,purpose,videoModels}),selected=snapshot.resources.filter(row=>row.status!=='installed' && (row.kind!=='model' || includeModels));
+      if(includeModels && snapshot.manualModels.length) throw new Error('無法自動下載所選模型，請改選清單中可下載的模型：'+snapshot.manualModels.join('、'));
       if(includeModels && snapshot.freeBytes!==null && snapshot.missingModelBytes>snapshot.freeBytes) throw new Error('磁碟可用空間不足，請換到空間足夠的 ComfyUI 目錄。');
       const restartRequired=Boolean(job?.directory===snapshot.directory && job?.restartRequired);
-      job={id:randomUUID(),directory:snapshot.directory,status:'installing',includeModels,createdAt:new Date().toISOString(),completed:[],backups:[],completedBytes:0,totalBytes:selected.reduce((sum,row)=>sum+row.size,0),restartRequired};
+      job={id:randomUUID(),directory:snapshot.directory,status:'installing',includeModels,cameraVersion:version,purpose,...(purpose!=='photo' ? {videoModels:normalizeVideoModels(videoModels)} : {}),createdAt:new Date().toISOString(),completed:[],backups:[],completedBytes:0,totalBytes:selected.reduce((sum,row)=>sum+row.size,0),resourceCount:selected.length,restartRequired};
       controller=new AbortController();save(true);
       const result=status();void execute(snapshot,controller.signal);return result;
     },

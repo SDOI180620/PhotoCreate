@@ -19,8 +19,14 @@ export function reconcileDraftCandidates(state,input) {
 export function reconcileLibrarySelections(state) {
   if(state.draft) state.draft = reconcileDraftCandidates(state,state.draft);
   if(state.workbenchDrafts) state.workbenchDrafts = Object.fromEntries(Object.entries(state.workbenchDrafts).map(([mode,draft])=>[mode,reconcileDraftCandidates(state,draft)]));
+  let videoPublishedChanged=false;
+  if(state.videoPromptLibraryVersion===1) {
+    const available=new Set(state.presets.filter(row=>row.category==='video').map(row=>row.id)),settings=state.settings.photoVideo,published=state.settings.photoVideoPublished;
+    if(settings?.selectedPromptIds) settings.selectedPromptIds=settings.selectedPromptIds.filter(id=>available.has(id));
+    if(published) {const remaining=published.prompts.filter(row=>available.has(row.id));videoPublishedChanged=remaining.length!==published.prompts.length;published.prompts=remaining;if(videoPublishedChanged) published.publishedAt=new Date().toISOString();}
+  }
   const recipe = state.customerRecipe;
-  if(!recipe) return false;
+  if(!recipe) return videoPublishedChanged;
   let publishedChanged=false;
   if(recipe.settings) delete recipe.settings.renderStyle;
   if(recipe.characterIds) {
@@ -37,5 +43,5 @@ export function reconcileLibrarySelections(state) {
   }
   // Withdrawals publish immediately, without publishing unrelated library edits.
   if(publishedChanged) recipe.updatedAt=new Date().toISOString();
-  return publishedChanged;
+  return publishedChanged || videoPublishedChanged;
 }

@@ -9,7 +9,7 @@ const folderName=value=>{
 
 // A selection pins one completed output, rather than following a family's
 // latest remake. Album folders and generated-photo folders are independent.
-export function createFeaturedGallery(store) {
+export function createFeaturedGallery(store,videoList=()=>[]) {
   const folders=ownerId=>store.read(state=>(state.galleryFolders || []).filter(row=>row.ownerId===ownerId).map(folderDto));
   const requireFolder=(ownerId,id)=>{
     if(id==='' || id===undefined) return '';
@@ -20,14 +20,19 @@ export function createFeaturedGallery(store) {
   const uniqueName=(ownerId,name,exceptId='')=>{
     if(folders(ownerId).some(row=>row.id!==exceptId && row.name.toLocaleLowerCase()===name.toLocaleLowerCase())) throw fail('已有同名資料夾，請換個名稱。',409);
   };
-  const publicEntry=(entry,job)=>({id:entry.id,jobId:job.id,imageIndex:entry.imageIndex,rootId:job.rootJobId || job.id,
+  const publicEntry=(entry,job,videos=[])=>{
+    const mediaType=entry.mediaType || 'image';
+    const video=mediaType==='video' && videos.find(row=>row.id===entry.videoId && row.jobId===job.id && row.imageIndex===entry.imageIndex && row.status==='completed');
+    if(mediaType==='video' && !video) return null;
+    return {id:entry.id,mediaType,jobId:job.id,imageIndex:entry.imageIndex,rootId:job.rootJobId || job.id,
     folderId:entry.folderId || '',addedAt:entry.addedAt,createdAt:job.createdAt,version:job.remakeVersion || 0,
     garment:job.garment?.name || '',pose:job.pose?.name || '',batchId:job.batchId,
-    image:`/api/studio/jobs/${job.id}/image/${entry.imageIndex}`});
-  const list=ownerId=>store.read(state=>{
+    image:`/api/studio/jobs/${job.id}/image/${entry.imageIndex}`,...(video ? {video:video.video,videoId:video.id,videoDuration:video.duration} : {})};
+  };
+  const list=ownerId=>{const videos=videoList(ownerId);return store.read(state=>{
     const jobs=new Map(state.jobs.filter(job=>job.visitorId===ownerId && !job.visitorDeletedAt && !job.outputsDeletedAt && job.status==='completed').map(job=>[job.id,job]));
-    return (state.galleryEntries || []).filter(row=>row.ownerId===ownerId && jobs.get(row.jobId)?.images?.[row.imageIndex]).map(row=>publicEntry(row,jobs.get(row.jobId)));
-  });
+    return (state.galleryEntries || []).filter(row=>row.ownerId===ownerId && jobs.get(row.jobId)?.images?.[row.imageIndex]).map(row=>publicEntry(row,jobs.get(row.jobId),videos)).filter(Boolean);
+  });};
   const selected=(ownerId,ids)=>{
     if(!Array.isArray(ids) || !ids.length || ids.length>100 || ids.some(id=>typeof id!=='string')) throw fail('請選擇 1–100 張精選照片。');
     const entries=store.read().galleryEntries || [],rows=[...new Set(ids)].map(id=>entries.find(row=>row.id===id && row.ownerId===ownerId));
@@ -56,16 +61,18 @@ export function createFeaturedGallery(store) {
       });
       return {ok:true};
     },
-    add(ownerId,{jobId,imageIndex=0,folderId}={}) {
+    add(ownerId,{jobId,imageIndex=0,folderId,videoId,mediaType=videoId ? 'video' : 'image'}={}) {
       const destination=requireFolder(ownerId,folderId),state=store.read();
       const job=state.jobs.find(row=>row.id===jobId && row.visitorId===ownerId && !row.visitorDeletedAt);
       if(!job) throw fail('找不到你的照片。',404);
       if(!Number.isInteger(imageIndex) || imageIndex<0 || imageIndex>99 || job.status!=='completed' || job.outputsDeletedAt || !job.images?.[imageIndex]) throw fail('請選擇已完成的照片放入畫廊。',409);
-      const existing=(state.galleryEntries || []).find(row=>row.ownerId===ownerId && row.jobId===jobId && row.imageIndex===imageIndex);
-      if(existing) return {entry:publicEntry(existing,job),created:false};
-      const entry={id:randomUUID(),ownerId,jobId,imageIndex,folderId:destination,addedAt:new Date().toISOString()};
+      if(!['image','video'].includes(mediaType)) throw fail('請選擇圖片或影片放入畫廊。');
+      if(mediaType==='video' && !videoList(ownerId).some(row=>row.id===videoId && row.jobId===jobId && row.imageIndex===imageIndex && row.status==='completed')) throw fail('請選擇你已完成的影片放入畫廊。',404);
+      const existing=(state.galleryEntries || []).find(row=>row.ownerId===ownerId && row.jobId===jobId && row.imageIndex===imageIndex && (row.mediaType || 'image')===mediaType && (mediaType==='image' || row.videoId===videoId));
+      if(existing) return {entry:publicEntry(existing,job,videoList(ownerId)),created:false};
+      const entry={id:randomUUID(),ownerId,jobId,imageIndex,mediaType,...(mediaType==='video' ? {videoId} : {}),folderId:destination,addedAt:new Date().toISOString()};
       store.mutate(current=>{current.galleryEntries ||= [];current.galleryEntries.unshift(entry);});
-      return {entry:publicEntry(entry,job),created:true};
+      return {entry:publicEntry(entry,job,videoList(ownerId)),created:true};
     },
     move(ownerId,ids,folderId) {
       const destination=requireFolder(ownerId,folderId),chosen=new Set(selected(ownerId,ids).map(row=>row.id));

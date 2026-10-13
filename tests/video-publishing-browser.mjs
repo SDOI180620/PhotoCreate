@@ -1,0 +1,42 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import {chromium,expect} from '@playwright/test';
+import {videoFixture} from './photo-video-fixture.js';
+import {loginBrowser} from './auth-client.js';
+import {DEFAULT_VIDEO_PROMPT} from '../shared/photo-video.js';
+import {DRAFT} from './fixtures.js';
+
+const f=await videoFixture(),browser=await chromium.launch({executablePath:process.env.PHOTOCREATE_BROWSER || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1050}}),errors=[];page.on('pageerror',error=>errors.push(error.message));await page.emulateMedia({reducedMotion:'reduce'});fs.mkdirSync('test-results',{recursive:true});
+try {
+  f.store.mutate(state=>{state.draft={...DRAFT,mode:'random',randomPoolMode:'all'};});
+  await loginBrowser(page,f.base);const home=page.getByRole('region',{name:'首頁影片提詞',exact:true});await expect(home).toBeVisible();
+  await expect(home.getByRole('button',{name:'選擇影片提詞',exact:true})).toBeVisible();await expect(home.getByRole('button',{name:'發布影片提詞',exact:true})).toHaveCount(0);
+  await home.getByRole('button',{name:'新增提詞',exact:true}).click();const editor=page.getByRole('dialog',{name:'新增提詞',exact:true});
+  await expect(editor.getByRole('combobox',{name:'分類',exact:true})).toHaveValue('video');await editor.getByRole('textbox',{name:'提詞名稱',exact:true}).fill('上半身慢鏡頭');await editor.getByRole('textbox',{name:'提詞內容',exact:true}).fill('Gently sway while the camera slowly frames the upper body.');
+  await page.screenshot({path:'test-results/video-prompt-create-dialog.png'});await editor.getByRole('button',{name:'保存提詞',exact:true}).click();await expect(editor).toHaveCount(0);assert.equal(f.photoVideos.publicSettings().prompts.length,1);
+  await home.getByRole('button',{name:'選擇影片提詞',exact:true}).click();const picker=page.getByRole('dialog',{name:'選擇影片提詞 · 可複選',exact:true});await picker.getByRole('button',{name:'自然演繹',exact:true}).click();await picker.getByRole('button',{name:'使用所選提詞 (1)',exact:true}).click();await expect(picker).toHaveCount(0);
+  await page.getByRole('button',{name:'套用至顧客攝影棚',exact:true}).click();await expect.poll(()=>f.photoVideos.publicSettings().prompts.map(row=>row.name)).toEqual(['上半身慢鏡頭']);
+  await home.scrollIntoViewIfNeeded();await page.screenshot({path:'test-results/video-home-publishing.png'});
+  await page.getByRole('button',{name:'工作流與連線設定',exact:true}).click();const settings=page.getByRole('dialog',{name:'工作室設定',exact:true});
+  await settings.locator('.environment-advanced>summary').click();
+  await expect(settings.getByText('KSamplerSelect：euler · BasicScheduler：simple · 8 步 · Megapixels：1',{exact:true})).toBeVisible();await settings.getByRole('button',{name:'完成',exact:true}).click();
+  const alice=await f.customer('publishing-ui');f.store.mutate(state=>{state.jobs[0].visitorId=alice.ownerId;});await page.context().clearCookies();await loginBrowser(page,f.base,alice.username,'fixture-pass');
+  await page.locator('#photos').getByRole('button',{name:'資料夾 全部照片',exact:true}).click();await page.getByRole('button',{name:'打開第 1 張照片',exact:true}).click();
+  let photo=page.getByRole('dialog',{name:'我的照片',exact:true});await expect(photo.getByRole('button',{name:/^產影片（0）/})).toBeVisible();await photo.getByRole('button',{name:/^產影片/}).click();
+  let creator=page.getByRole('dialog',{name:'產影片',exact:true});await expect(creator.getByRole('combobox',{name:'官方影片提詞',exact:true}).locator('option')).toHaveText(['上半身慢鏡頭']);
+  await creator.getByRole('button',{name:'自行輸入',exact:true}).click();const personal='My gentle motion with a slow upper-body camera movement.';await creator.getByRole('textbox',{name:'影片提詞',exact:true}).fill(personal);
+  await creator.getByRole('button',{name:'保存到我的提詞',exact:true}).click();await expect(creator.getByRole('textbox',{name:'影片提詞名稱',exact:true})).toHaveValue('');await expect(creator.getByRole('button',{name:'保存提詞',exact:true})).toBeDisabled();await creator.getByRole('textbox',{name:'影片提詞名稱',exact:true}).fill('我的慢鏡頭');await creator.getByRole('button',{name:'保存提詞',exact:true}).click();
+  await expect(creator.getByText('已保存，下次登入也能選用。',{exact:true})).toBeVisible();assert.equal(f.submitted.length,0);
+  await creator.getByRole('button',{name:'返回照片',exact:true}).click();photo=page.getByRole('dialog',{name:'我的照片',exact:true});await photo.getByRole('button',{name:/^產影片/}).click();creator=page.getByRole('dialog',{name:'產影片',exact:true});await creator.getByRole('button',{name:'自行輸入',exact:true}).click();
+  await creator.getByRole('combobox',{name:'我的影片提詞',exact:true}).selectOption({label:'我的慢鏡頭'});await expect(creator.getByRole('textbox',{name:'影片提詞',exact:true})).toHaveValue(personal);
+  await creator.getByRole('button',{name:'開始產影片',exact:true}).click();await expect.poll(()=>f.store.read().photoVideos.length).toBe(1);await f.photoVideos.tick();assert.equal(f.submitted[0].prompt.resolution.inputs.megapixels,1);await f.finish();
+  await expect(creator.getByRole('button',{name:'將這段影片加入精選',exact:true})).toBeVisible();await creator.getByRole('button',{name:'將這段影片加入精選',exact:true}).click();await expect(creator.getByText('這段影片已加入精選',{exact:true})).toBeVisible();
+  await creator.getByRole('button',{name:'返回照片',exact:true}).click();photo=page.getByRole('dialog',{name:'我的照片',exact:true});await expect(photo.getByRole('button',{name:/^產影片（1）/})).toBeVisible();
+  await expect(photo.getByRole('button',{name:'放入畫廊',exact:true})).toBeVisible();await photo.getByRole('button',{name:'放入畫廊',exact:true}).click();await expect(photo.getByText('這個版本已放入畫廊',{exact:true})).toBeVisible();
+  await page.screenshot({path:'test-results/video-photo-separate-favorites.png'});await photo.getByRole('button',{name:'關閉照片',exact:true}).click();await expect(page.getByLabel('已有 1 段影片',{exact:true})).toBeVisible();
+  await page.locator('#gallery').getByRole('button',{name:'資料夾 全部照片',exact:true}).click();await expect(page.locator('#gallery .pc-featured-card')).toHaveCount(2);assert.equal((await alice.request('/gallery')).data.filter(row=>row.mediaType==='image').length,1);assert.equal((await alice.request('/gallery')).data.filter(row=>row.mediaType==='video').length,1);
+  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'打開第 1 張照片',exact:true}).click();photo=page.getByRole('dialog',{name:'我的照片',exact:true});await photo.getByRole('button',{name:/^產影片/}).click();creator=page.getByRole('dialog',{name:'產影片',exact:true});await creator.getByRole('button',{name:'自行輸入',exact:true}).click();
+  const bounds=await creator.evaluate(node=>({width:innerWidth,controls:[...node.querySelectorAll('select,textarea,button')].map(child=>({left:child.getBoundingClientRect().left,right:child.getBoundingClientRect().right}))}));assert.ok(bounds.controls.every(row=>row.left>=0 && row.right<=bounds.width),JSON.stringify(bounds));await page.screenshot({path:'test-results/video-personal-prompt-mobile.png'});
+  assert.deepEqual(errors,[]);console.log('Video publishing UI passed: dialog, home selection/publish, 1 MP, saved personal prompts, count badges and independent photo/video favorites.');
+} finally {await browser.close();await f.close();}

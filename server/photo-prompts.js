@@ -1,5 +1,5 @@
 import {cameraPrompt,REFINE_PROMPT,REFINE_NEGATIVE,REFINE_STEPS} from '../shared/camera.js';
-import {productionStages} from '../shared/production.js';
+import {productionStages,isPhotoSourceJob} from '../shared/production.js';
 import {referenceKinds} from './workflow.js';
 import {withSingleSubjectPrompt} from '../shared/subject.js';
 import {photoSettings} from '../shared/photo-customization.js';
@@ -33,9 +33,9 @@ function graphDetails(graph) {
 // Return selected text and numeric settings, never graph nodes, paths or hosts.
 // Saved submissions win over the job's planning text and current library.
 export function photoPromptDetails(state,job,{apiBase='/api/studio'}={}) {
-  const sourceId=job.jobKind==='angle-edit' ? job.cameraSource?.jobId || job.rootJobId : job.id;
+  const sourceId=isPhotoSourceJob(job) ? job.cameraSource?.jobId || job.rootJobId : job.id;
   const sourceJob=state.jobs.find(row=>row.id===sourceId && row.visitorId===job.visitorId),baseJob=sourceJob || job;
-  const selectedSource=job.jobKind==='angle-edit' && job.cameraSource?.stage==='source';
+  const selectedSource=isPhotoSourceJob(job) && job.cameraSource?.stage==='source';
   const stages=STAGES.filter(([stage])=>stage==='base' || productionStages(job).includes(stage)).map(([stage,label])=>{
     if(stage==='base' && selectedSource && !sourceJob) return {id:stage,label:'拍攝來源（已永久刪除）',source:'record',completed:true,image:null,positive:null,negative:null,settings:{},references:[]};
     const owner=stage==='base' ? baseJob : job,sourceStage=stage==='base' && selectedSource ? productionStages(owner).at(-1) : stage,result=owner.stageResults?.[sourceStage];
@@ -50,10 +50,10 @@ export function photoPromptDetails(state,job,{apiBase='/api/studio'}={}) {
       : stage==='refine' || owner.cameraMode!=='multiangle'
       ? owner.images?.length ? `${apiBase}/jobs/${owner.id}/image/0` : null
       : result?.completed && result.images?.length ? `${apiBase}/jobs/${owner.id}/image/0?stage=${stage}` : null;
-    return {id:stage,label:stage==='base' && selectedSource ? '拍攝來源' : stage==='base' && job.jobKind==='photo-edit' ? '自訂拍攝' : label,source:graph ? 'snapshot' : completed ? 'record' : 'pending',completed,image,
+    return {id:stage,label:stage==='refine' && job.jobKind==='refine-edit' ? '畫質優化' : stage==='base' && selectedSource ? '拍攝來源' : stage==='base' && job.jobKind==='photo-edit' ? '自訂拍攝' : label,source:graph ? 'snapshot' : completed ? 'record' : 'pending',completed,image,
       ...(graph ? graphDetails(graph) : fallback),
-      references:stage==='base' && !selectedSource ? referenceKinds(owner).map((kind,index)=>({label:`<image${index+1}>`,name:kind==='source' ? '選取的照片' : owner[kind]?.name || kind})) : [{label:'<image1>',name:stage==='base' || stage==='angle' && selectedSource ? '選取的照片' : stage==='angle' || !productionStages(job).includes('angle') ? '原始生成圖片' : '不同角度圖片'}]};
+      references:stage==='base' && !selectedSource ? referenceKinds(owner).map((kind,index)=>({label:`<image${index+1}>`,name:kind==='source' ? '選取的照片' : owner[kind]?.name || kind})) : [{label:'<image1>',name:stage==='base' || job.jobKind==='refine-edit' || stage==='angle' && selectedSource ? '選取的照片' : stage==='angle' || !productionStages(job).includes('angle') ? '原始生成圖片' : '不同角度圖片'}]};
   });
-  return {id:job.id,stages,width:job.outputWidth,height:job.outputHeight,settings:photoSettings(baseJob),
-    selections:Object.fromEntries(['character','garment','pose','expression','clothingState','interaction','camera','lighting','color','quality'].filter(key=>job[key]?.name).map(key=>[key,job[key].name]))};
+  return {id:job.id,stages,defaultStage:job.jobKind==='refine-edit' ? 'refine' : productionStages(job).includes('angle') ? 'angle' : 'base',width:job.outputWidth,height:job.outputHeight,settings:photoSettings(baseJob),
+    selections:Object.fromEntries(['character','garment','pose','expression','gaze','clothingState','interaction','camera','lighting','color','quality'].filter(key=>job[key]?.name).map(key=>[key,job[key].name]))};
 }

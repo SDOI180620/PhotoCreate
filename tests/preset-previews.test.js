@@ -31,7 +31,7 @@ test('關聯成果依保存的提詞 ID 查找，隨機最多五張，包含版�
   assert.throws(()=>relatedPresetPhotos(state,id,{limit:0}),/分頁/);
 });
 
-for(const category of Object.keys(CATEGORIES)) test(`臨時試拍固定 ${category} 的未保存內容，只生成原圖，獨立於正式照片與草稿`,async t=>{
+for(const category of Object.keys(CATEGORIES).filter(category=>category!=='video')) test(`臨時試拍固定 ${category} 的未保存內容，只生成原圖，獨立於正式照片與草稿`,async t=>{
   const f=await fixture(t),preset=bound(category),id=await f.open(preset.id),before=f.store.read();
   const edited={...preset,name:'未保存的試拍設定',prompt:'UNSAVED PRESET TEST',...(category==='camera' ? {angle:{horizontalAngle:135,verticalAngle:-70,zoom:8}} : {})};
   const requestId=randomUUID();
@@ -39,7 +39,7 @@ for(const category of Object.keys(CATEGORIES)) test(`臨時試拍固定 ${catego
   const repeated=await f.shoot(id,edited,requestId);assert.equal(repeated.status,202);assert.equal(repeated.data.jobs.length,1);
   await until(()=>f.submitted.length===1);
   const trial=(await f.request(`/preset-previews/${id}`)).data.jobs[0];
-  assert.ok(trial.presets.some(row=>row.id===preset.id && row.name===edited.name));assert.equal(trial.presets.length,8);
+  assert.ok(trial.presets.some(row=>row.id===preset.id && row.name===edited.name));assert.equal(trial.presets.length,9);
   const prompt=f.submitted[0].prompt,encoder=Object.values(prompt).find(node=>node.class_type==='TextEncodeQwenImage21');
   assert.equal(encoder.inputs.resolution,1024);assert.equal(prompt['7'].inputs.steps,30);
   assert.ok(encoder.inputs.prompt.includes(edited.prompt));

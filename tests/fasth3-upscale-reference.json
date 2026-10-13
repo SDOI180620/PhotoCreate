@@ -1,0 +1,1010 @@
+{
+  "source": "https://github.com/amao2001/ganloss-latent-space/blob/main/workflow/2026-10-12%20fastH3%20trim/minimax_h3_i2v_fastH3_trim_latent_upscale.json",
+  "sha256": "883c34387bb09457d542c58e6345f72d6681fd8a8b2a36e6eb9262c89d3e7adf",
+  "nodes": [
+    {
+      "id": 5,
+      "type": "ManualSigmas",
+      "inputs": [
+        {
+          "name": "sigmas"
+        }
+      ],
+      "widgets_values": [
+        "0.9231, 0.8780, 0.8000, 0.6316, 0.3158, 0.0000"
+      ]
+    },
+    {
+      "id": 11,
+      "type": "VAEDecode",
+      "inputs": [
+        {
+          "name": "samples",
+          "link": 10
+        },
+        {
+          "name": "vae",
+          "link": 11
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "VAEDecodeAudio",
+      "inputs": [
+        {
+          "name": "samples",
+          "link": 12
+        },
+        {
+          "name": "vae",
+          "link": 13
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "VAELoader",
+      "inputs": [
+        {
+          "name": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "MiniMaxH3ImageToVideo",
+      "inputs": [
+        {
+          "name": "clip",
+          "link": 15
+        },
+        {
+          "name": "vae",
+          "link": 16
+        },
+        {
+          "name": "first_frame",
+          "link": 17
+        },
+        {
+          "name": "last_frame"
+        },
+        {
+          "name": "prompt",
+          "link": 19
+        },
+        {
+          "name": "width",
+          "link": 20
+        },
+        {
+          "name": "height",
+          "link": 21
+        },
+        {
+          "name": "length",
+          "link": 22
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "PrimitiveFloat",
+      "inputs": [
+        {
+          "name": "value"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "CLIPLoader",
+      "inputs": [
+        {
+          "name": "clip_name"
+        },
+        {
+          "name": "type"
+        },
+        {
+          "name": "device"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "ComfyMathExpression",
+      "inputs": [
+        {
+          "name": "values.a",
+          "link": 35
+        },
+        {
+          "name": "values.b"
+        },
+        {
+          "name": "expression"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "type": "SamplerCustomAdvanced",
+      "inputs": [
+        {
+          "name": "noise",
+          "link": 36
+        },
+        {
+          "name": "guider",
+          "link": 37
+        },
+        {
+          "name": "sampler",
+          "link": 38
+        },
+        {
+          "name": "sigmas",
+          "link": 74
+        },
+        {
+          "name": "latent_image",
+          "link": 40
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "type": "SamplerCustomAdvanced",
+      "inputs": [
+        {
+          "name": "noise",
+          "link": 41
+        },
+        {
+          "name": "guider",
+          "link": 42
+        },
+        {
+          "name": "sampler",
+          "link": 43
+        },
+        {
+          "name": "sigmas",
+          "link": 44
+        },
+        {
+          "name": "latent_image",
+          "link": 45
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "type": "KSamplerSelect",
+      "inputs": [
+        {
+          "name": "sampler_name"
+        }
+      ],
+      "widgets_values": [
+        "euler"
+      ]
+    },
+    {
+      "id": 31,
+      "type": "MarkdownNote",
+      "inputs": []
+    },
+    {
+      "id": 32,
+      "type": "MarkdownNote",
+      "inputs": []
+    },
+    {
+      "id": 33,
+      "type": "BasicGuider",
+      "inputs": [
+        {
+          "name": "model",
+          "link": 77
+        },
+        {
+          "name": "conditioning",
+          "link": 50
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "type": "BasicGuider",
+      "inputs": [
+        {
+          "name": "model",
+          "link": 95
+        },
+        {
+          "name": "conditioning",
+          "link": 52
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "type": "RandomNoise",
+      "inputs": [
+        {
+          "name": "noise_seed"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "PrimitiveStringMultiline",
+      "inputs": [
+        {
+          "name": "value"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "VAELoader",
+      "inputs": [
+        {
+          "name": "vae_name"
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "type": "UNETLoader",
+      "inputs": [
+        {
+          "name": "unet_name"
+        },
+        {
+          "name": "weight_dtype"
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "type": "MiniMaxH3SigmaShift",
+      "inputs": [
+        {
+          "name": "model",
+          "link": 61
+        },
+        {
+          "name": "shift_video"
+        },
+        {
+          "name": "shift_audio"
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "type": "ModelAttentionBackend",
+      "inputs": [
+        {
+          "name": "model",
+          "link": 90
+        },
+        {
+          "name": "attention"
+        }
+      ]
+    },
+    {
+      "id": 44,
+      "type": "BlockSparseAttention",
+      "inputs": [
+        {
+          "name": "model",
+          "link": 63
+        },
+        {
+          "name": "selection"
+        },
+        {
+          "name": "selection.keep_percent"
+        },
+        {
+          "name": "start_percent"
+        },
+        {
+          "name": "end_percent"
+        },
+        {
+          "name": "dense_blocks"
+        },
+        {
+          "name": "min_tokens"
+        },
+        {
+          "name": "extra_tokens"
+        },
+        {
+          "name": "sink_conditioning"
+        },
+        {
+          "name": "verbose"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "MiniMaxH3ImageToVideo",
+      "inputs": [
+        {
+          "name": "clip",
+          "link": 27
+        },
+        {
+          "name": "vae",
+          "link": 28
+        },
+        {
+          "name": "first_frame",
+          "link": 29
+        },
+        {
+          "name": "last_frame"
+        },
+        {
+          "name": "prompt",
+          "link": 31
+        },
+        {
+          "name": "width",
+          "link": 32
+        },
+        {
+          "name": "height",
+          "link": 33
+        },
+        {
+          "name": "length",
+          "link": 34
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "BasicScheduler",
+      "inputs": [
+        {
+          "name": "model",
+          "link": 62
+        },
+        {
+          "name": "scheduler"
+        },
+        {
+          "name": "steps"
+        },
+        {
+          "name": "denoise"
+        }
+      ],
+      "widgets_values": [
+        "simple",
+        8,
+        1
+      ]
+    },
+    {
+      "id": 22,
+      "type": "ResolutionSelector",
+      "inputs": [
+        {
+          "name": "preview"
+        },
+        {
+          "name": "aspect_ratio",
+          "link": 92
+        },
+        {
+          "name": "megapixels"
+        },
+        {
+          "name": "multiple"
+        }
+      ],
+      "widgets_values": [
+        "16:9 (Widescreen)",
+        0.2,
+        32
+      ]
+    },
+    {
+      "id": 24,
+      "type": "ManualSigmas",
+      "inputs": [
+        {
+          "name": "sigmas"
+        }
+      ],
+      "widgets_values": [
+        "0.9035, 0.8000, 0.6316, 0.3158, 0.0000"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "SplitSigmas",
+      "inputs": [
+        {
+          "name": "sigmas",
+          "link": 5
+        },
+        {
+          "name": "step"
+        }
+      ],
+      "widgets_values": [
+        4
+      ]
+    },
+    {
+      "id": 30,
+      "type": "ManualSigmas",
+      "inputs": [
+        {
+          "name": "sigmas"
+        }
+      ],
+      "widgets_values": [
+        "0.9035, 0.6316, 0.3158, 0.0000"
+      ]
+    },
+    {
+      "id": 27,
+      "type": "PrimitiveFloat",
+      "inputs": [
+        {
+          "name": "value"
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "type": "VHS_VideoCombine",
+      "inputs": [
+        {
+          "name": "images",
+          "link": 78
+        },
+        {
+          "name": "audio",
+          "link": 79
+        },
+        {
+          "name": "meta_batch"
+        },
+        {
+          "name": "vae"
+        },
+        {
+          "name": "frame_rate"
+        },
+        {
+          "name": "loop_count"
+        },
+        {
+          "name": "filename_prefix"
+        },
+        {
+          "name": "format"
+        },
+        {
+          "name": "pingpong"
+        },
+        {
+          "name": "save_output"
+        },
+        {
+          "name": "no_preview"
+        }
+      ]
+    },
+    {
+      "id": 49,
+      "type": "PrimitiveNode",
+      "inputs": []
+    },
+    {
+      "id": 9,
+      "type": "LoadImage",
+      "inputs": [
+        {
+          "name": "image"
+        },
+        {
+          "name": "upload"
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "type": "LTXVSeparateAVLatent",
+      "inputs": [
+        {
+          "name": "av_latent",
+          "link": 55
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "LTXVConcatAVLatent",
+      "inputs": [
+        {
+          "name": "video_latent",
+          "link": 99
+        },
+        {
+          "name": "audio_latent",
+          "link": 26
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "ResolutionSelector",
+      "inputs": [
+        {
+          "name": "preview"
+        },
+        {
+          "name": "aspect_ratio",
+          "link": 91
+        },
+        {
+          "name": "megapixels",
+          "link": 14
+        },
+        {
+          "name": "multiple"
+        }
+      ],
+      "widgets_values": [
+        "16:9 (Widescreen)",
+        1,
+        32
+      ]
+    },
+    {
+      "id": 54,
+      "type": "MinimaxH3LatentUpscaler3D",
+      "inputs": [
+        {
+          "name": "latent",
+          "link": 100
+        },
+        {
+          "name": "model_name"
+        },
+        {
+          "name": "mode"
+        },
+        {
+          "name": "mode.width",
+          "link": 101
+        },
+        {
+          "name": "mode.height",
+          "link": 102
+        },
+        {
+          "name": "align"
+        },
+        {
+          "name": "device"
+        },
+        {
+          "name": "precision"
+        },
+        {
+          "name": "enable_chunking"
+        }
+      ]
+    }
+  ],
+  "links": [
+    [
+      5,
+      8,
+      0,
+      3,
+      0,
+      "SIGMAS"
+    ],
+    [
+      10,
+      25,
+      0,
+      11,
+      0,
+      "LATENT"
+    ],
+    [
+      11,
+      7,
+      0,
+      11,
+      1,
+      "VAE"
+    ],
+    [
+      12,
+      25,
+      0,
+      12,
+      0,
+      "LATENT"
+    ],
+    [
+      13,
+      13,
+      0,
+      12,
+      1,
+      "VAE"
+    ],
+    [
+      15,
+      21,
+      0,
+      16,
+      0,
+      "CLIP"
+    ],
+    [
+      16,
+      7,
+      0,
+      16,
+      1,
+      "VAE"
+    ],
+    [
+      17,
+      9,
+      0,
+      16,
+      2,
+      "IMAGE"
+    ],
+    [
+      19,
+      14,
+      0,
+      16,
+      4,
+      "STRING"
+    ],
+    [
+      20,
+      22,
+      0,
+      16,
+      5,
+      "INT"
+    ],
+    [
+      21,
+      22,
+      1,
+      16,
+      6,
+      "INT"
+    ],
+    [
+      22,
+      23,
+      1,
+      16,
+      7,
+      "INT"
+    ],
+    [
+      26,
+      38,
+      1,
+      18,
+      1,
+      "LATENT"
+    ],
+    [
+      27,
+      21,
+      0,
+      19,
+      0,
+      "CLIP"
+    ],
+    [
+      28,
+      7,
+      0,
+      19,
+      1,
+      "VAE"
+    ],
+    [
+      29,
+      9,
+      0,
+      19,
+      2,
+      "IMAGE"
+    ],
+    [
+      31,
+      14,
+      0,
+      19,
+      4,
+      "STRING"
+    ],
+    [
+      32,
+      15,
+      0,
+      19,
+      5,
+      "INT"
+    ],
+    [
+      33,
+      15,
+      1,
+      19,
+      6,
+      "INT"
+    ],
+    [
+      34,
+      23,
+      1,
+      19,
+      7,
+      "INT"
+    ],
+    [
+      36,
+      37,
+      0,
+      25,
+      0,
+      "NOISE"
+    ],
+    [
+      37,
+      35,
+      0,
+      25,
+      1,
+      "GUIDER"
+    ],
+    [
+      38,
+      29,
+      0,
+      25,
+      2,
+      "SAMPLER"
+    ],
+    [
+      40,
+      18,
+      0,
+      25,
+      4,
+      "LATENT"
+    ],
+    [
+      41,
+      37,
+      0,
+      26,
+      0,
+      "NOISE"
+    ],
+    [
+      42,
+      33,
+      0,
+      26,
+      1,
+      "GUIDER"
+    ],
+    [
+      43,
+      29,
+      0,
+      26,
+      2,
+      "SAMPLER"
+    ],
+    [
+      44,
+      3,
+      0,
+      26,
+      3,
+      "SIGMAS"
+    ],
+    [
+      45,
+      16,
+      1,
+      26,
+      4,
+      "LATENT"
+    ],
+    [
+      50,
+      16,
+      0,
+      33,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      52,
+      19,
+      0,
+      35,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      55,
+      26,
+      1,
+      38,
+      0,
+      "LATENT"
+    ],
+    [
+      61,
+      43,
+      0,
+      42,
+      0,
+      "MODEL"
+    ],
+    [
+      62,
+      43,
+      0,
+      8,
+      0,
+      "MODEL"
+    ],
+    [
+      74,
+      30,
+      0,
+      25,
+      3,
+      "SIGMAS"
+    ],
+    [
+      14,
+      27,
+      0,
+      15,
+      2,
+      "FLOAT"
+    ],
+    [
+      77,
+      44,
+      0,
+      33,
+      0,
+      "MODEL"
+    ],
+    [
+      78,
+      11,
+      0,
+      46,
+      0,
+      "IMAGE"
+    ],
+    [
+      79,
+      12,
+      0,
+      46,
+      1,
+      "AUDIO"
+    ],
+    [
+      90,
+      42,
+      0,
+      40,
+      0,
+      "MODEL"
+    ],
+    [
+      91,
+      49,
+      0,
+      15,
+      1,
+      "COMBO"
+    ],
+    [
+      92,
+      49,
+      0,
+      22,
+      1,
+      "COMBO"
+    ],
+    [
+      95,
+      44,
+      0,
+      35,
+      0,
+      "MODEL"
+    ],
+    [
+      35,
+      20,
+      0,
+      23,
+      0,
+      "FLOAT"
+    ],
+    [
+      63,
+      40,
+      0,
+      44,
+      0,
+      "MODEL"
+    ],
+    [
+      99,
+      54,
+      0,
+      18,
+      0,
+      "LATENT"
+    ],
+    [
+      100,
+      38,
+      0,
+      54,
+      0,
+      "*"
+    ],
+    [
+      101,
+      15,
+      0,
+      54,
+      3,
+      "INT"
+    ],
+    [
+      102,
+      15,
+      1,
+      54,
+      4,
+      "INT"
+    ]
+  ]
+}

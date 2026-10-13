@@ -11,7 +11,7 @@ export default function GalleryPlayer({entries,music=[],title='我的精選',use
   const [playing,setPlaying]=useState(true),[random,setRandom]=useState(saved.random===true),[seconds,setSeconds]=useState([3,5,8,12].includes(saved.seconds) ? saved.seconds : 5);
   const [fill,setFill]=useState(saved.fill===true),[trackId,setTrackId]=useState(saved.trackId || ''),[volume,setVolume]=useState(Number.isFinite(saved.volume) ? Math.max(0,Math.min(1,saved.volume)) : .3);
   const [nav,setNav]=useState({id:entries[0]?.id,history:[entries[0]?.id],cursor:0,bag:entries.slice(1).map(row=>row.id)}),[ready,setReady]=useState(''),[failed,setFailed]=useState(''),[musicError,setMusicError]=useState(''),[full,setFull]=useState(false),[visible,setVisible]=useState(!document.hidden);
-  const dialog=useRef(null),frame=useRef(null),audio=useRef(null),close=useRef(onClose),keyboard=useRef(null),didFullscreen=useRef(false);
+  const dialog=useRef(null),frame=useRef(null),audio=useRef(null),video=useRef(null),close=useRef(onClose),keyboard=useRef(null),didFullscreen=useRef(false);
   close.current=onClose;
   const ids=entries.map(row=>row.id),idList=ids.join(','),current=entries.find(row=>row.id===nav.id) || entries[0],index=entries.findIndex(row=>row.id===current?.id);
   const track=music.find(row=>row.id===trackId);
@@ -44,7 +44,13 @@ export default function GalleryPlayer({entries,music=[],title='我的精選',use
   },[]);
   useEffect(()=>{if(!entries.length) close.current();else if(!ids.includes(nav.id)) choose(ids[0]);},[idList]);
   useEffect(()=>{frame.current?.querySelector('.pc-player-thumbnails .active')?.scrollIntoView({block:'nearest',inline:'center'});},[current?.id]);
-  useEffect(()=>{if(!playing || !visible || entries.length<2 || ready!==current?.id) return;const timer=setTimeout(()=>move(1),seconds*1000);return ()=>clearTimeout(timer);},[playing,visible,seconds,current?.id,ready,move]);
+  useEffect(()=>{if(!playing || !visible || current?.video || entries.length<2 || ready!==current?.id) return;const timer=setTimeout(()=>move(1),seconds*1000);return ()=>clearTimeout(timer);},[playing,visible,seconds,current?.id,current?.video,ready,move]);
+  useEffect(()=>{
+    const player=video.current;if(!player) return;let cancelled=false;
+    if(playing && visible) {if(player.ended) player.currentTime=0;player.play().catch(error=>{if(!cancelled && error.name!=='AbortError') setPlaying(false);});}
+    else player.pause();
+    return ()=>{cancelled=true;player.pause();};
+  },[playing,visible,current?.id,current?.video,ready]);
   useEffect(()=>{try {localStorage.setItem(key,JSON.stringify({random,seconds,fill,trackId,volume}));} catch {/* Playback also works without persistent browser storage. */}},[key,random,seconds,fill,trackId,volume]);
   useEffect(()=>{if(trackId && !track) {setTrackId('');setMusicError('');}},[trackId,track]);
   useEffect(()=>{
@@ -58,9 +64,9 @@ export default function GalleryPlayer({entries,music=[],title='我的精選',use
   const toggleMusic=()=>{if(!track) return;if(audio.current.paused) audio.current.play().then(()=>setMusicError('')).catch(()=>setMusicError('音樂暫時無法播放，請選擇另一首。'));else {audio.current.pause();setTrackId('');}};
   return createPortal(<dialog ref={dialog} className="pc-gallery-player" aria-label="精選全螢幕播放" onCancel={event=>{event.preventDefault();onClose();}}>
     <div ref={frame} className="pc-player-screen" tabIndex={-1}>
-      {current && <img key={current.id} className={`pc-player-photo ${fill ? 'fill' : ''}`} src={current.image} alt={`${current.garment || '精選寫真'} · ${current.pose || ''}`} onLoad={()=>setReady(current.id)} onError={()=>{setFailed(current.id);setPlaying(false);}}/>}
-      {current && ready!==current.id && failed!==current.id && <div className="pc-player-loading" role="status"><Loader2 size={26} className="spin"/>讀取照片…</div>}
-      {failed===current?.id && <div className="pc-player-loading" role="alert">這張照片無法讀取，請切換下一張。</div>}
+      {current && (current.video ? <video ref={video} key={`${current.id}:${current.video}`} className={`pc-player-photo ${fill ? 'fill' : ''}`} aria-label={`精選影片 ${current.garment || '寫真'}`} src={current.video} poster={current.image} muted playsInline preload="metadata" loop={entries.length===1} onLoadedData={()=>setReady(current.id)} onEnded={()=>{if(playing && visible && entries.length>1) move(1);}} onError={()=>{setFailed(current.id);setPlaying(false);}}/> : <img key={current.id} className={`pc-player-photo ${fill ? 'fill' : ''}`} src={current.image} alt={`${current.garment || '精選寫真'} · ${current.pose || ''}`} onLoad={()=>setReady(current.id)} onError={()=>{setFailed(current.id);setPlaying(false);}}/>)}
+      {current && ready!==current.id && failed!==current.id && <div className="pc-player-loading" role="status"><Loader2 size={26} className="spin"/>{current.video ? '讀取影片…' : '讀取照片…'}</div>}
+      {failed===current?.id && <div className="pc-player-loading" role="alert">這項精選無法讀取，請切換下一張。</div>}
       <header className="pc-player-header"><div><span>PhotoCreate / YOUR SELECTS</span><h2>{title}</h2></div><button aria-label="關閉精選播放" title="關閉 · Esc" onClick={onClose}><X size={22}/></button></header>
       <footer className="pc-player-bottom">
         <div className="pc-player-thumbnails" role="group" aria-label="精選播放縮圖">{entries.map((entry,i)=><button key={entry.id} className={current?.id===entry.id ? 'active' : ''} aria-label={`播放第 ${i+1} 張精選`} aria-pressed={current?.id===entry.id} onClick={()=>choose(entry.id)}><img decoding="async" src={imagePreview(entry.image,'small')} alt="" loading="lazy"/><span>{i+1}</span></button>)}</div>

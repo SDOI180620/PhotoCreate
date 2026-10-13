@@ -86,7 +86,7 @@ test('升級補入表情與服裝狀態，保留自訂提詞、既有任務、�
   });
   store.close();store = createStore(dir);
   assert.equal(store.searchPresets({category:'expression'}).total,3);
-  assert.equal(store.searchPresets({category:'clothing_state'}).total,3);
+  assert.equal(store.searchPresets({category:'clothing_state'}).total,4);
   assert.equal(store.searchPresets({q:'自訂',category:'expression'}).rows[0].prompt,'A personal smile.');
   assert.deepEqual(store.read().draft,{expressionId:'',clothingStateId:'',extra:'舊草稿'});
   assert.equal(store.read().jobs[0].prompt,existingJob.prompt);assert.equal(store.read().jobs[0].promptId,'preserved');
@@ -95,6 +95,6 @@ test('升級補入表情與服裝狀態，保留自訂提詞、既有任務、�
     state.draft.expressionId = 'expression-smile';state.draft.clothingStateId = 'clothing-state-folds';
   });
   store.close();store = createStore(dir);
-  assert.equal(store.searchPresets({category:'clothing_state'}).total,2);
+  assert.equal(store.searchPresets({category:'clothing_state'}).total,3);
   assert.equal(store.read().draft.expressionId,'expression-smile');assert.equal(store.read().draft.clothingStateId,'clothing-state-folds');
 });

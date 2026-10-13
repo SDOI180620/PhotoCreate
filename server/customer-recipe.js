@@ -23,7 +23,7 @@ export function customerProductionState(state,recipe) {
 
 export function customerDraft(recipe,{characterId,count,aspectRatio,batchName,cameraEnabled=false}) {
   const selections=Object.fromEntries(Object.entries(OPTIONAL_PRESET_POOL_FIELDS).map(([category,field])=>[field,
-    recipe.pools[category === 'clothing_state' ? 'clothingState' : category].filter(Boolean).map(row=>row.id)]));
+    (recipe.pools[category === 'clothing_state' ? 'clothingState' : category] || []).filter(Boolean).map(row=>row.id)]));
   return {...structuredClone(DEFAULT_DRAFT),...structuredClone(recipe.settings),mode:'random',randomPoolMode:'all',garmentIds:[],
     ...selections,seed:-1,randomCount:count,characterId,aspectRatio,batchName,cameraEnabled};
 }

@@ -1,4 +1,6 @@
 import {withSingleSubjectPrompt,withSingleSubjectNegative} from './subject.js';
+import {cameraPrompt21} from './camera-21.js';
+import {cameraVersion} from './camera-version.js';
 
 export const DEFAULT_CAMERA_ANGLE = {horizontalAngle:0,verticalAngle:0,zoom:5};
 export const CAMERA_FRAMING_VERSION = 3;
@@ -16,8 +18,16 @@ const ZOOM_LEVELS = [
   {max:10,value:9,label:'局部大特寫（9–10）',tag:'close-up',prompt:'Extreme close-up. Move the camera right up to the part of the person and clothing at the center of the reference photograph. Fill the entire frame with this small local detail, showing fine skin and fabric texture. The whole head, whole body and most of the room are outside the frame. Photograph the corresponding area from the requested viewing direction.'},
 ];
 export const CAMERA_ZOOM = ZOOM_LEVELS.map(({value,label})=>[value,label]);
-export const REFINE_PROMPT = withSingleSubjectPrompt('Restore only sharpness and fine photographic detail in <image1>. Preserve exactly the same person, face, hairstyle, expression, pose, clothing, clothing state, objects, environment, camera viewpoint, framing, lighting and colors. Do not add, remove, replace or redesign anything. Do not change the composition.');
-export const REFINE_NEGATIVE = withSingleSubjectNegative('added objects, changed identity, changed pose, changed clothing, changed background, changed composition, text, watermark');
+export const REFINE_PROMPT = withSingleSubjectPrompt(`Enhance <image1> into a high-definition photograph with natural scene integration and targeted anatomical repair. Preserve exactly the same person, face, hairstyle, expression, body shape and intended proportions, overall pose, hand gesture, clothing, clothing state, objects, environment, camera viewpoint, framing and composition.
+
+Integrate the person naturally into the existing scene. Match the person's light direction, color temperature, exposure, perspective and depth of field to the surrounding environment while preserving the original lighting mood and color palette. Correct inconsistent contact shadows, occlusion and reflections at existing contact points so the person feels physically present in the scene. Keep the person and objects in their original positions.
+
+Restore crisp, realistic detail in skin, hair, fabric and background textures. Reduce blur, noise and compression artifacts while preserving natural skin texture. Avoid excessive sharpening, halos, waxy skin and invented texture.
+
+Repair visible anatomical and rendering defects in hands, fingers, wrists, arms, legs, feet, toes and joints. Correct malformed, extra, missing or fused digits and distorted limbs only where they are defective, with natural proportions, believable joint alignment and anatomically correct digit counts. Preserve the intended pose, original hand gesture and existing contact with objects. Respect natural occlusion and cropping: show only the digits and body parts that should be visible, and do not expose or invent hidden or cropped parts. Keep intact anatomy unchanged.
+
+Do not add or remove people or scene objects, redesign the person's appearance or clothing, or change the composition.`);
+export const REFINE_NEGATIVE = withSingleSubjectNegative('low resolution, blur, noise, compression artifacts, excessive sharpening, halos, waxy skin, plastic skin, pasted-on subject, cutout edges, mismatched lighting, inconsistent shadows, incorrect perspective, bad anatomy, malformed hands, malformed feet, extra fingers, missing fingers, fused fingers, extra toes, missing toes, fused toes, extra limbs, duplicated limbs, distorted limbs, dislocated joints, added objects, changed identity, changed pose, changed gesture, changed clothing, changed background, changed composition, text, watermark');
 
 export function normalizeCameraAngle(value) {
   if(!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('相機角度格式不正確。');
@@ -45,7 +55,8 @@ export function cameraZoomLevel(angle) {
   return ZOOM_LEVELS.find(level=>zoom<=level.max);
 }
 
-export function cameraPrompt(angle) {
+export function cameraPrompt(angle,version = '2511') {
+  if(cameraVersion(version).id === '2.1') return cameraPrompt21(normalizeCameraAngle(angle));
   const {horizontalAngle,verticalAngle} = normalizeCameraAngle(angle);
   const directions = ['front view','front-right quarter view','right side view','back-right quarter view','back view','back-left quarter view','left side view','front-left quarter view'];
   const directionIndex = Math.floor(((horizontalAngle % 360) + 22.5) / 45) % 8;

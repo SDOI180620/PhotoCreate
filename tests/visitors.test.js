@@ -15,6 +15,8 @@ import {cameraPrompt,REFINE_PROMPT,REFINE_NEGATIVE} from '../shared/camera.js';
 import {SINGLE_SUBJECT_NEGATIVE,withSingleSubjectPrompt} from '../shared/subject.js';
 import {DEFAULT_DRAFT} from '../shared/draft.js';
 import {buildShotPlans,getOutputSize} from '../shared/domain.js';
+import {createCustomerPrompts} from '../server/customer-prompts.js';
+import {PHOTO_CHANGE_FIELDS} from '../shared/photo-customization.js';
 
 async function fixture(t) {
   const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-visitors-'));
@@ -65,6 +67,80 @@ async function fixture(t) {
   return {...instance,dataDir,outputDir,base,visitor,prompts,views,completePending,pending,cancellations,setCancelError:value=>{cancelError=value;}};
 }
 const upload=async(client,name)=>{const form=new FormData();form.append('image',new Blob([PNG],{type:'image/png'}),name+'.png');return client.request('/characters',form);};
+
+test('顧客的九類提詞收藏依帳號保存，跨重開仍可使用，拒絕他人修改與無效資料',async t=>{
+  const f=await fixture(t),alice=f.visitor(),bob=f.visitor(),official=f.store.read(state=>state.presets);
+  const bodies=Object.keys(PHOTO_CHANGE_FIELDS).map(field=>({field,name:`我的 ${field}`,prompt:`My saved ${field} direction.`,ownerId:'forged-owner'}));
+  const saved=[];
+  for(const body of bodies) {const result=await alice.request('/prompts',body);assert.equal(result.status,201);assert.equal(result.data.ownerId,undefined);saved.push(result.data);}
+  assert.deepEqual((await alice.request('/state')).data.customerPrompts.map(row=>row.id).sort(),saved.map(row=>row.id).sort());
+  assert.deepEqual((await bob.request('/prompts')).data,[]);
+  assert.deepEqual((await bob.request('/state')).data.customerPrompts,[]);
+  assert.equal((await bob.request(`/prompts/${saved[0].id}`,bodies[0],'PATCH')).status,404);
+  assert.equal((await bob.request(`/prompts/${saved[0].id}`,undefined,'DELETE')).status,404);
+  assert.equal((await alice.request('/prompts',bodies[0])).status,200);
+  assert.equal((await alice.request('/prompts')).data.length,9);
+  const updated=await alice.request(`/prompts/${saved[0].id}`,{...bodies[0],name:'  我的新搭配  ',prompt:'  Edited saved direction.  '},'PATCH');
+  assert.equal(updated.status,200);assert.equal(updated.data.name,'我的新搭配');assert.equal(updated.data.prompt,'Edited saved direction.');
+  for(const body of [null,[],{...bodies[0],field:'__proto__'},{...bodies[0],field:'camera'},{...bodies[0],name:''},{...bodies[0],name:'x'.repeat(81)},{...bodies[0],prompt:' '},{...bodies[0],prompt:'x'.repeat(2001)}]) assert.equal((await alice.request('/prompts',body)).status,400);
+  const ownerId=f.store.read(state=>state.customerPrompts.find(row=>row.id===saved[0].id).ownerId),reopened=createStore(f.dataDir);
+  try {assert.equal(createCustomerPrompts(reopened).list(ownerId).length,9);assert.equal(createCustomerPrompts(reopened).list(ownerId).find(row=>row.id===saved[0].id).prompt,'Edited saved direction.');}
+  finally {reopened.close();}
+  assert.equal((await alice.request(`/prompts/${saved[0].id}`,undefined,'DELETE')).status,200);
+  assert.equal((await alice.request('/prompts')).data.length,8);
+  const admin=await fetch(f.base+'/api/state');assert.equal(Object.hasOwn(await admin.json(),'customerPrompts'),false);
+  assert.deepEqual(f.store.read(state=>state.presets),official);
+});
+
+test('顧客服裝圖片只供本人選用，實際以 image2 拍攝，移除收藏保留既有拍攝快照',async t=>{
+  const f=await fixture(t),alice=f.visitor(),bob=f.visitor();
+  const offered=(await alice.request('/state')).data,form=new FormData();
+  form.append('image',new Blob([PNG],{type:'image/png'}),'my-jacket.png');form.append('visitorId','forged-owner');
+  const uploaded=await alice.request('/garments',form);
+  assert.equal(uploaded.status,201);assert.equal(uploaded.data.owned,true);assert.equal(uploaded.data.name,'my-jacket');
+  const garment=f.store.read(state=>state.garments.find(row=>row.id===uploaded.data.id));
+  assert.notEqual(garment.visitorId,'forged-owner');assert.equal(garment.description,'');
+  assert.deepEqual((await alice.request(`/garments/${garment.id}/image`)).data,PNG);
+  for(const query of ['', '?thumbnail=card']) assert.equal((await bob.request(`/garments/${garment.id}/image${query}`)).status,404);
+  assert.equal((await bob.request(`/garments/${garment.id}`,{name:'other'},'PATCH')).status,404);
+  assert.equal((await bob.request(`/garments/${garment.id}`,undefined,'DELETE')).status,404);
+  assert.equal((await alice.request(`/garments/${offered.garments[0].id}`,{name:'official'},'PATCH')).status,404);
+  assert.equal((await alice.request(`/garments/${garment.id}`,{name:'我的外套'},'PATCH')).status,200);
+  assert.equal((await alice.request('/state')).data.garments.filter(row=>row.owned).length,1);
+  assert.equal((await bob.request('/state')).data.garments.some(row=>row.id===garment.id),false);
+  assert.equal((await (await fetch(f.base+'/api/state')).json()).garments.some(row=>row.id===garment.id),false);
+  assert.equal((await fetch(f.base+`/uploads/${garment.fileName}`)).status,404);
+  const invalid=new FormData();invalid.append('image',new Blob(['not-an-image'],{type:'image/png'}),'bad.png');
+  const filesBefore=fs.readdirSync(path.join(f.dataDir,'uploads'));
+  assert.equal((await alice.request('/garments',invalid)).status,400);
+  assert.deepEqual(fs.readdirSync(path.join(f.dataDir,'uploads')),filesBefore);
+  const bobOwner=(await upload(bob,'bob-personal')).data.id;
+  const bobId=f.store.read(state=>state.characters.find(row=>row.id===bobOwner).visitorId);
+  f.store.mutate(state=>{
+    const [plan]=buildShotPlans(state,{...DRAFT,copies:1,cameraMode:'multiangle',cameraEnabled:false,garmentIds:['garment-a'],poseIds:['pose-standing']});
+    const source={...plan,id:'personal-outfit-source',status:'completed',createdAt:new Date().toISOString(),visitorId:garment.visitorId,images:[{filename:'source.png',subfolder:'PhotoCreate/test-output',type:'output'}]};
+    state.jobs.unshift(source,{...structuredClone(source),id:'bob-outfit-source',visitorId:bobId},{...structuredClone(source),id:'admin-outfit-source',visitorId:undefined});
+  });
+  fs.writeFileSync(path.join(f.outputDir,'PhotoCreate','test-output','source.png'),PNG);
+  const body={requestId:randomUUID(),customization:{useOriginal:{clothing:false},clothingMode:'reference',garmentId:garment.id}};
+  assert.equal((await bob.request('/jobs/bob-outfit-source/custom',body)).status,400);
+  assert.equal((await fetch(f.base+'/api/jobs/admin-outfit-source/custom',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)})).status,400);
+  const result=await alice.request('/jobs/personal-outfit-source/custom',body);
+  assert.equal(result.status,202);
+  assert.equal((await alice.request('/jobs/personal-outfit-source/custom',body)).status,200);
+  const job=f.store.read(state=>state.jobs.find(row=>row.id===result.data.job.id));
+  assert.equal(job.garment.id,garment.id);assert.equal(job.garment.name,'我的外套');assert.equal(job.character.id,'character');
+  for(let i=0;i<100 && !f.prompts.length;i++) await new Promise(resolve=>setTimeout(resolve,10));
+  assert.ok(f.prompts.length);
+  const graph=f.prompts[0].prompt,encoder=Object.values(graph).find(node=>node.class_type==='TextEncodeQwenImage21');
+  assert.match(graph[encoder.inputs['images.image_1'][0]].inputs.image,/character\.png/);
+  assert.ok(graph[encoder.inputs['images.image_2'][0]].inputs.image.includes(garment.fileName));
+  assert.equal((await alice.request(`/garments/${garment.id}`,undefined,'DELETE')).status,200);
+  assert.equal((await alice.request('/state')).data.garments.some(row=>row.id===garment.id),false);
+  assert.equal((await alice.request(`/garments/${garment.id}/image`)).status,404);
+  assert.equal(f.store.read(state=>state.jobs.find(row=>row.id===job.id).garment.fileName),garment.fileName);
+  assert.ok(fs.existsSync(path.join(f.dataDir,'uploads',garment.fileName)));
+});
 
 test('顧客可編輯自己的角色與三視圖，保留拍攝快照且拒絕他人與共用角色修改',async t=>{
   const f=await fixture(t),alice=f.visitor(),bob=f.visitor(),official=(await alice.request('/state')).data.characters[0];

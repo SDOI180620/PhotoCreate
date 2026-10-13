@@ -9,7 +9,9 @@ import {defaultCharacterPromptSettings} from '../shared/character-profile.js';
 import {DEFAULT_TURNAROUND_PROMPT} from '../shared/character-turnaround.js';
 import {PORTRAIT_SCENE_PAIRS} from '../shared/portrait-scenes.js';
 import {migrateSceneDescriptions} from './scene-preset-migrations.js';
+import {migratePoseBodyPositions} from './pose-preset-migrations.js';
 import {initialCharacterPromptProfiles} from '../shared/character-prompt-profiles.js';
+import {cameraWorkflowVersion} from '../shared/camera-version.js';
 
 export function createStore(dataDir) {
   fs.mkdirSync(path.join(dataDir,'uploads'), { recursive: true });
@@ -78,6 +80,7 @@ export function createStore(dataDir) {
   }
   const beforeMigration = fresh ? {} : structuredClone(state);
   state.settings.releaseGpuMemory ??= false;
+  state.settings.cameraVersion ??= cameraWorkflowVersion(state.cameraWorkflow);
   state.settings.characterPrompts ??= defaultCharacterPromptSettings();
   state.settings.characterPrompts.turnaroundPrompt ??= DEFAULT_TURNAROUND_PROMPT;
   state.settings.characterPromptProfiles ??= initialCharacterPromptProfiles(state.settings.characterPrompts);
@@ -102,7 +105,18 @@ export function createStore(dataDir) {
     state.presets.push(...structuredClone(DEFAULT_PRESETS.filter(row => ['expression','clothing_state'].includes(row.category) && !ids.has(row.id))));
     state.detailPresetsVersion = 1;
   }
+  if (!state.fullyDressedPresetVersion) {
+    const preset = DEFAULT_PRESETS.find(row => row.id === 'clothing-state-fully-dressed');
+    if(!state.presets.some(row => row.id === preset.id)) state.presets.push(structuredClone(preset));
+    state.fullyDressedPresetVersion = 1;
+  }
   migrateSceneDescriptions(state);
+  migratePoseBodyPositions(state);
+  if(!state.gazePresetsVersion) {
+    const ids=new Set(state.presets.map(row=>row.id));
+    state.presets.push(...structuredClone(DEFAULT_PRESETS.filter(row=>row.category==='gaze' && !ids.has(row.id))));
+    state.gazePresetsVersion=1;
+  }
   state.presets = state.presets.map(row => row.category === 'camera' ? upgradeCameraMapping(row) : row);
   if(state.customerRecipe?.pools?.camera) state.customerRecipe.pools.camera = state.customerRecipe.pools.camera.map(row => row.id === 'camera-original' ? row : upgradeCameraMapping(row));
   reconcileLibrarySelections(state);

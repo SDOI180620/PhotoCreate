@@ -12,7 +12,7 @@ export async function until(predicate,message='Condition did not become true') {
   while(Date.now()<end) {if(await predicate()) return;await new Promise(resolve=>setTimeout(resolve,10));}
   throw new Error(message);
 }
-export async function previewFixture({camera=true,presetPreviewOptions={},characterTurnaroundOptions={},musicOptions={},directoryPicker,beforeStart}={}) {
+export async function previewFixture({camera=true,allowModelRelease=false,presetPreviewOptions={},characterTurnaroundOptions={},musicOptions={},directoryPicker,beforeStart}={}) {
   const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-preset-preview-')),outputDir=path.join(dataDir,'output');
   fs.mkdirSync(outputDir);
   const pending=new Set(),submitted=[],cancelled=[],history=new Map(),calls=[];
@@ -36,6 +36,7 @@ export async function previewFixture({camera=true,presetPreviewOptions={},charac
     if(route==='/view') return new Response(PNG,{headers:{'content-type':'image/png'}});
     if(route==='/userdata') return Response.json([]);
     if(route==='/system_stats') return Response.json({devices:[{name:'Test GPU',vram_total:32e9,vram_free:20e9}]});
+    if(route==='/free' && allowModelRelease) return Response.json({});
     if(['/free','/interrupt'].includes(route)) throw new Error('Preview must not interrupt or unload a shared engine');
     return Response.json({});
   };

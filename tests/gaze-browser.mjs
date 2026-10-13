@@ -1,0 +1,67 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {chromium,expect} from '@playwright/test';
+import {previewFixture,until} from './preset-preview-fixture.js';
+import {loginBrowser} from './auth-client.js';
+import {DRAFT,PNG} from './fixtures.js';
+import {createCustomerRecipe} from '../server/customer-recipe.js';
+import {buildShotPlans} from '../shared/domain.js';
+
+const f=await previewFixture(),browser=await chromium.launch({executablePath:process.env.PHOTOCREATE_BROWSER || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+page.on('pageerror',error=>errors.push(error.message));
+fs.mkdirSync('test-results',{recursive:true});
+const draft={...DRAFT,characterIds:['character'],copies:1,garmentIds:['garment-a'],poseIds:['pose-portrait-action-rail-squat'],expressionIds:['expression-smile'],gazeIds:[],mode:'random',randomPoolMode:'selected',randomCount:2,cameraEnabled:false};
+f.store.mutate(state=>{state.draft=structuredClone(draft);state.customerRecipe=createCustomerRecipe(state,draft);});
+try {
+  await loginBrowser(page,f.base);
+  const field=page.getByRole('group',{name:'視線提詞',exact:true});
+  await expect(field).toContainText('未指定：自然配合動作');
+  await field.getByRole('button',{name:'選擇視線提詞',exact:true}).click();
+  const picker=page.getByRole('dialog',{name:'選擇視線提詞 · 可複選',exact:true});
+  await expect(picker.getByRole('button',{name:'看向畫面左側',exact:true})).toBeVisible();
+  await picker.getByRole('button',{name:'看向畫面左側',exact:true}).click();
+  await picker.getByRole('button',{name:'看向手中物件',exact:true}).click();
+  await picker.getByRole('button',{name:'使用所選提詞 (2)',exact:true}).click();
+  await expect(field).toContainText('看向畫面左側、看向手中物件');
+  await expect(page.locator('.prompt-preview')).toContainText('Gaze direction:');
+  await expect(page.locator('.prompt-preview')).toContainText('normal standing height');
+  await field.screenshot({path:path.resolve('test-results/gaze-controls-desktop.png')});
+  await page.getByRole('button',{name:'套用至顧客攝影棚',exact:true}).click();
+  await expect.poll(()=>f.store.read(state=>state.customerRecipe.pools.gaze.map(row=>row.id))).toEqual(['gaze-left','gaze-object']);
+  await page.reload();await expect(field).toContainText('看向畫面左側、看向手中物件');
+  await page.setViewportSize({width:390,height:844});await expect(field).toBeVisible();
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+  await field.screenshot({path:path.resolve('test-results/gaze-controls-mobile.png')});
+  await page.setViewportSize({width:1440,height:1000});
+  await field.getByRole('button',{name:'清除視線提詞',exact:true}).click();
+  await expect(field).toContainText('未指定：自然配合動作');
+
+  const customer=await f.authentication.createCustomer({username:'gaze-customer',password:'fixture-pass'});
+  const {DatabaseSync}=await import('node:sqlite'),db=new DatabaseSync(path.join(f.dataDir,'accounts.sqlite'),{readOnly:true});
+  const ownerId=db.prepare('SELECT owner_id FROM accounts WHERE id=?').get(customer.id).owner_id;db.close();
+  fs.mkdirSync(path.join(f.outputDir,'PhotoCreate'),{recursive:true});fs.writeFileSync(path.join(f.outputDir,'PhotoCreate','gaze-source.png'),PNG);
+  f.store.mutate(state=>{
+    const [plan]=buildShotPlans(state,{...draft,mode:'combinations',gazeIds:['gaze-left']});
+    state.jobs=[{...plan,id:'gaze-source',batchId:'gaze-batch',visitorId:ownerId,status:'completed',createdAt:'2026-10-13T00:00:00Z',images:[{filename:'gaze-source.png',subfolder:'PhotoCreate',type:'output'}]}];
+  });
+  const customerPage=await browser.newPage({viewport:{width:390,height:844}});customerPage.on('pageerror',error=>errors.push(error.message));
+  await loginBrowser(customerPage,f.base,'gaze-customer','fixture-pass');
+  await customerPage.locator('#photos').getByRole('button',{name:'資料夾 全部照片',exact:true}).click();
+  await customerPage.locator('.pc-photo-card').first().click();
+  await customerPage.getByRole('dialog',{name:'我的照片',exact:true}).locator('.pc-photo-actions').getByRole('button',{name:/^自訂拍攝/}).click();
+  const custom=customerPage.getByRole('dialog',{name:'自訂拍攝',exact:true});
+  await custom.getByRole('checkbox',{name:'視線沿用原設定',exact:true}).uncheck();
+  const gaze=custom.locator('.photo-change-option:has(input[aria-label="視線沿用原設定"])');
+  await gaze.getByRole('button',{name:'官方選項',exact:true}).click();
+  await gaze.getByRole('combobox',{name:'視線官方選項',exact:true}).selectOption('gaze-object');
+  await gaze.screenshot({path:path.resolve('test-results/gaze-photo-customization-mobile.png')});
+  await custom.getByRole('button',{name:'開始自訂拍攝',exact:true}).click();await until(()=>f.submitted.length>0);
+  const edited=f.store.read(state=>state.jobs.find(row=>row.jobKind==='photo-edit'));
+  assert.equal(edited.gaze.id,'gaze-object');assert.equal(edited.expression.id,'expression-smile');
+  assert.ok(edited.prompt.includes(edited.gaze.prompt));assert.ok(!edited.prompt.includes(f.store.read(state=>state.jobs.find(row=>row.id==='gaze-source').gaze.prompt)));
+  assert.equal(edited.prompt.split('Gaze direction:').length,2);
+  assert.deepEqual(errors,[]);
+  console.log('Gaze selection, publishing, reload, mobile layout and customer photo customization passed.');
+} finally {await browser.close();await f.close();}

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
-import {DEFAULT_PIANO_CAPTION,MUSIC_KINDS,musicWorkflow} from '../shared/gallery-music.js';
+import {DEFAULT_PIANO_CAPTION,DEFAULT_PIANO_DURATION_CAP,MUSIC_KINDS,musicWorkflow} from '../shared/gallery-music.js';
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ACTIVE=['submitting','queued','running','uncertain'];
@@ -48,7 +48,7 @@ export function createGalleryMusic({dataDir,comfyJson,comfyAt,comfyUrl,isBusy=()
     } catch(error) {return {ready:false,error:error.message};}
   }
   async function generate(id,input) {
-    id=validId(id);const values=fields(input),caption=input.caption ?? DEFAULT_PIANO_CAPTION,durationCap=Number(input.durationCap ?? 90);
+    id=validId(id);const values=fields(input),caption=input.caption ?? DEFAULT_PIANO_CAPTION,durationCap=Number(input.durationCap ?? DEFAULT_PIANO_DURATION_CAP);
     if(typeof caption!=='string' || !caption.trim() || caption.length>16000 || !Number.isInteger(durationCap) || durationCap<10 || durationCap>360) throw fail('請輸入音樂提詞，生成上限須為 10–360 秒。');
     const existing=tracks.find(row=>row.id===id);
     if(existing) {if(existing.name!==values.name || existing.kind!==values.kind || existing.caption!==caption || existing.durationCap!==durationCap) throw fail('這個請求已用於另一首音樂。',409);return publicTrack(existing);}

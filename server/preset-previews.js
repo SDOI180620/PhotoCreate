@@ -10,7 +10,7 @@ import {createStageRunner} from './stage-runner.js';
 import {garmentFields} from '../shared/garments.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const PRESET_KEYS = ['pose','expression','clothingState','interaction','camera','lighting','color','quality'];
+const PRESET_KEYS = ['pose','expression','gaze','clothingState','interaction','camera','lighting','color','quality'];
 const ACTIVE = ['queued','running','submitting','stopping','uncertain'];
 const fail = (message,status=400) => Object.assign(new Error(message),{status});
 const validId = id => {if(!UUID.test(id)) throw fail('臨時試拍識別碼無效。');return id;};

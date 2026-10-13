@@ -1,11 +1,12 @@
 import {withSingleSubjectPrompt} from './subject.js';
-import {referenceOnlyPrompt,REFERENCE_INSTRUCTION} from './domain.js';
+import {referenceOnlyPrompt,REFERENCE_INSTRUCTION,withNaturalScenePrompt} from './domain.js';
 import {characterProfilePrompt} from './character-profile.js';
 import {isPromptGarment,textClothingInstruction} from './garments.js';
+import {NATURAL_GAZE_PROMPT} from './gaze.js';
 
-export const PHOTO_CHANGE_FIELDS = {pose:'動作',clothing:'服裝',clothingState:'服裝狀態',scene:'場景',expression:'表情',lighting:'光線',color:'色彩',quality:'畫質'};
-export const PHOTO_PRESET_CATEGORIES = {pose:'pose',clothingState:'clothing_state',scene:'interaction',expression:'expression',lighting:'lighting',color:'color',quality:'quality'};
-export const PHOTO_CUSTOMIZATION_VERSION = 4;
+export const PHOTO_CHANGE_FIELDS = {pose:'動作',clothing:'服裝',clothingState:'服裝狀態',scene:'場景',expression:'表情',gaze:'視線',lighting:'光線',color:'色彩',quality:'畫質'};
+export const PHOTO_PRESET_CATEGORIES = {pose:'pose',clothingState:'clothing_state',scene:'interaction',expression:'expression',gaze:'gaze',lighting:'lighting',color:'color',quality:'quality'};
+export const PHOTO_CUSTOMIZATION_VERSION = 5;
 export const DEFAULT_PHOTO_CUSTOMIZATION = {
   preserveOriginal:true,useOriginal:Object.fromEntries(Object.keys(PHOTO_CHANGE_FIELDS).map(key=>[key,true])),
   clothingMode:'text',garmentId:'',aspectRatio:'original',
@@ -22,7 +23,7 @@ export function clothingDescription(value='') {
 }
 
 export function photoSettings(shot) {
-  const fields=[['character','character','角色'],['pose','pose','動作'],['clothing','garment','服裝'],['clothingState','clothingState','服裝狀態'],['scene','interaction','場景'],['expression','expression','表情'],['camera','camera','鏡位'],['lighting','lighting','光線'],['color','color','色彩'],['quality','quality','畫質']];
+  const fields=[['character','character','角色'],['pose','pose','動作'],['clothing','garment','服裝'],['clothingState','clothingState','服裝狀態'],['scene','interaction','場景'],['expression','expression','表情'],['gaze','gaze','視線'],['camera','camera','鏡位'],['lighting','lighting','光線'],['color','color','色彩'],['quality','quality','畫質']];
   const settings=fields.flatMap(([key,field,label])=>{
     if(key==='camera' && shot.cameraMode==='multiangle' && shot.cameraEnabled===false) return [];
     const row=shot[field],custom=!row?.category && !row?.fileName && row?.id?.startsWith(`custom-${key}-`);
@@ -66,14 +67,14 @@ export function normalizePhotoCustomization(input = {}) {
     if(value.trim() && (key!=='clothing' || clothingMode==='text')) values[key]=value.trim();
   }
   const garmentId = clothingMode==='reference' ? input.garmentId : '';
-  if(typeof garmentId!=='string' || garmentId.length>120 || clothingMode==='reference' && !garmentId) throw new Error('請選擇一套官方服裝。');
+  if(typeof garmentId!=='string' || garmentId.length>120 || clothingMode==='reference' && !garmentId) throw new Error('請選擇一套服裝。');
   return {preserveOriginal:false,useOriginal,clothingMode,garmentId,aspectRatio,fieldModes,presetIds,changes:values};
 }
 
 export function photoCustomizationError(value,{garments=[],presets=[]}={}) {
   try {
     const customization=normalizePhotoCustomization(value);
-    if(customization.clothingMode==='reference' && !garments.some(row=>row.id===customization.garmentId)) return '請選擇一套已開放的服裝，或改用文字描述。';
+    if(customization.clothingMode==='reference' && !garments.some(row=>row.id===customization.garmentId)) return '請選擇一套可用的服裝，或改用文字描述。';
     for(const [key,id] of Object.entries(customization.presetIds)) if(!presets.some(row=>row.id===id && row.category===PHOTO_PRESET_CATEGORIES[key])) return `請選擇一個已開放的${PHOTO_CHANGE_FIELDS[key]}官方選項，或改用自行輸入。`;
     return '';
   } catch(error) {return error.message;}
@@ -87,9 +88,10 @@ export function customPhotoPrompt(options,shot,selectedPresets={},selectedGarmen
     if(!row || row.id!==id || row.category!==PHOTO_PRESET_CATEGORIES[key]) throw new Error(`請選擇有效的${PHOTO_CHANGE_FIELDS[key]}官方選項。`);
     changes[key]=row.prompt;
   }
+  const scene=changes.scene || [shot.interaction?.prompt,shot.sceneInteraction,shot.scene?.description].filter(Boolean).join(' ');
   if(shot.jobKind!=='angle-edit' && shot.prompt) {
     let prompt=referenceOnlyPrompt(shot);
-    if(preserveOriginal) return withSingleSubjectPrompt(prompt);
+    if(preserveOriginal) return withSingleSubjectPrompt(withNaturalScenePrompt(prompt,scene));
     const replaceDirection=(labels,oldValues,newValue)=>{
       if(!newValue) return;
       for(const label of labels) for(const oldValue of oldValues) {
@@ -104,33 +106,33 @@ export function customPhotoPrompt(options,shot,selectedPresets={},selectedGarmen
       [shot.interaction?.prompt?.trim(),shot.sceneInteraction?.trim()].filter(Boolean).join(' '),
     ],changes.scene);
     replaceDirection(['Facial expression'],[shot.expression?.prompt?.trim()],changes.expression);
+    replaceDirection(['Gaze direction'],[shot.gaze?.prompt?.trim(),NATURAL_GAZE_PROMPT],changes.gaze);
     replaceDirection(['Clothing state'],[shot.clothingState?.prompt?.trim()],changes.clothingState);
     for(const [key,label] of [['lighting','Lighting'],['color','Color treatment'],['quality','Photographic quality']]) replaceDirection([label,key],[shot[key]?.prompt],changes[key]);
     if(changes.clothing || clothingMode==='reference') {
-      const referenceInstruction='Dress the character from <image1> in the clothing from <image2>. Preserve the cut, material, colors and details of the clothing shown in <image2>.';
       const requestedClothing=changes.clothing ? clothingDescription(changes.clothing) : isPromptGarment(selectedGarment) ? selectedGarment.prompt : null;
       const replacement=requestedClothing ? [!prompt.includes(CHARACTER_INSTRUCTION) && CHARACTER_INSTRUCTION,textClothingInstruction(requestedClothing)].filter(Boolean).join('\n') : REFERENCE_INSTRUCTION;
       const oldClothing=isPromptGarment(shot.garment) ? shot.garment.prompt : shot.garment?.description;
-      const previous=[REFERENCE_INSTRUCTION,referenceInstruction,oldClothing && textClothingInstruction(oldClothing),oldClothing && `The character should wear: ${oldClothing}`].find(value=>value && prompt.includes(value));
+      const previous=[REFERENCE_INSTRUCTION,oldClothing && textClothingInstruction(oldClothing),oldClothing && `The character should wear: ${oldClothing}`].find(value=>value && prompt.includes(value));
       if(previous && (requestedClothing || previous!==REFERENCE_INSTRUCTION)) prompt=prompt.replace(previous,replacement);
       else if(!previous) prompt+=`\n\n${replacement}`;
       if(requestedClothing) while(prompt.includes(`${CHARACTER_INSTRUCTION}\n${CHARACTER_INSTRUCTION}`)) prompt=prompt.replaceAll(`${CHARACTER_INSTRUCTION}\n${CHARACTER_INSTRUCTION}`,CHARACTER_INSTRUCTION);
     }
-    return withSingleSubjectPrompt(prompt);
+    return withSingleSubjectPrompt(withNaturalScenePrompt(prompt,scene));
   }
   const garment=selectedGarment || shot.garment;
   const useClothingImage=clothingMode==='reference' ? !isPromptGarment(garment) : !changes.clothing && !isPromptGarment(garment) && Boolean(garment?.fileName);
-  const scene=changes.scene || [shot.interaction?.prompt,shot.sceneInteraction,shot.scene?.description].filter(Boolean).join(' ');
   const clothing=changes.clothing ? clothingDescription(changes.clothing) : isPromptGarment(garment) ? garment.prompt : garment?.description;
-  return withSingleSubjectPrompt([
+  return withSingleSubjectPrompt(withNaturalScenePrompt([
     CHARACTER_INSTRUCTION,
     shot.character?.description && `Character details: ${shot.character.description}`,
     shot.characterMeasurementsPrompt ?? characterProfilePrompt(shot.character),
-    useClothingImage ? 'Dress the character from <image1> in the clothing from <image2>. Preserve the cut, material, colors and details of the clothing shown in <image2>.' : textClothingInstruction(clothing || 'the requested outfit'),
+    useClothingImage ? REFERENCE_INSTRUCTION : textClothingInstruction(clothing || 'the requested outfit'),
     (changes.pose || shot.pose?.prompt) && `Pose and action: ${changes.pose || shot.pose.prompt}`,
     scene && `Scene: ${scene}`,
     (changes.expression || shot.expression?.prompt) && `Facial expression: ${changes.expression || shot.expression.prompt}`,
+    `Gaze direction: ${changes.gaze || shot.gaze?.prompt || NATURAL_GAZE_PROMPT}`,
     (changes.clothingState || shot.clothingState?.prompt) && `Clothing state: ${changes.clothingState || shot.clothingState.prompt}`,
     ...[['lighting','Lighting'],['color','Color treatment'],['quality','Photographic quality']].map(([key,label])=>(changes[key] || shot[key]?.prompt) && `${label}: ${changes[key] || shot[key].prompt}`),
-  ].filter(Boolean).join('\n'));
+  ].filter(Boolean).join('\n'),scene));
 }

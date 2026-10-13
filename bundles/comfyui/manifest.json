@@ -1,8 +1,9 @@
 {
-  "version": 1,
+  "version": 2,
   "name": "PhotoCreate Qwen 寫真環境",
+  "videoManifest": "video-manifest.json",
   "nodeSource": "https://github.com/jtydhr88/ComfyUI-qwenmultiangle",
-  "enhancements": "俯仰 −90 / −60、Zoom 9 / 10；保留目前使用的 Python 與 3D 前端加強版。",
+  "enhancements": "2511 / 2.1 相機版本、俯仰 −90 / −60、Zoom 五級取景；2.1 負角度使用延伸提示詞。",
   "resources": [
     {
       "id": "portrait-workflow",
@@ -37,8 +38,8 @@
       "kind": "node",
       "source": "custom_nodes/ComfyUI-qwenmultiangle/nodes.py",
       "target": "custom_nodes/ComfyUI-qwenmultiangle/nodes.py",
-      "size": 10239,
-      "sha256": "96b4cc7dd0f5ee17b52db851e1f4a2714a750e3ff9069eda87500c3c161c39d3"
+      "size": 10770,
+      "sha256": "f9e223f3af39bb305380f264919421e18e3b77471324f84abf46378458a996b9"
     },
     {
       "id": "camera-node-camera_glossary.py",
@@ -55,8 +56,8 @@
       "kind": "node",
       "source": "custom_nodes/ComfyUI-qwenmultiangle/js/main.js",
       "target": "custom_nodes/ComfyUI-qwenmultiangle/js/main.js",
-      "size": 1081053,
-      "sha256": "d9a27ce93b0c5540b625ed8881aaee940e0bf12c19a42e0071bcc52c831585f9"
+      "size": 1081763,
+      "sha256": "c8c5d605077c987a1d56e2578f1c7efbe7579c23a6b5f19dbdb5effc8441e7fa"
     },
     {
       "id": "camera-node-LICENSE",
@@ -82,8 +83,8 @@
       "kind": "node",
       "source": "custom_nodes/ComfyUI-qwenmultiangle/README.md",
       "target": "custom_nodes/ComfyUI-qwenmultiangle/README.md",
-      "size": 771,
-      "sha256": "65d6b4cbc1b4dcb98d1923c7005611815828be19208d45a800561d7f59142ded"
+      "size": 1147,
+      "sha256": "88f7bd29e04fe2cc2234fc3ed8c56dea1dbf2a53e52c3778ed0979c528761609"
     },
     {
       "id": "model-qwen-image-2.1-UC-int8_convrot",
@@ -131,7 +132,10 @@
       "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/f68ace85e60b4a02a323e394253731947657b7d2/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors",
       "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/blob/f68ace85e60b4a02a323e394253731947657b7d2/split_files/diffusion_models/qwen_image_edit_2511_fp8mixed.safetensors",
       "repository": "Comfy-Org/Qwen-Image-Edit_ComfyUI",
-      "revision": "f68ace85e60b4a02a323e394253731947657b7d2"
+      "revision": "f68ace85e60b4a02a323e394253731947657b7d2",
+      "cameraVersions": [
+        "2511"
+      ]
     },
     {
       "id": "model-qwen_2.5_vl_7b_fp8_scaled",
@@ -143,7 +147,10 @@
       "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/1f12b17be14c89b026c51a91d67c32f84bb047bc/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
       "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/blob/1f12b17be14c89b026c51a91d67c32f84bb047bc/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
       "repository": "Comfy-Org/Qwen-Image_ComfyUI",
-      "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc"
+      "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc",
+      "cameraVersions": [
+        "2511"
+      ]
     },
     {
       "id": "model-qwen_image_vae",
@@ -155,7 +162,10 @@
       "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/1f12b17be14c89b026c51a91d67c32f84bb047bc/split_files/vae/qwen_image_vae.safetensors",
       "sourceUrl": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/blob/1f12b17be14c89b026c51a91d67c32f84bb047bc/split_files/vae/qwen_image_vae.safetensors",
       "repository": "Comfy-Org/Qwen-Image_ComfyUI",
-      "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc"
+      "revision": "1f12b17be14c89b026c51a91d67c32f84bb047bc",
+      "cameraVersions": [
+        "2511"
+      ]
     },
     {
       "id": "model-qwen-image-edit-2511-multiple-angles-lora",
@@ -167,7 +177,52 @@
       "url": "https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA/resolve/e3066224ab74263f4a5b6179cd1a3b0a15577e44/qwen-image-edit-2511-multiple-angles-lora.safetensors",
       "sourceUrl": "https://huggingface.co/fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA/blob/e3066224ab74263f4a5b6179cd1a3b0a15577e44/qwen-image-edit-2511-multiple-angles-lora.safetensors",
       "repository": "fal/Qwen-Image-Edit-2511-Multiple-Angles-LoRA",
-      "revision": "e3066224ab74263f4a5b6179cd1a3b0a15577e44"
+      "revision": "e3066224ab74263f4a5b6179cd1a3b0a15577e44",
+      "cameraVersions": [
+        "2511"
+      ]
+    },
+    {
+      "id": "camera-workflow-21",
+      "label": "Qwen Image 2.1 · 3D 相機工作流",
+      "kind": "workflow",
+      "source": "workflows/Qwen Multiangle/03 Qwen Image 2.1 - 單圖 3D 相機換角度.json",
+      "target": "user/default/workflows/PhotoCreate/03 Qwen Image 2.1 - 單圖 3D 相機換角度.json",
+      "size": 18277,
+      "sha256": "cf0f8d8d26b49cc460abc2d3cab2b772ddd59264840e43e528ac4fc21515f762"
+    },
+    {
+      "id": "camera-node-camera_prompt_21.py",
+      "label": "相機加強節點 · camera_prompt_21.py",
+      "kind": "node",
+      "source": "custom_nodes/ComfyUI-qwenmultiangle/camera_prompt_21.py",
+      "target": "custom_nodes/ComfyUI-qwenmultiangle/camera_prompt_21.py",
+      "size": 4054,
+      "sha256": "2c8093764d9ef7255c2b228b284cab1146e072dc2562a27edf897927f5c4dfe6"
+    },
+    {
+      "id": "camera-node-js-camera-21.js",
+      "label": "相機加強節點 · js/camera-21.js",
+      "kind": "node",
+      "source": "custom_nodes/ComfyUI-qwenmultiangle/js/camera-21.js",
+      "target": "custom_nodes/ComfyUI-qwenmultiangle/js/camera-21.js",
+      "size": 4102,
+      "sha256": "2b43567aa7416207cc3ccf9b3bf1f5b0168dcaa5f9601a11316082b8432aa4f6"
+    },
+    {
+      "id": "model-qwen-image-2.1-multiple-angles-v2",
+      "kind": "model",
+      "label": "Qwen Image 2.1 · Multiple-Angles v2 LoRA",
+      "target": "models/loras/angles_v2_full_qwen21_multiple_angles_v2_qwen21_multiple_angles_v2_000001500.safetensors",
+      "size": 318819792,
+      "sha256": "548c57977c3f1c09c2c9e5f4e83e930cbc6f719c878a576ab8666ce29fef39b6",
+      "url": "https://huggingface.co/akhaliq/Qwen-Image-2.1-Multiple-Angles-LoRA/resolve/0d91c4dfa22b3f5aa89c020eadc30d8f42cb51c0/checkpoints_v2/angles_v2_full_qwen21_multiple_angles_v2_qwen21_multiple_angles_v2_000001500.safetensors",
+      "sourceUrl": "https://huggingface.co/akhaliq/Qwen-Image-2.1-Multiple-Angles-LoRA/blob/0d91c4dfa22b3f5aa89c020eadc30d8f42cb51c0/checkpoints_v2/angles_v2_full_qwen21_multiple_angles_v2_qwen21_multiple_angles_v2_000001500.safetensors",
+      "repository": "akhaliq/Qwen-Image-2.1-Multiple-Angles-LoRA",
+      "revision": "0d91c4dfa22b3f5aa89c020eadc30d8f42cb51c0",
+      "cameraVersions": [
+        "2.1"
+      ]
     }
   ]
 }

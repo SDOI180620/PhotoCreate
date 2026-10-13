@@ -11,7 +11,7 @@
 .pc-featured-card {position:relative;border:1px solid #ded9e7;border-radius:9px;background:#fff;overflow:hidden;max-width:265px;width:100%}
 .pc-featured-card.selected {border-color:#6d45f5;box-shadow:0 0 0 1px #6d45f5}
 .pc-featured-image {display:block;position:relative;padding:0;width:100%;aspect-ratio:3/4;background:#eae5f0;overflow:hidden}
-.pc-featured-image img {display:block;width:100%;height:100%;object-fit:contain}
+.pc-featured-image img {display:block;width:100%;height:100%;object-fit:cover}
 .pc-featured-version {position:absolute;right:9px;top:9px;background:#fffffff0;color:#7c6498;border-radius:4px;font-size:9px;padding:3px 7px}
 .pc-featured-expand {position:absolute;right:10px;bottom:10px;display:grid;place-items:center;padding:6px;background:#ffffffd9;border-radius:5px;color:#755090;opacity:0;transition:opacity .15s}
 .pc-featured-image:hover .pc-featured-expand,.pc-featured-image:focus-visible .pc-featured-expand {opacity:1}
@@ -41,3 +41,4 @@
 .pc-save-gallery.saved {justify-content:space-between;color:#7e639c;font-size:11px}
 .pc-save-gallery.saved>span {display:inline-flex;align-items:center;gap:7px}
 @media(max-width:740px) {.pc-featured-gallery {margin-top:42px;scroll-margin-top:160px}.pc-featured-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pc-featured-caption {padding:10px}.pc-featured-caption>div {gap:8px}.pc-featured-gallery .pc-section-heading {align-items:flex-start}.pc-gallery-refresh {padding:7px 9px;white-space:nowrap}.pc-save-gallery {gap:8px}.pc-header .pc-brand {order:0}.pc-header .pc-account-menu {order:1;margin-left:auto}.pc-header nav {order:2;margin-left:0;flex:1}.pc-header .pc-production-status {order:3;margin-left:0}}
+.pc-featured-video-play{display:flex;align-items:center;gap:5px;margin:0 0 8px;padding:5px 0;border:0;background:none;color:#815f99;font:inherit;font-size:12px;cursor:pointer}

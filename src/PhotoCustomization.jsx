@@ -6,13 +6,16 @@ import PhotoSettings from './PhotoSettings.jsx';
 import PhotoPresetPicker from './PhotoPresetPicker.jsx';
 import {GarmentPicker} from './Garments.jsx';
 import {isPromptGarment} from '../shared/garments.js';
+import {CustomerPromptLibrary,CustomerWardrobe} from './CustomerLibrary.jsx';
 import './photo-customization.css';
 
-const placeholders={pose:'例如：雙手扶腰，身體微微側轉',clothingState:'例如：衣物整齊穿著，袖口捲起',scene:'例如：夕陽下的海邊，遠處有浪花',expression:'例如：輕輕微笑，看向鏡頭',lighting:'例如：柔和日落光，側面有暖色光線',color:'例如：自然膚色，低飽和暖色調',quality:'例如：清晰的布料細節、自然的皮膚質感'};
+const placeholders={pose:'例如：雙手扶腰，身體微微側轉',clothingState:'例如：衣物整齊穿著，袖口捲起',scene:'例如：夕陽下的海邊，遠處有浪花',expression:'例如：輕輕微笑，嘴角與眉眼放鬆',gaze:'例如：看向遠方、微微垂眼，或看著手中物件',lighting:'例如：柔和日落光，側面有暖色光線',color:'例如：自然膚色，低飽和暖色調',quality:'例如：清晰的布料細節、自然的皮膚質感'};
 
-export default function PhotoCustomization({value,onChange,garments=[],presets=[],disabled=false,source={}}) {
+export default function PhotoCustomization({value,onChange,garments=[],presets=[],disabled=false,source={},personalLibrary=null}) {
   const [pickerKey,setPickerKey]=useState(null);
   const [garmentPicker,setGarmentPicker]=useState(false);
+  const [garmentSource,setGarmentSource]=useState('official');
+  const officialGarments=garments.filter(row=>!row.owned),personalGarments=garments.filter(row=>row.owned);
   const selectedGarment=garments.find(row=>row.id===value.garmentId);
   const settings=source.settings || photoSettings(source),byKey=Object.fromEntries(settings.map(row=>[row.key,row]));
   const resolvedClothing=clothingDescription(value.changes.clothing);
@@ -24,6 +27,13 @@ export default function PhotoCustomization({value,onChange,garments=[],presets=[
   },[value,presets,garments,onChange]);
   const setChange=(key,text)=>onChange({...value,changes:{...value.changes,[key]:text}});
   const setMode=(key,mode)=>onChange({...value,fieldModes:{...value.fieldModes,[key]:mode}});
+  const chooseClothing=mode=>{
+    if(mode!=='text') setGarmentSource(mode);
+    const clothingMode=mode==='text' ? 'text' : 'reference';
+    const keepSelection=mode==='text' || Boolean(selectedGarment?.owned)===(mode==='personal');
+    onChange({...value,clothingMode,...(!keepSelection ? {garmentId:''} : {})});
+  };
+  const savedPrompts=(key,label)=>personalLibrary && <CustomerPromptLibrary field={key} label={label} value={value.changes[key]} onUse={text=>setChange(key,text)} library={personalLibrary} disabled={disabled}/>;
   const setOriginal=(key,checked)=>{
     const useOriginal={...value.useOriginal,[key]:checked};
     onChange({...value,useOriginal,preserveOriginal:Object.values(useOriginal).every(Boolean)});
@@ -42,17 +52,20 @@ export default function PhotoCustomization({value,onChange,garments=[],presets=[
     <div className="photo-change-fields">
       {Object.entries(PHOTO_CHANGE_FIELDS).map(([key,label])=><section key={key} className="photo-change-option"><div className="photo-option-heading"><span>{label}</span><label className="photo-preserve-choice"><input type="checkbox" aria-label={`${label}沿用原設定`} checked={value.useOriginal[key]} disabled={disabled} onChange={event=>setOriginal(key,event.target.checked)}/>沿用原設定</label></div>
         <p className="photo-original-setting"><span>{value.useOriginal[key] ? '沿用：' : '原設定：'}</span>{byKey[key]?.value || '未指定'}{byKey[key]?.source==='custom' && <small>自訂</small>}{byKey[key]?.description && <small className="photo-clothing-description">拍攝描述：{byKey[key].description}</small>}</p>
-        {!value.useOriginal[key] && (key==='clothing' ? <div className="photo-clothing-choice"><div className="photo-clothing-modes" role="group" aria-label="換裝方式">{[['reference','官方選項'],['text','自行輸入']].map(([mode,name])=><button key={mode} type="button" disabled={disabled} aria-pressed={value.clothingMode===mode} onClick={()=>onChange({...value,clothingMode:mode})}>{name}</button>)}</div>
+        {!value.useOriginal[key] && (key==='clothing' ? <div className="photo-clothing-choice"><div className="photo-clothing-modes" role="group" aria-label="換裝方式">{[['official','官方選項'],['text','自行輸入'],...(personalLibrary ? [['personal','我的服裝']] : [])].map(([mode,name])=><button key={mode} type="button" disabled={disabled || mode==='personal' && !personalLibrary.supported} aria-pressed={value.clothingMode==='text' ? mode==='text' : mode===garmentSource} onClick={()=>chooseClothing(mode)}>{name}</button>)}</div>
         {value.clothingMode==='text' && <label>服裝描述<textarea aria-label="自訂服裝" rows={2} maxLength={PHOTO_CHANGE_MAX_LENGTH} disabled={disabled} value={value.changes.clothing} onChange={event=>setChange('clothing',event.target.value)} placeholder="例如：黑色長袖女僕洋裝、白色圍裙與蕾絲領口"/><span className="photo-customization-help">描述款式、顏色與配件，較容易和角色參考圖的原服裝區分。</span></label>}
+        {value.clothingMode==='text' && savedPrompts('clothing',label)}
         {value.clothingMode==='text' && resolvedClothing!==value.changes.clothing.trim() && <div className="photo-resolved-clothing" role="status"><span>女僕裝短描述使用黑白款式；輸入顏色、款式可自行指定。拍攝時使用：</span><p>{resolvedClothing}</p><button type="button" disabled={disabled} onClick={()=>setChange('clothing',resolvedClothing)}>編輯這段服裝描述</button></div>}
-        {value.clothingMode==='reference' && <div className="photo-catalog-choice"><button type="button" className="photo-catalog-trigger" aria-label="選擇官方服裝" aria-haspopup="dialog" disabled={disabled || !garments.length} onClick={()=>setGarmentPicker(true)}><span><small>{selectedGarment ? isPromptGarment(selectedGarment) ? '已選 · 提詞版' : '已選 · 圖片版' : `${garments.length} 套官方服裝`}</small><strong>{selectedGarment?.name || '選擇服裝'}</strong></span><ChevronRight size={18}/></button><p className="photo-customization-help">{garments.length ? '圖片版與提詞版都能使用，可在選擇視窗依版本挑選。' : '目前沒有可選服裝，可改用文字描述。'}</p></div>}
+        {value.clothingMode==='reference' && garmentSource==='official' && <div className="photo-catalog-choice"><button type="button" className="photo-catalog-trigger" aria-label="選擇官方服裝" aria-haspopup="dialog" disabled={disabled || !officialGarments.length} onClick={()=>setGarmentPicker(true)}><span><small>{selectedGarment ? isPromptGarment(selectedGarment) ? '已選 · 提詞版' : '已選 · 圖片版' : `${officialGarments.length} 套官方服裝`}</small><strong>{selectedGarment?.name || '選擇服裝'}</strong></span><ChevronRight size={18}/></button><p className="photo-customization-help">{officialGarments.length ? '圖片版與提詞版都能使用，可在選擇視窗依版本挑選。' : '目前沒有可選服裝，可改用文字描述。'}</p></div>}
+        {value.clothingMode==='reference' && garmentSource==='personal' && personalLibrary && <CustomerWardrobe rows={personalGarments} selectedId={value.garmentId} onSelect={id=>onChange({...value,clothingMode:'reference',garmentId:id})} library={personalLibrary} disabled={disabled}/>}
       </div> : <div className="photo-preset-choice"><div className="photo-clothing-modes" role="group" aria-label={`${label}設定方式`}>{[['preset','官方選項'],['text','自行輸入']].map(([mode,name])=><button key={mode} type="button" disabled={disabled} aria-pressed={(value.fieldModes[key] || 'text')===mode} onClick={()=>setMode(key,mode)}>{name}</button>)}</div>
-        {value.fieldModes[key]==='preset' ? officialOptions(key,label) : <textarea aria-label={`自訂${label}`} rows={2} maxLength={PHOTO_CHANGE_MAX_LENGTH} disabled={disabled} value={value.changes[key]} onChange={event=>setChange(key,event.target.value)} placeholder={placeholders[key]}/>}
+        {value.fieldModes[key]==='preset' ? officialOptions(key,label) : <><textarea aria-label={`自訂${label}`} rows={2} maxLength={PHOTO_CHANGE_MAX_LENGTH} disabled={disabled} value={value.changes[key]} onChange={event=>setChange(key,event.target.value)} placeholder={placeholders[key]}/>{savedPrompts(key,label)}</>}
       </div>)}
       </section>)}
     </div>
     <PhotoSettings title="其他沿用提詞" settings={settings.filter(row=>!Object.hasOwn(PHOTO_CHANGE_FIELDS,row.key))}/>
     {pickerKey&&<PhotoPresetPicker category={PHOTO_PRESET_CATEGORIES[pickerKey]} label={PHOTO_CHANGE_FIELDS[pickerKey]} presets={presets} selectedId={value.presetIds[pickerKey]} disabled={disabled} onClose={()=>setPickerKey(null)} onSelect={id=>{onChange({...value,presetIds:{...value.presetIds,[pickerKey]:id}});setPickerKey(null);}}/>}
-    {garmentPicker && <GarmentPicker rows={garments} selectedIds={value.garmentId ? [value.garmentId] : []} multiple={false} busy={disabled} onClose={()=>setGarmentPicker(false)} onSelect={ids=>onChange({...value,garmentId:ids[0]})}/>}
+    {personalLibrary && !personalLibrary.supported && <p className="photo-customization-help" role="status">請管理者更新並重新啟動 PhotoCreate，即可保存自己的服裝與提詞。</p>}
+    {garmentPicker && <GarmentPicker rows={officialGarments} selectedIds={value.garmentId ? [value.garmentId] : []} multiple={false} busy={disabled} onClose={()=>setGarmentPicker(false)} onSelect={ids=>onChange({...value,garmentId:ids[0]})}/>}
   </div>;
 }

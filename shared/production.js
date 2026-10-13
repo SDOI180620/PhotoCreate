@@ -1,6 +1,9 @@
 export const PRODUCTION_STAGES = ['base','angle','refine'];
 export const STAGE_LABELS = {base:'產原圖',angle:'轉視角',refine:'高清修正'};
+export const PHOTO_REFINEMENT_VERSION = 2;
+export const isPhotoSourceJob = job => ['angle-edit','refine-edit'].includes(job.jobKind);
 export function productionStages(job) {
+  if(job.jobKind === 'refine-edit') return ['refine'];
   if(job.jobKind === 'angle-edit') return ['angle','refine'];
   if(job.cameraMode !== 'multiangle' && job.executionMode !== 'staged') return ['base'];
   return job.cameraEnabled === false ? ['base'] : PRODUCTION_STAGES;

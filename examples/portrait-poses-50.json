@@ -1,561 +1,588 @@
-{
-  "version": 1,
-  "presets": [
-    {
-      "id": "pose-portrait-forest-path",
-      "category": "pose",
-      "name": "漫步輕拂葉片",
-      "prompt": "Taking a relaxed mid-step on a path, with one hand lightly brushing a nearby leaf and the other arm relaxed. Keep the supporting foot firmly grounded.",
-      "tags": [
-        "寫真",
-        "漫步",
-        "觸葉"
-      ]
-    },
-    {
-      "id": "pose-portrait-cedar-tree",
-      "category": "pose",
-      "name": "肩倚樹幹",
-      "prompt": "Leaning one shoulder lightly against a tree trunk, with one hand resting on the bark and balanced weight through both feet.",
-      "tags": [
-        "寫真",
-        "倚靠",
-        "樹幹"
-      ]
-    },
-    {
-      "id": "pose-portrait-bamboo-walk",
-      "category": "pose",
-      "name": "站姿輕觸葉片",
-      "prompt": "Standing in a relaxed balanced posture, gently touching a low leaf with the fingertips of one hand. Keep the free arm relaxed and the leaf intact.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "觸葉"
-      ]
-    },
-    {
-      "id": "pose-portrait-moss-log",
-      "category": "pose",
-      "name": "側坐倒木",
-      "prompt": "Sitting on a sturdy fallen log with both feet supported on the ground and one palm resting on the wood beside the hip. Keep natural seated weight and fabric folds.",
-      "tags": [
-        "寫真",
-        "坐姿",
-        "倒木"
-      ]
-    },
-    {
-      "id": "pose-portrait-forest-boardwalk",
-      "category": "pose",
-      "name": "站姿輕扶木欄",
-      "prompt": "Standing beside a wooden railing with one hand gently resting on its top, the torso turned slightly to the side and both feet supported.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶欄"
-      ]
-    },
-    {
-      "id": "pose-portrait-stream-stones",
-      "category": "pose",
-      "name": "踏石平衡站姿",
-      "prompt": "Pausing upright on a broad dry stepping stone, with both feet firmly supported, relaxed shoulders and hands resting naturally by the sides.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "踏石"
-      ]
-    },
-    {
-      "id": "pose-portrait-forest-picnic",
-      "category": "pose",
-      "name": "野餐毯側坐",
-      "prompt": "Sitting comfortably on a picnic blanket with folded legs and one hand resting beside the body on the fabric. Keep natural seated weight and cloth compression.",
-      "tags": [
-        "寫真",
-        "坐姿",
-        "野餐毯"
-      ]
-    },
-    {
-      "id": "pose-portrait-forest-bridge",
-      "category": "pose",
-      "name": "扶欄背身回眸",
-      "prompt": "Standing with the back turned partly away, one hand lightly holding a side rail and the head turned over one shoulder toward the camera. Keep a stable stance.",
-      "tags": [
-        "寫真",
-        "回眸",
-        "扶欄"
-      ]
-    },
-    {
-      "id": "pose-portrait-misty-forest",
-      "category": "pose",
-      "name": "站姿抬頭仰望",
-      "prompt": "Standing upright with relaxed shoulders, gently tilting the head upward and keeping both hands naturally near the body.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "仰望"
-      ]
-    },
-    {
-      "id": "pose-portrait-woodland-cabin",
-      "category": "pose",
-      "name": "扶門框自然站姿",
-      "prompt": "Standing at a doorway with one hand resting against the doorframe, relaxed weight on one leg and both feet on the level threshold.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "門框"
-      ]
-    },
-    {
-      "id": "pose-portrait-park-bench",
-      "category": "pose",
-      "name": "長椅側坐",
-      "prompt": "Sitting slightly sideways on a bench, with one hand resting on the seat beside the hip and both feet grounded. Keep relaxed shoulders and natural clothing folds.",
-      "tags": [
-        "寫真",
-        "坐姿",
-        "長椅"
-      ]
-    },
-    {
-      "id": "pose-portrait-fallen-leaves",
-      "category": "pose",
-      "name": "漫步停步回眸",
-      "prompt": "Pausing in a natural mid-step with the head turned back over one shoulder, both hands relaxed and the supporting foot planted on the path.",
-      "tags": [
-        "寫真",
-        "漫步",
-        "回眸"
-      ]
-    },
-    {
-      "id": "pose-portrait-park-lawn",
-      "category": "pose",
-      "name": "草地側坐撐手",
-      "prompt": "Sitting on grass with both legs comfortably folded to one side and one palm lightly supporting the torso beside the hip. Keep natural seated contact.",
-      "tags": [
-        "寫真",
-        "坐姿",
-        "草地"
-      ]
-    },
-    {
-      "id": "pose-portrait-park-fountain",
-      "category": "pose",
-      "name": "站姿輕扶石邊",
-      "prompt": "Standing beside a dry stone ledge with one hand resting lightly on its surface, relaxed shoulders and both feet firmly supported by the paving.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶靠"
-      ]
-    },
-    {
-      "id": "pose-portrait-park-pergola",
-      "category": "pose",
-      "name": "扶柱微側身",
-      "prompt": "Standing beside a post with one hand gently touching it and the torso turned slightly to one side. Keep the shoulders relaxed and weight balanced.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶柱"
-      ]
-    },
-    {
-      "id": "pose-portrait-park-lake",
-      "category": "pose",
-      "name": "雙手扶欄遠望",
-      "prompt": "Standing beside a railing with both hands gently supported on its top and the gaze directed into the distance. Keep the forearms relaxed and feet grounded.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶欄",
-        "遠望"
-      ]
-    },
-    {
-      "id": "pose-portrait-park-shade",
-      "category": "pose",
-      "name": "自然擺臂漫步",
-      "prompt": "Walking at an easy pace with a single natural mid-step, relaxed shoulders and arms gently swinging beside the torso.",
-      "tags": [
-        "寫真",
-        "漫步",
-        "動態"
-      ]
-    },
-    {
-      "id": "pose-portrait-park-pavilion",
-      "category": "pose",
-      "name": "肩倚木柱",
-      "prompt": "Leaning one shoulder lightly against a wooden column, keeping the other arm relaxed at the side and body weight balanced through grounded feet.",
-      "tags": [
-        "寫真",
-        "倚靠",
-        "木柱"
-      ]
-    },
-    {
-      "id": "pose-portrait-riverside-park",
-      "category": "pose",
-      "name": "漫步輕扶欄",
-      "prompt": "Taking a slow natural step beside a low railing, with one hand gently touching the rail and the other arm relaxed. Keep a grounded supporting foot.",
-      "tags": [
-        "寫真",
-        "漫步",
-        "扶欄"
-      ]
-    },
-    {
-      "id": "pose-portrait-botanical-leaves",
-      "category": "pose",
-      "name": "站姿托葉",
-      "prompt": "Standing beside a plant and gently supporting the edge of a broad leaf between relaxed fingertips, without bending or pulling the leaf.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "觀葉"
-      ]
-    },
-    {
-      "id": "pose-portrait-waterfall-platform",
-      "category": "pose",
-      "name": "單臂扶欄側身",
-      "prompt": "Standing with one forearm lightly supported on a railing and the torso angled slightly to the side. Keep both feet on the walkway and shoulders relaxed.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶欄",
-        "側身"
-      ]
-    },
-    {
-      "id": "pose-portrait-waterfall-rock",
-      "category": "pose",
-      "name": "平岩自然站姿",
-      "prompt": "Standing comfortably on a broad level rock with hands relaxed at the sides, balanced weight and both feet firmly supported.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "岩石"
-      ]
-    },
-    {
-      "id": "pose-portrait-waterfall-mist",
-      "category": "pose",
-      "name": "回眸整理髮絲",
-      "prompt": "Turning the head gently back toward the camera while one hand keeps loose hair away from the face. Keep the torso relaxed and both feet supported.",
-      "tags": [
-        "寫真",
-        "回眸",
-        "整理頭髮"
-      ]
-    },
-    {
-      "id": "pose-portrait-valley-bridge",
-      "category": "pose",
-      "name": "橋上扶欄停步",
-      "prompt": "Pausing on a wooden walkway with one hand resting on a side rail, relaxed shoulders and both feet planted firmly on the planks.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶欄"
-      ]
-    },
-    {
-      "id": "pose-portrait-stream-bank",
-      "category": "pose",
-      "name": "岸邊岩石坐姿",
-      "prompt": "Sitting on a dry rock with both feet supported on the bank and one hand resting on the rock beside the hip. Keep realistic seated weight and fabric contact.",
-      "tags": [
-        "寫真",
-        "坐姿",
-        "岩石"
-      ]
-    },
-    {
-      "id": "pose-portrait-beach-breeze",
-      "category": "pose",
-      "name": "站姿攏髮",
-      "prompt": "Standing in a balanced relaxed posture, with one hand gently gathering loose hair away from the face and the other arm resting naturally at the side.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "整理頭髮"
-      ]
-    },
-    {
-      "id": "pose-portrait-coastal-rail",
-      "category": "pose",
-      "name": "側身單臂倚欄",
-      "prompt": "Resting one forearm on a wooden railing, with the torso turned slightly to the side and both feet comfortably supporting the body.",
-      "tags": [
-        "寫真",
-        "側身",
-        "倚欄"
-      ]
-    },
-    {
-      "id": "pose-portrait-harbor-pier",
-      "category": "pose",
-      "name": "輕扶欄杆遠望",
-      "prompt": "Standing in a relaxed stance, lightly holding a railing with one hand and directing the gaze into the distance. Keep realistic finger placement and grounded feet.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶欄",
-        "遠望"
-      ]
-    },
-    {
-      "id": "pose-portrait-lake-dock",
-      "category": "pose",
-      "name": "碼頭長椅坐姿",
-      "prompt": "Sitting comfortably on a wide bench with both feet on the planks and one hand resting on the seat. Keep natural seated weight and relaxed clothing folds.",
-      "tags": [
-        "寫真",
-        "坐姿",
-        "長椅"
-      ]
-    },
-    {
-      "id": "pose-portrait-reed-path",
-      "category": "pose",
-      "name": "漫步輕觸蘆葦",
-      "prompt": "Walking slowly with one natural grounded step and one hand gently touching a nearby reed stem. Keep the shoulders relaxed and the face clear of the plant.",
-      "tags": [
-        "寫真",
-        "漫步",
-        "觸葉"
-      ]
-    },
-    {
-      "id": "pose-portrait-grassy-hill",
-      "category": "pose",
-      "name": "草坡屈膝坐姿",
-      "prompt": "Sitting with knees comfortably bent and one hand supporting the torso on the ground beside the hip. Keep natural seated weight and relaxed fabric folds.",
-      "tags": [
-        "寫真",
-        "坐姿",
-        "屈膝"
-      ]
-    },
-    {
-      "id": "pose-portrait-mountain-lookout",
-      "category": "pose",
-      "name": "扶欄眺望",
-      "prompt": "Standing beside a railing with one hand resting on it and the head gently turned toward a distant view. Keep balanced weight and relaxed shoulders.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶欄",
-        "遠眺"
-      ]
-    },
-    {
-      "id": "pose-portrait-tea-garden",
-      "category": "pose",
-      "name": "轉身輕拂葉面",
-      "prompt": "Pausing with the torso turned gently toward the camera and one hand lightly brushing the tops of nearby leaves. Keep both feet supported on the path.",
-      "tags": [
-        "寫真",
-        "轉身",
-        "觸葉"
-      ]
-    },
-    {
-      "id": "pose-portrait-rice-terraces",
-      "category": "pose",
-      "name": "站姿微側轉",
-      "prompt": "Standing in a relaxed balanced posture with a slight turn of the torso to one side, hands resting naturally and both feet grounded.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "側身"
-      ]
-    },
-    {
-      "id": "pose-portrait-cherry-walk",
-      "category": "pose",
-      "name": "輕拂肩上花瓣",
-      "prompt": "Standing comfortably while gently brushing a fallen petal from one shoulder with relaxed fingertips. Keep the other arm natural and realistic hand-to-fabric contact.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "拂花瓣"
-      ]
-    },
-    {
-      "id": "pose-portrait-flower-field",
-      "category": "pose",
-      "name": "花旁輕步伸手",
-      "prompt": "Taking a relaxed mid-step on a path, with one hand hovering gently above nearby blossoms and the supporting foot firmly grounded.",
-      "tags": [
-        "寫真",
-        "漫步",
-        "伸手"
-      ]
-    },
-    {
-      "id": "pose-portrait-lavender-garden",
-      "category": "pose",
-      "name": "低頭聞花",
-      "prompt": "Gently lowering the head toward a flower sprig while supporting its stem with one relaxed hand, without pulling it from the plant. Keep the torso balanced.",
-      "tags": [
-        "寫真",
-        "聞花",
-        "低頭"
-      ]
-    },
-    {
-      "id": "pose-portrait-rose-arbor",
-      "category": "pose",
-      "name": "輕扶花架",
-      "prompt": "Standing beside a garden frame with one hand resting lightly on its smooth surface, relaxed shoulders and the fingers clear of thorns.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶架"
-      ]
-    },
-    {
-      "id": "pose-portrait-ginkgo-autumn",
-      "category": "pose",
-      "name": "指尖拿落葉",
-      "prompt": "Standing in a relaxed posture while loosely holding one fallen leaf between the fingertips. Keep natural finger spacing and the other hand relaxed.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "拿葉片"
-      ]
-    },
-    {
-      "id": "pose-portrait-lotus-bridge",
-      "category": "pose",
-      "name": "橋上扶欄側轉",
-      "prompt": "Standing on a walkway with one hand resting on the rail and the torso turned slightly to the side. Keep both feet supported and shoulders relaxed.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶欄",
-        "側身"
-      ]
-    },
-    {
-      "id": "pose-portrait-old-town",
-      "category": "pose",
-      "name": "停步背身回眸",
-      "prompt": "Pausing in a grounded stance with the back turned slightly away and the head looking over one shoulder toward the camera. Keep both hands relaxed.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "回眸"
-      ]
-    },
-    {
-      "id": "pose-portrait-white-colonnade",
-      "category": "pose",
-      "name": "輕扶柱單腿承重",
-      "prompt": "Standing with relaxed weight on one leg while one hand lightly touches a column. Keep the other arm natural and both feet supported by the floor.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶柱"
-      ]
-    },
-    {
-      "id": "pose-portrait-brick-wall",
-      "category": "pose",
-      "name": "肩倚牆自然站姿",
-      "prompt": "Resting one shoulder lightly against a wall, keeping both hands relaxed and the feet firmly supported by the pavement.",
-      "tags": [
-        "寫真",
-        "倚靠",
-        "站姿"
-      ]
-    },
-    {
-      "id": "pose-portrait-courtyard-fountain",
-      "category": "pose",
-      "name": "石椅自然坐姿",
-      "prompt": "Sitting comfortably on a dry stone bench with one hand on the seat and both feet supported by the paving. Keep realistic seated weight and relaxed shoulders.",
-      "tags": [
-        "寫真",
-        "坐姿",
-        "長椅"
-      ]
-    },
-    {
-      "id": "pose-portrait-cafe-window",
-      "category": "pose",
-      "name": "桌邊坐姿捧杯",
-      "prompt": "Sitting comfortably at a table and gently holding a ceramic cup close to the tabletop. Keep believable finger placement and relaxed supported forearms.",
-      "tags": [
-        "寫真",
-        "坐姿",
-        "捧杯"
-      ]
-    },
-    {
-      "id": "pose-portrait-bookshop-window",
-      "category": "pose",
-      "name": "桌前站姿翻書",
-      "prompt": "Standing at a low counter and gently turning one page of an open book supported by the surface. Keep realistic hand contact and relaxed shoulders.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "翻書"
-      ]
-    },
-    {
-      "id": "pose-portrait-gallery-corridor",
-      "category": "pose",
-      "name": "慢步側望",
-      "prompt": "Taking a slow grounded step with the head turned slightly to one side, shoulders relaxed and both arms resting naturally beside the torso.",
-      "tags": [
-        "寫真",
-        "漫步",
-        "側望"
-      ]
-    },
-    {
-      "id": "pose-portrait-glass-greenhouse",
-      "category": "pose",
-      "name": "門口扶框站姿",
-      "prompt": "Standing just inside a doorway with one hand resting lightly on the doorframe and both feet supported by the level floor. Keep the other arm relaxed.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "門框"
-      ]
-    },
-    {
-      "id": "pose-portrait-guesthouse-balcony",
-      "category": "pose",
-      "name": "雙手扶欄側轉",
-      "prompt": "Standing with both hands gently resting on a railing and the torso turned toward one side. Keep relaxed forearms and balanced weight through the feet.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "扶欄",
-        "側身"
-      ]
-    },
-    {
-      "id": "pose-portrait-studio-window",
-      "category": "pose",
-      "name": "窗邊輕扶窗台",
-      "prompt": "Standing beside a window with one hand resting lightly on the sill, relaxed shoulders and both feet grounded. Keep natural hand contact without pressing the torso against the frame.",
-      "tags": [
-        "寫真",
-        "站姿",
-        "窗台"
-      ]
-    }
-  ]
-}
+[
+  {
+    "id": "pose-portrait-forest-path",
+    "category": "pose",
+    "name": "單膝跪地輕拂葉片",
+    "prompt": "Kneeling on one knee on a level path, with the opposite foot planted forward and that knee bent. Incline the torso toward a nearby leaf and brush it lightly with one hand, resting the free hand on the forward thigh.",
+    "tags": [
+      "寫真",
+      "跪姿",
+      "觸葉"
+    ]
+  },
+  {
+    "id": "pose-portrait-cedar-tree",
+    "category": "pose",
+    "name": "樹旁蹲下扶樹幹",
+    "prompt": "Crouching low beside a broad tree trunk with both knees deeply bent, hips close to the heels and both feet grounded. Rest one palm on the bark and the other on the knee, inclining the torso gently toward the trunk.",
+    "tags": [
+      "寫真",
+      "蹲姿",
+      "樹幹"
+    ]
+  },
+  {
+    "id": "pose-portrait-bamboo-walk",
+    "category": "pose",
+    "name": "蹲下輕觸竹葉",
+    "prompt": "Crouching beside low bamboo leaves with knees deeply bent, hips lowered and both feet firmly on the path. Gently touch an intact low leaf with one hand while the free hand rests on the nearer knee.",
+    "tags": [
+      "寫真",
+      "蹲姿",
+      "觸葉"
+    ]
+  },
+  {
+    "id": "pose-portrait-moss-log",
+    "category": "pose",
+    "name": "側坐倒木",
+    "prompt": "Sitting on a sturdy fallen log with both feet supported on the ground and one palm resting on the wood beside the hip. Keep natural seated weight and fabric folds.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "倒木"
+    ]
+  },
+  {
+    "id": "pose-portrait-forest-boardwalk",
+    "category": "pose",
+    "name": "坐木欄側身收腿",
+    "prompt": "Sitting sideways on a broad low wooden top rail with both hips clearly supported and both knees bent toward the walkway. Rest one palm on the wood beside the hip and turn the torso slightly toward the camera.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "欄杆",
+      "收腿"
+    ]
+  },
+  {
+    "id": "pose-portrait-stream-stones",
+    "category": "pose",
+    "name": "踏石蹲姿撐膝",
+    "prompt": "Crouching low on a broad dry stepping stone with both knees deeply bent, hips close to the heels and both feet fully supported. Rest both palms on the knees and angle the torso forward to balance the low pose.",
+    "tags": [
+      "寫真",
+      "蹲姿",
+      "踏石",
+      "扶膝"
+    ]
+  },
+  {
+    "id": "pose-portrait-forest-picnic",
+    "category": "pose",
+    "name": "野餐毯側坐",
+    "prompt": "Sitting comfortably on a picnic blanket with folded legs and one hand resting beside the body on the fabric. Keep natural seated weight and cloth compression.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "野餐毯"
+    ]
+  },
+  {
+    "id": "pose-portrait-forest-bridge",
+    "category": "pose",
+    "name": "單腳微彎扶欄背身回眸",
+    "prompt": "Standing beside a side rail with the back turned three-quarters away, rest one hand naturally on the rail and turn the head over one shoulder. Place most weight on one leg and bend the other knee slightly, with its foot resting lightly a short step forward on the bridge planks. Lean gently toward the rail, keeping the hips at normal standing height and the shoulders relaxed.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "單腳微彎",
+      "回眸",
+      "扶欄"
+    ]
+  },
+  {
+    "id": "pose-portrait-misty-forest",
+    "category": "pose",
+    "name": "跪坐抬頭仰望",
+    "prompt": "Kneeling with the hips resting on the heels and both shins on level ground. Rest both hands on the thighs, lengthen the neck and gently angle the head upward while keeping the hips visibly low.",
+    "tags": [
+      "寫真",
+      "跪坐",
+      "仰望"
+    ]
+  },
+  {
+    "id": "pose-portrait-woodland-cabin",
+    "category": "pose",
+    "name": "門口蹲姿扶門框",
+    "prompt": "Crouching low at a level doorway with both knees deeply bent, hips close to the heels and feet on the threshold. Rest one hand against the lower doorframe and the other on the knee, inclining the torso toward the frame.",
+    "tags": [
+      "寫真",
+      "蹲姿",
+      "門框"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-bench",
+    "category": "pose",
+    "name": "長椅側坐",
+    "prompt": "Sitting slightly sideways on a bench, with one hand resting on the seat beside the hip and both feet grounded. Keep relaxed shoulders and natural clothing folds.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "長椅"
+    ]
+  },
+  {
+    "id": "pose-portrait-fallen-leaves",
+    "category": "pose",
+    "name": "落葉地側坐回眸",
+    "prompt": "Sitting on a level leaf-covered patch with both hips supported and both bent legs folded to one side. Rest one palm beside the hip and turn the head over the shoulder, keeping the knees and hips close to the ground.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "回眸",
+      "收腿"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-lawn",
+    "category": "pose",
+    "name": "草地側坐撐手",
+    "prompt": "Sitting on grass with both legs comfortably folded to one side and one palm lightly supporting the torso beside the hip. Keep natural seated contact.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "草地"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-fountain",
+    "category": "pose",
+    "name": "池邊坐姿雙腿打直",
+    "prompt": "Sitting on a broad dry low stone ledge with both hips supported and both legs extended forward along the paving. Rest both palms on the ledge beside the hips and lean the torso gently backward with softly bent elbows.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "石邊",
+      "伸腿"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-pergola",
+    "category": "pose",
+    "name": "蹲下扶柱微側身",
+    "prompt": "Crouching low beside a smooth post with both knees deeply bent, hips lowered and both feet firmly grounded. Touch the lower part of the post with one hand while the other rests on a knee, turning the torso slightly to the side.",
+    "tags": [
+      "寫真",
+      "蹲姿",
+      "扶柱",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-lake",
+    "category": "pose",
+    "name": "坐低欄杆屈膝遠望",
+    "prompt": "Sitting on a broad sturdy low top rail with both hips supported, both knees bent and the feet planted on the walkway. Rest one hand on the rail beside the hip and angle the head toward the distant view, keeping the body clearly seated.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "欄杆",
+      "遠望"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-shade",
+    "category": "pose",
+    "name": "樹蔭坐地伸腿",
+    "prompt": "Sitting on a level shaded patch with both hips supported and both legs extended forward, one ankle loosely crossing the other. Rest both palms behind the hips with softly bent elbows and recline the torso gently.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "伸腿",
+      "半躺"
+    ]
+  },
+  {
+    "id": "pose-portrait-park-pavilion",
+    "category": "pose",
+    "name": "木柱旁側坐撐手",
+    "prompt": "Sitting on the floor beside a broad wooden column with both hips supported and both bent legs folded to one side. Rest one palm on the floor beside the hip and the other lightly against the lower column, keeping the torso on a gentle side diagonal.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "木柱",
+      "收腿"
+    ]
+  },
+  {
+    "id": "pose-portrait-riverside-park",
+    "category": "pose",
+    "name": "單腳微彎輕扶欄杆",
+    "prompt": "Standing beside a sturdy railing, rest one hand lightly on its top and the other on the outer thigh. Shift most weight onto one supporting leg, bend the other knee slightly and place that foot a short step forward on the walkway. Angle the torso gently toward the rail with a small sideways hip shift, keeping the hips at normal standing height and the shoulders relaxed.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "單腳微彎",
+      "扶欄"
+    ]
+  },
+  {
+    "id": "pose-portrait-botanical-leaves",
+    "category": "pose",
+    "name": "跪坐托葉",
+    "prompt": "Kneeling beside a low planted bed with the hips on the heels, knees bent and both shins supported. Gently support the edge of one broad leaf with relaxed fingertips while the free hand rests on the thigh, keeping the leaf intact.",
+    "tags": [
+      "寫真",
+      "跪坐",
+      "觀葉"
+    ]
+  },
+  {
+    "id": "pose-portrait-waterfall-platform",
+    "category": "pose",
+    "name": "單腳微彎單臂倚欄側身",
+    "prompt": "Standing side-on beside a sturdy waist-high railing, rest one forearm naturally on the top rail and the free hand on the outer thigh. Place most weight on one leg and bend the other knee slightly, with its foot resting lightly a short step forward on the dry platform. Lean gently toward the rail with relaxed shoulders, keeping both feet grounded and the hips at normal standing height.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "單腳微彎",
+      "扶欄",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-waterfall-rock",
+    "category": "pose",
+    "name": "平岩盤腿坐姿",
+    "prompt": "Sitting cross-legged on a broad dry level rock, with both hips fully supported and the knees lowered to the sides. Rest both hands on the knees and angle the torso slightly toward the camera.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "盤腿",
+      "岩石"
+    ]
+  },
+  {
+    "id": "pose-portrait-waterfall-mist",
+    "category": "pose",
+    "name": "側跪回眸整理髮絲",
+    "prompt": "Kneeling with both lower legs folded to one side and the hips resting beside the heels. Rest one palm on the ground beside the hip and use the free hand to keep hair away from the face, turning the head gently back toward the camera.",
+    "tags": [
+      "寫真",
+      "跪坐",
+      "回眸",
+      "整理頭髮"
+    ]
+  },
+  {
+    "id": "pose-portrait-valley-bridge",
+    "category": "pose",
+    "name": "橋上坐欄杆伸腿",
+    "prompt": "Sitting on a broad low sturdy rail with both hips supported, both legs extending forward toward the walkway and feet resting on the planks. Rest one palm beside the hip and incline the torso slightly forward.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "欄杆",
+      "伸腿"
+    ]
+  },
+  {
+    "id": "pose-portrait-stream-bank",
+    "category": "pose",
+    "name": "岸邊岩石坐姿",
+    "prompt": "Sitting on a dry rock with both feet supported on the bank and one hand resting on the rock beside the hip. Keep realistic seated weight and fabric contact.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "岩石"
+    ]
+  },
+  {
+    "id": "pose-portrait-beach-breeze",
+    "category": "pose",
+    "name": "沙灘側坐攏髮",
+    "prompt": "Sitting on dry sand with both hips supported, one leg extended forward and the other knee bent beside it. Rest one palm on the sand beside the hip and use the free hand to gather loose hair away from the face, turning the torso slightly sideways.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "側身",
+      "整理頭髮"
+    ]
+  },
+  {
+    "id": "pose-portrait-coastal-rail",
+    "category": "pose",
+    "name": "單腳微彎倚木欄",
+    "prompt": "Standing beside a wooden railing with the torso angled toward the sea, rest one forearm lightly on the top rail and the free hand on the outer thigh. Shift most weight onto one supporting leg, bend the other knee slightly and place its foot a short step forward on the walkway. Keep a gentle sideways lean, relaxed shoulders and the hips at normal standing height, with both feet on the path.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "單腳微彎",
+      "扶欄",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-harbor-pier",
+    "category": "pose",
+    "name": "坐欄杆側身遠望",
+    "prompt": "Sitting sideways on a broad low sturdy top rail with both hips supported and both knees bent toward the pier. Rest one palm on the rail beside the hip and angle the head toward the harbor, keeping the body clearly seated.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "欄杆",
+      "遠望"
+    ]
+  },
+  {
+    "id": "pose-portrait-lake-dock",
+    "category": "pose",
+    "name": "碼頭長椅坐姿",
+    "prompt": "Sitting comfortably on a wide bench with both feet on the planks and one hand resting on the seat. Keep natural seated weight and relaxed clothing folds.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "長椅"
+    ]
+  },
+  {
+    "id": "pose-portrait-reed-path",
+    "category": "pose",
+    "name": "單膝跪地輕觸蘆葦",
+    "prompt": "Kneeling on one knee on the path with the other foot planted forward and that knee bent. Incline the torso toward one nearby reed stem and touch it gently with one hand, while the free hand supports the forward thigh.",
+    "tags": [
+      "寫真",
+      "跪姿",
+      "觸葉"
+    ]
+  },
+  {
+    "id": "pose-portrait-grassy-hill",
+    "category": "pose",
+    "name": "草坡屈膝坐姿",
+    "prompt": "Sitting with knees comfortably bent and one hand supporting the torso on the ground beside the hip. Keep natural seated weight and relaxed fabric folds.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "屈膝"
+    ]
+  },
+  {
+    "id": "pose-portrait-mountain-lookout",
+    "category": "pose",
+    "name": "單腳微彎雙臂倚欄遠眺",
+    "prompt": "Standing beside a sturdy waist-high railing, rest both forearms comfortably on the top rail and angle the head toward the distant view. Place most weight on one supporting leg, bend the other knee slightly and rest its foot lightly a short step forward on the viewing deck. Lean the upper torso gently toward the rail while keeping the hips at normal standing height and the shoulders relaxed.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "單腳微彎",
+      "扶欄",
+      "遠眺"
+    ]
+  },
+  {
+    "id": "pose-portrait-tea-garden",
+    "category": "pose",
+    "name": "蹲下側轉輕拂茶葉",
+    "prompt": "Crouching low beside a tea bush with both knees deeply bent, hips near the heels and feet firmly on the path. Turn the torso slightly toward the camera and brush the top leaves with one hand, resting the other hand on a knee.",
+    "tags": [
+      "寫真",
+      "蹲姿",
+      "側身",
+      "觸葉"
+    ]
+  },
+  {
+    "id": "pose-portrait-rice-terraces",
+    "category": "pose",
+    "name": "田埂跪坐微側轉",
+    "prompt": "Kneeling on a broad level dry path with the hips resting on the heels and both shins supported. Turn the torso slightly to one side and rest both hands on the thighs, keeping the knees and hips visibly lowered.",
+    "tags": [
+      "寫真",
+      "跪坐",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-cherry-walk",
+    "category": "pose",
+    "name": "坐地屈膝輕拂花瓣",
+    "prompt": "Sitting on a level surface with both hips supported, one knee bent and the other leg extended forward. Brush a fallen petal from one shoulder with relaxed fingertips while the free hand rests on the ground beside the hip.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "屈膝",
+      "拂花瓣"
+    ]
+  },
+  {
+    "id": "pose-portrait-flower-field",
+    "category": "pose",
+    "name": "蹲下伸手輕觸花朵",
+    "prompt": "Crouching low beside blossoms with both knees deeply bent, hips lowered and feet firmly grounded. Incline the torso toward the flowers and hover one hand gently above an intact blossom, while the free palm rests on the knee.",
+    "tags": [
+      "寫真",
+      "蹲姿",
+      "伸手",
+      "花朵"
+    ]
+  },
+  {
+    "id": "pose-portrait-lavender-garden",
+    "category": "pose",
+    "name": "蹲下低頭聞花",
+    "prompt": "Crouching low with both knees deeply bent, hips close to the heels and both feet supported. Lower the head toward one flower sprig while gently supporting its stem with a relaxed hand, keeping the plant intact and the free hand on the knee.",
+    "tags": [
+      "寫真",
+      "蹲姿",
+      "聞花",
+      "低頭"
+    ]
+  },
+  {
+    "id": "pose-portrait-rose-arbor",
+    "category": "pose",
+    "name": "彎腰扶花架",
+    "prompt": "Bending forward from the hips beside a smooth garden frame, knees clearly bent and hips shifted backward. Rest one palm against the frame at lower-torso height and the other on the thigh, keeping the torso on a clear forward diagonal and the fingers away from thorns.",
+    "tags": [
+      "寫真",
+      "彎腰",
+      "扶架"
+    ]
+  },
+  {
+    "id": "pose-portrait-ginkgo-autumn",
+    "category": "pose",
+    "name": "盤腿坐地拿落葉",
+    "prompt": "Sitting cross-legged on a level leaf-covered patch with both hips supported and knees lowered to the sides. Hold one fallen leaf loosely between the fingertips at upper-torso height while the free hand rests on the knee.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "盤腿",
+      "拿葉片"
+    ]
+  },
+  {
+    "id": "pose-portrait-lotus-bridge",
+    "category": "pose",
+    "name": "坐低欄杆屈膝側轉",
+    "prompt": "Sitting on a broad sturdy low rail with both hips supported, knees bent and both feet on the walkway. Rest one palm on the rail beside the hip and gently turn the torso to one side, keeping the knees and hips in a clear seated position.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "欄杆",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-old-town",
+    "category": "pose",
+    "name": "側跪背身回眸",
+    "prompt": "Kneeling on a level paved surface with both lower legs folded to one side and the hips resting beside the heels. Turn the back partly away and look over one shoulder, resting one palm beside the hip and the other on the thigh.",
+    "tags": [
+      "寫真",
+      "跪坐",
+      "回眸",
+      "收腿"
+    ]
+  },
+  {
+    "id": "pose-portrait-white-colonnade",
+    "category": "pose",
+    "name": "蹲下扶柱側轉",
+    "prompt": "Crouching beside a broad column with both knees deeply bent, hips lowered close to the heels and feet supported by the floor. Rest one hand against the lower column and the other on a knee, turning the torso gently to one side.",
+    "tags": [
+      "寫真",
+      "蹲姿",
+      "扶柱",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-brick-wall",
+    "category": "pose",
+    "name": "牆邊坐地伸腿",
+    "prompt": "Sitting on the pavement beside a wall with both hips supported and both legs extended forward. Rest one palm beside the hip and touch the lower wall with the other, inclining the torso slightly toward the wall while the knees remain low.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "牆邊",
+      "伸腿"
+    ]
+  },
+  {
+    "id": "pose-portrait-courtyard-fountain",
+    "category": "pose",
+    "name": "石椅自然坐姿",
+    "prompt": "Sitting comfortably on a dry stone bench with one hand on the seat and both feet supported by the paving. Keep realistic seated weight and relaxed shoulders.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "長椅"
+    ]
+  },
+  {
+    "id": "pose-portrait-cafe-window",
+    "category": "pose",
+    "name": "桌邊坐姿捧杯",
+    "prompt": "Sitting comfortably at a table and gently holding a ceramic cup close to the tabletop. Keep believable finger placement and relaxed supported forearms.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "捧杯"
+    ]
+  },
+  {
+    "id": "pose-portrait-bookshop-window",
+    "category": "pose",
+    "name": "桌前彎腰翻書",
+    "prompt": "Bending forward clearly from the hips over a low reading counter, with both knees bent and the hips shifted backward. Support one palm on the counter and use the other hand to turn a single page of an open book, keeping the torso on a visible forward diagonal.",
+    "tags": [
+      "寫真",
+      "彎腰",
+      "翻書",
+      "扶桌"
+    ]
+  },
+  {
+    "id": "pose-portrait-gallery-corridor",
+    "category": "pose",
+    "name": "地面側坐抬頭側望",
+    "prompt": "Sitting on a level floor with both hips supported and both bent legs folded to one side. Rest one palm beside the hip and the other on the upper knee, angle the torso gently sideways and turn the head toward one side.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "側望",
+      "收腿"
+    ]
+  },
+  {
+    "id": "pose-portrait-glass-greenhouse",
+    "category": "pose",
+    "name": "門口蹲下扶框",
+    "prompt": "Crouching just inside a level doorway with both knees deeply bent, hips lowered and feet firmly grounded. Rest one hand against the lower doorframe and the other on the knee, inclining the torso toward the frame.",
+    "tags": [
+      "寫真",
+      "蹲姿",
+      "門框"
+    ]
+  },
+  {
+    "id": "pose-portrait-guesthouse-balcony",
+    "category": "pose",
+    "name": "單腳微彎雙手扶欄側轉",
+    "prompt": "Standing beside a sturdy waist-high railing, rest both hands naturally on the top rail with softly bent elbows and turn the shoulders slightly to one side. Place most weight on one leg, bend the other knee slightly and set that foot a short step forward on the balcony floor. Lean gently toward the rail, keeping the hips at normal standing height and a relaxed angled body line.",
+    "tags": [
+      "寫真",
+      "站姿",
+      "單腳微彎",
+      "扶欄",
+      "側身"
+    ]
+  },
+  {
+    "id": "pose-portrait-studio-window",
+    "category": "pose",
+    "name": "窗台坐姿雙腿打直",
+    "prompt": "Sitting on a broad low sturdy windowsill with both hips supported and both legs extended forward toward the floor. Rest both palms beside the hips and lean the torso gently backward with softly bent elbows, keeping a clear seated body position.",
+    "tags": [
+      "寫真",
+      "坐姿",
+      "窗台",
+      "伸腿"
+    ]
+  }
+]

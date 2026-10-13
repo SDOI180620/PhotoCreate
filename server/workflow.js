@@ -1,13 +1,14 @@
 import { getOutputSize } from '../shared/domain.js';
 import {withSingleSubjectPrompt,withSingleSubjectNegative} from '../shared/subject.js';
 import {isPromptGarment} from '../shared/garments.js';
+import {comfyInputFields,isComfyWidget,widgetDefault} from '../shared/comfy-widgets.js';
 
 export const WORKFLOW_NAME = '02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖';
 export const WORKFLOW_PATH = `Qwen Image 2.1/${WORKFLOW_NAME}.json`;
 
 // Convert only explicit links and schema-defined widgets. Seed controls and
 // upload buttons are frontend widgets, and never belong in the API inputs.
-export function convertWorkflow(uiWorkflow, objectInfo, {validate = validateTemplate} = {}) {
+export function convertWorkflow(uiWorkflow, objectInfo, {validate = validateTemplate,serializedLinkedWidgets=false} = {}) {
   if (!Array.isArray(uiWorkflow?.nodes)) throw new Error('工作流必須包含 nodes。');
   const links = new Map((uiWorkflow.links || []).map(link => [link[0], [String(link[1]), link[2]]]));
   const graph = {};
@@ -16,8 +17,6 @@ export function convertWorkflow(uiWorkflow, objectInfo, {validate = validateTemp
     if (node.mode !== undefined && node.mode !== 0) throw new Error(`節點 ${node.id} 是停用或 bypass 模式，請先匯出 API 格式。`);
     const schema = objectInfo[node.type];
     if (!schema) throw new Error(`ComfyUI 缺少節點：${node.type}`);
-    const fields = { ...schema.input?.required, ...schema.input?.optional };
-    const fieldNames = [...(schema.input_order?.required || Object.keys(schema.input?.required || {})), ...(schema.input_order?.optional || Object.keys(schema.input?.optional || {}))];
     const inputs = {};
     for (const entry of node.inputs || []) {
       if (entry.link !== null && entry.link !== undefined) {
@@ -27,15 +26,20 @@ export function convertWorkflow(uiWorkflow, objectInfo, {validate = validateTemp
       }
     }
     let widgetIndex = 0;
-    for (const name of fieldNames) {
-      if (inputs[name] !== undefined) continue;
-      const [type, options = {}] = fields[name];
-      const isWidget = Array.isArray(type) || ['STRING','INT','FLOAT','BOOLEAN','COMBO'].includes(type);
+    for (const [name,spec,required] of comfyInputFields(schema,name=>inputs[name])) {
+      const [type, options = {}] = spec;
+      const isWidget = isComfyWidget(spec);
+      if (inputs[name] !== undefined) {
+        // ComfyUI keeps serialized values for widgets converted into linked
+        // sockets. Consume those placeholders so subsequent widgets stay aligned.
+        if(serializedLinkedWidgets && isWidget && node.inputs?.some(entry=>entry.name===name && entry.widget)) widgetIndex+=1+(options.control_after_generate ? 1 : 0);
+        continue;
+      }
       if (!isWidget || options.forceInput) continue;
       const value = node.widgets_values?.[widgetIndex++];
       if (value !== undefined) inputs[name] = value;
-      else if (options.default !== undefined) inputs[name] = options.default;
-      else if (Object.hasOwn(schema.input?.required || {}, name)) throw new Error(`節點 ${node.id} 缺少 ${name}。`);
+      else if (options.default !== undefined || type==='COMFY_DYNAMICCOMBO_V3') inputs[name] = widgetDefault(spec);
+      else if (required) throw new Error(`節點 ${node.id} 缺少 ${name}。`);
       if (options.control_after_generate) widgetIndex++;
     }
     graph[String(node.id)] = { class_type: node.type, inputs, _meta: { title: node.title || schema.display_name || node.type } };

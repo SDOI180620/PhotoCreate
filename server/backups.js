@@ -11,8 +11,8 @@ const MAX_TOTAL=64*1024**3,MAX_FILES=50000,MAX_MANIFEST=16*1024**2;
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const allowed=name=>/^(studio|accounts|photos)\.sqlite$/.test(name) || /^(workflow-source|camera-workflow-source|gallery-music)\.json$/.test(name)
   || /^uploads\/[\w-]+\.(png|jpe?g|webp)$/i.test(name) || /^photos\/[a-f0-9]{64}\.(png|jpg|webp)$/.test(name)
-  || /^gallery-music\/[\w-]+\.(mp3|wav|m4a|ogg)$/i.test(name);
-const maxFile=name=>name.endsWith('.sqlite') ? 4*1024**3 : name.endsWith('.json') ? MAX_MANIFEST : 128*1024**2;
+  || /^gallery-music\/[\w-]+\.(mp3|wav|m4a|ogg)$/i.test(name) || /^photo-videos\/[\w-]+\.mp4$/i.test(name);
+const maxFile=name=>name.endsWith('.sqlite') ? 4*1024**3 : name.endsWith('.json') ? MAX_MANIFEST : name.startsWith('photo-videos/') ? 512*1024**2 : 128*1024**2;
 const targetFile=(root,name)=>{
   if(!allowed(name)) throw fail('備份內含不支援的檔案路徑。');
   const target=path.resolve(root,...name.split('/'));
@@ -62,7 +62,7 @@ export function createBackupManager({dataDir,photoStorage,assertIdle,now=()=>Dat
       // Restored accounts keep their owner IDs and passwords, but require a new login.
       const accounts=new DatabaseSync(sources.get('accounts.sqlite'));accounts.exec('DELETE FROM sessions; PRAGMA wal_checkpoint(TRUNCATE)');accounts.close();
       for(const name of ['workflow-source.json','camera-workflow-source.json','gallery-music.json']) if(fs.existsSync(path.join(dataRoot,name))) sources.set(name,regularFile(dataRoot,name));
-      for(const folder of ['uploads','photos','gallery-music']) {
+      for(const folder of ['uploads','photos','gallery-music','photo-videos']) {
         const parent=path.join(dataRoot,folder);if(!fs.existsSync(parent)) continue;
         if(fs.realpathSync(parent)!==parent) throw fail('備份來源不能是目錄連結。');
         for(const name of fs.readdirSync(parent)) if(allowed(`${folder}/${name}`)) sources.set(`${folder}/${name}`,regularFile(dataRoot,`${folder}/${name}`));

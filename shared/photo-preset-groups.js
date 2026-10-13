@@ -1,11 +1,11 @@
 export const PHOTO_PRESET_GROUPS={
   pose:[
-    {id:'standing',label:'站姿',match:/站|立姿|倚靠|standing|\bstand\b/i},
+    {id:'standing',label:'站姿',match:/站|立姿|standing|\bstand\b/i},
     {id:'seated',label:'坐姿',match:/坐|座姿|盤腿|盘腿|seated|sitting/i},
     {id:'kneeling',label:'跪蹲',match:/跪|蹲|kneel|squat/i},
     {id:'lying',label:'躺姿',match:/躺|臥|卧|lying|reclin/i},
     {id:'gesture',label:'手勢',match:/手勢|手势|比耶|愛心|爱心|貓爪|猫爪|兔耳|招呼|揮手|挥手|托腮|束髮|束发|撥髮|拨发|撩髮|抱臂|比心|gesture|peace|heart|wave/i},
-    {id:'props',label:'道具',match:/道具|娃娃|書|书|蘋果|苹果|香蕉|水果|杯|咖啡|花束|靠枕|相機|相机|傘|伞|帽|plush|book|apple|banana|\bprop\b|\bcup\b/i},
+    {id:'props',label:'道具',match:/道具|娃娃|熊|書|书|蘋果|苹果|香蕉|水果|杯|咖啡|花束|靠枕|相機|相机|傘|伞|帽|plush|teddy|book|apple|banana|\bprop\b|\bcup\b/i},
     {id:'cute',label:'可愛',match:/可愛|可爱|愛心|爱心|比耶|兔耳|貓爪|猫爪|娃娃|招呼|cute|playful/i},
     {id:'glamour',label:'性感',match:/性感|魅力|曲線|曲线|拱背|扭腰|扭身|半躺|束髮|束发|交疊腿|交叠腿|sexy|glamour/i},
     {id:'other',label:'其他'},
