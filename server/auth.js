@@ -3,6 +3,7 @@ import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {createHash,randomBytes,randomUUID,scrypt,timingSafeEqual} from 'node:crypto';
 import {promisify} from 'node:util';
+import {DEFAULT_CUSTOMER_CONFIG_ID} from './customer-configs.js';
 
 const derive=promisify(scrypt);
 const SCRYPT={N:32768,r:8,p:3,maxmem:64*1024*1024};
@@ -25,7 +26,7 @@ const nameField=(value,username)=>{
   if(typeof value!=='string' || value.length>80) throw fail('顧客名稱最多 80 個字元。');
   return value.trim() || username;
 };
-const publicAccount=row=>({id:row.id,username:row.username,name:row.name,role:row.role,enabled:Boolean(row.enabled),createdAt:row.created_at,lastLoginAt:row.last_login_at});
+const publicAccount=row=>({id:row.id,username:row.username,name:row.name,role:row.role,enabled:Boolean(row.enabled),createdAt:row.created_at,lastLoginAt:row.last_login_at,...(row.role==='customer' ? {customerConfigId:row.customer_config_id} : {})});
 async function hashPassword(password) {
   const salt=randomBytes(16).toString('hex'),key=await derive(password,salt,64,SCRYPT);
   return `scrypt:${salt}:${key.toString('hex')}`;
@@ -39,7 +40,7 @@ async function passwordMatches(password,encoded) {
 
 // Credentials and sessions live outside the portable library and state DTO.
 // A stable owner ID ties private photos to the account across devices.
-export function createAuthentication({dataDir,publicUrl,claimLegacyStudio=()=>{},now=Date.now}) {
+export function createAuthentication({dataDir,publicUrl,claimLegacyStudio=()=>{},customerConfigExists=id=>id===DEFAULT_CUSTOMER_CONFIG_ID,now=Date.now}) {
   const db=new DatabaseSync(path.join(dataDir,'accounts.sqlite'));
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;
     CREATE TABLE IF NOT EXISTS accounts (
@@ -54,6 +55,12 @@ export function createAuthentication({dataDir,publicUrl,claimLegacyStudio=()=>{}
     );
     CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires_at);
     CREATE INDEX IF NOT EXISTS sessions_account ON sessions(account_id);`);
+  if(!db.prepare('PRAGMA table_info(accounts)').all().some(row=>row.name==='customer_config_id')) db.exec("ALTER TABLE accounts ADD COLUMN customer_config_id TEXT NOT NULL DEFAULT 'default'");
+  const configField=value=>{
+    const id=value===undefined ? DEFAULT_CUSTOMER_CONFIG_ID : value;
+    if(typeof id!=='string' || !customerConfigExists(id)) throw fail('請選擇有效的參數設定檔。');
+    return id;
+  };
   let closed=false;
   const ready=(async()=>{
     if(db.prepare("SELECT id FROM accounts WHERE role='admin' LIMIT 1").get()) return;
@@ -92,11 +99,11 @@ export function createAuthentication({dataDir,publicUrl,claimLegacyStudio=()=>{}
   };
   const createCustomer=async input=>{
     await ready;
-    const username=usernameField(input.username),password=passwordField(input.password),name=nameField(input.name,username);
+    const username=usernameField(input.username),password=passwordField(input.password),name=nameField(input.name,username),customerConfigId=configField(input.customerConfigId);
     if(input.role!==undefined && input.role!=='customer') throw fail('只能建立顧客帳號。');
     if(db.prepare('SELECT id FROM accounts WHERE username=?').get(username)) throw fail('此帳號已存在，請使用其他帳號。',409);
     const hash=await hashPassword(password),id=randomUUID();
-    try {db.prepare('INSERT INTO accounts(id,username,name,role,password_hash,owner_id,created_at) VALUES(?,?,?,?,?,?,?)').run(id,username,name,'customer',hash,randomBytes(32).toString('hex'),new Date(now()).toISOString());}
+    try {db.prepare('INSERT INTO accounts(id,username,name,role,password_hash,owner_id,created_at,customer_config_id) VALUES(?,?,?,?,?,?,?,?)').run(id,username,name,'customer',hash,randomBytes(32).toString('hex'),new Date(now()).toISOString(),customerConfigId);}
     catch(error) {if(error.code?.startsWith('ERR_SQLITE') && db.prepare('SELECT id FROM accounts WHERE username=?').get(username)) throw fail('此帳號已存在，請使用其他帳號。',409);throw error;}
     return publicAccount(byId(id));
   };
@@ -145,13 +152,14 @@ export function createAuthentication({dataDir,publicUrl,claimLegacyStudio=()=>{}
   accountsRouter.patch('/:id',async(req,res)=>{
     const row=byId(req.params.id);if(!row || row.role!=='customer') throw fail('找不到顧客帳號。',404);
     const body=req.body || {},name=nameField(body.name ?? row.name,row.username);
+    const customerConfigId=body.customerConfigId===undefined ? undefined : configField(body.customerConfigId);
     if(body.enabled!==undefined && typeof body.enabled!=='boolean') throw fail('帳號狀態格式不正確。');
     if(body.role!==undefined && body.role!=='customer' || body.username!==undefined && body.username!==row.username) throw fail('帳號與權限無法變更。');
     const password=body.password===undefined ? null : await hashPassword(passwordField(body.password));
     const current=byId(row.id);
     db.exec('BEGIN IMMEDIATE');
     try {
-      db.prepare('UPDATE accounts SET name=?,enabled=?,password_hash=? WHERE id=?').run(name,body.enabled===undefined ? current.enabled : Number(body.enabled),password || current.password_hash,row.id);
+      db.prepare('UPDATE accounts SET name=?,enabled=?,password_hash=?,customer_config_id=? WHERE id=?').run(name,body.enabled===undefined ? current.enabled : Number(body.enabled),password || current.password_hash,customerConfigId ?? current.customer_config_id,row.id);
       if(password || body.enabled===false) db.prepare('DELETE FROM sessions WHERE account_id=?').run(row.id);
       db.exec('COMMIT');
     } catch(error) {db.exec('ROLLBACK');throw error;}

@@ -56,7 +56,7 @@ export function optionalPresetSelections(state,draft) {
   }));
 }
 
-export function getShotRecipe(state,draft,{includeDisabledCamera=false,includeCharacters=true}={}) {
+export function getShotRecipe(state,draft,{includeDisabledCamera=false,includeCharacters=true,allowUnspecified=false}={}) {
   if(draft.cameraEnabled !== undefined && typeof draft.cameraEnabled !== 'boolean') throw new Error('鏡頭開關須為勾選或取消勾選。');
   const mode = draft.mode ?? 'combinations';
   if (!['combinations','random'].includes(mode)) throw new Error('請選擇有效的拍攝模式。');
@@ -83,6 +83,7 @@ export function getShotRecipe(state,draft,{includeDisabledCamera=false,includeCh
     const ids = optionalSelections[field];
     pools[key] = ids.length ? selectedRows(rows,ids,CATEGORIES[category].label) : [null];
   }
+  if(allowUnspecified) for(const [key,rows] of Object.entries(pools)) if(key!=='character' && !rows.length) pools[key]=[null];
   const copies = Number(draft.copies ?? 1);
   const combinationCount = Object.values(pools).reduce((total,pool) => total * BigInt(pool.length),1n);
   const count = mode === 'random' ? Number(draft.randomCount ?? 30) : Number(combinationCount) * copies;
@@ -219,17 +220,18 @@ export function referenceOnlyPrompt(shot) {
   return prompt;
 }
 
-export function composePrompt({ character, garment, characterPromptSettings, characterMeasurementsPrompt, pose, expression, gaze, clothingState, interaction, camera, lighting, color, quality, sceneInteraction = '', extra = '', cameraMode }) {
+export function composePrompt({ character, garment, characterPromptSettings, characterMeasurementsPrompt, pose, expression, gaze, clothingState, interaction, camera, lighting, color, quality, sceneInteraction = '', extra = '', cameraMode,allowUnspecified=false }) {
   const interactionPrompt = [interaction?.prompt?.trim(),sceneInteraction.trim()].filter(Boolean).join(' ');
+  const gazePrompt=gaze?.prompt?.trim() || (!allowUnspecified && NATURAL_GAZE_PROMPT);
   const paragraphs = [
     SINGLE_SUBJECT_PROMPT,
-    garmentInstruction(garment,REFERENCE_INSTRUCTION),
+    garment ? garmentInstruction(garment,REFERENCE_INSTRUCTION) : 'Photograph the character from <image1>. Preserve the same identity, face, hairstyle and body proportions.',
     character?.description?.trim() && `Character details: ${character.description.trim()}`,
     characterMeasurementsPrompt ?? characterProfilePrompt(character,characterPromptSettings),
     interactionPrompt && `Scene: ${interactionPrompt}`,
     pose?.prompt && `Pose: ${pose.prompt}`,
     expression?.prompt?.trim() && `Facial expression: ${expression.prompt.trim()}`,
-    `Gaze direction: ${gaze?.prompt?.trim() || NATURAL_GAZE_PROMPT}`,
+    gazePrompt && `Gaze direction: ${gazePrompt}`,
     clothingState?.prompt?.trim() && `Clothing state: ${clothingState.prompt.trim()}`,
     cameraMode !== 'multiangle' && camera?.prompt && `Camera and composition: ${camera.prompt}`,
     lighting?.prompt && `Lighting: ${lighting.prompt}`,
@@ -237,11 +239,12 @@ export function composePrompt({ character, garment, characterPromptSettings, cha
     quality?.prompt && `Photographic quality: ${quality.prompt}`,
     extra?.trim(),
   ];
-  return withNaturalScenePrompt(paragraphs.filter(Boolean).join('\n\n'),interactionPrompt);
+  const prompt=paragraphs.filter(Boolean).join('\n\n');
+  return allowUnspecified ? [prompt,interactionPrompt && NATURAL_SCENE_INSTRUCTION].filter(Boolean).join('\n\n') : withNaturalScenePrompt(prompt,interactionPrompt);
 }
 
-export function buildShotPlans(state, draft) {
-  const {mode,pools,copies,count,combinationCount} = getShotRecipe(state,draft);
+export function buildShotPlans(state, draft,{allowUnspecified=false}={}) {
+  const {mode,pools,copies,count,combinationCount} = getShotRecipe(state,draft,{allowUnspecified});
   if (mode === 'combinations' && (!Number.isInteger(copies) || copies < 1 || copies > 10)) throw new Error('每組張數須為 1–10。');
   if (mode === 'random' && (!Number.isInteger(count) || count < 1 || count > 100)) throw new Error('隨機張數須為 1–100。');
   if (count > 100) throw new Error('每批最多 100 張，請減少候選組合，或改用隨機寫真指定張數。');
@@ -275,14 +278,14 @@ export function buildShotPlans(state, draft) {
     const variedStyles = ['camera','lighting','color','quality'].filter(key => pools[key].length > 1).map(key => selection[key]);
     const characterMeasurementsPrompt=characterProfilePrompt(selection.character,state.settings?.characterPrompts);
     plans.push({
-      id:globalThis.crypto.randomUUID(),name:[...(pools.character.length>1 ? [selection.character.name] : []),selection.garment.name,selection.pose.name,...details.map(row => row.name),...variedStyles.map(row => row.name),...(mode === 'random' ? [`${plans.length + 1}`] : copies > 1 ? [plans.length % copies + 1] : [])].join(' · '),
+      id:globalThis.crypto.randomUUID(),name:[...(pools.character.length>1 ? [selection.character.name] : []),selection.garment?.name,selection.pose?.name,...details.map(row => row.name),...variedStyles.map(row => row.name),...(mode === 'random' ? [`${plans.length + 1}`] : copies > 1 ? [plans.length % copies + 1] : [])].filter(Boolean).join(' · '),
       ...structuredClone(selection),
       characterMeasurementsPrompt,
-      prompt:composePrompt({...selection,characterMeasurementsPrompt,sceneInteraction:draft.sceneInteraction,extra:draft.extra,cameraMode}),
+      prompt:composePrompt({...selection,characterMeasurementsPrompt,sceneInteraction:draft.sceneInteraction,extra:draft.extra,cameraMode,allowUnspecified}),
       ...(cameraMode === 'multiangle' ? {cameraMode,cameraEnabled:draft.cameraEnabled !== false,executionMode:'staged',angleSteps,refineSteps:REFINE_STEPS,refineDenoise,camera:cameraPreset(structuredClone(selection.camera))} : {}),
       sceneInteraction:draft.sceneInteraction?.trim() || '',negative:withSingleSubjectNegative(draft.negative),resolution,steps,
       seed:seed === -1 ? Math.floor(Math.random() * 2 ** 48) : seed + plans.length,aspectRatio,
-      ...(mode === 'random' ? {generationMode:'random'} : {}),
+      ...(mode === 'random' ? {generationMode:allowUnspecified ? 'custom' : 'random'} : {}),
       ...(outputSize ? {outputWidth:outputSize.width,outputHeight:outputSize.height} : {}),
     });
   };

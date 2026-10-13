@@ -29,7 +29,7 @@ export function buildRemakePlans(state,ids,{requestId,deleteSourceOnComplete = f
     const prompt=referenceOnlyPrompt(source);
     const plan = {
       ...structuredClone(Object.fromEntries(fields.filter(key => source[key] !== undefined).map(key => [key,source[key]]))),
-      id:globalThis.crypto.randomUUID(),name:`${originalName} · 重製 ${remakeVersion}`,originalName,seed,prompt:withSingleSubjectPrompt(isPhotoSourceJob(source) ? prompt : withNaturalScenePrompt(prompt,scene)),negative:withSingleSubjectNegative(source.negative),
+      id:globalThis.crypto.randomUUID(),name:`${originalName} · 重製 ${remakeVersion}`,originalName,seed,prompt:withSingleSubjectPrompt(isPhotoSourceJob(source) || source.generationMode==='custom' ? prompt : withNaturalScenePrompt(prompt,scene)),negative:withSingleSubjectNegative(source.negative),
       sourceJobId:source.id,rootJobId:root,remakeVersion,remakeRequestId:requestId,deleteSourceOnComplete,
       ...(source.folderId ? {folderId:source.folderId} : {}),...(source.adminFolderId ? {adminFolderId:source.adminFolderId} : {}),
       ...(source.apiPrompt || source.workflowSnapshot ? {workflowSnapshot:structuredClone(source.cameraMode === 'multiangle' ? source.workflowSnapshot : source.apiPrompt || source.workflowSnapshot)} : {}),

@@ -125,8 +125,8 @@ export function createPhotoVideos({store,dataDir,comfyJson,comfyAt,outputDir,isB
     if(job.status!=='completed' || job.outputsDeletedAt || !job.images?.[imageIndex]) throw fail('請選擇已完成的照片來產影片。',409);
     return job;
   }
-  async function generate(ownerId,jobId,body,{isTest=false,testSessionId,testRequestHash}={}) {
-    const config=settings(),published=ownerId==='admin' ? config : publicSettings(),request=videoRequest(body,published),signature=JSON.stringify({jobId,...request,requestId:undefined});
+  async function generate(ownerId,jobId,body,{isTest=false,testSessionId,testRequestHash,publishedSettings}={}) {
+    const config=settings(),published=ownerId==='admin' ? config : publishedSettings ?? publicSettings(),request=videoRequest(body,published),signature=JSON.stringify({jobId,...request,requestId:undefined});
     sourceFor(ownerId,jobId,request.imageIndex);
     const existing=rows().find(row=>row.ownerId===ownerId && row.requestId===request.requestId);
     if(existing) {
@@ -289,7 +289,7 @@ export function createPhotoVideos({store,dataDir,comfyJson,comfyAt,outputDir,isB
     savePrompt(body,id) {
       const config=settings();if(id && !config.prompts.some(row=>row.id===id)) throw fail('找不到影片提詞。',404);
       const row={id:id || randomUUID(),name:body?.name,prompt:body?.prompt},prompts=id ? config.prompts.map(item=>item.id===id ? row : item) : [...config.prompts,row];
-      const normalized=normalizeVideoSettings({...config,prompts});store.mutate(state=>storeVideoSettings(state,normalized,{replacePrompts:true}));return normalized.prompts.find(item=>item.id===row.id);
+      const normalized=normalizeVideoSettings({...config,prompts});store.mutate(state=>{storeVideoSettings(state,normalized,{replacePrompts:true});reconcileLibrarySelections(state);});return normalized.prompts.find(item=>item.id===row.id);
     },
     removePrompt(id) {const config=settings();if(!config.prompts.some(row=>row.id===id)) throw fail('找不到影片提詞。',404);store.mutate(state=>{state.presets=state.presets.filter(row=>row.id!==id);reconcileLibrarySelections(state);});return {ok:true};},
     saveModels(body) {if(!body) throw fail('請選擇 H3 模型。');const previous=settings(),models=normalizeVideoModels(body),config=normalizeVideoSettings({...previous,models:previous.generationVersion==='two-pass' ? {...models,unet:previous.models.unet,latentUpscaler:undefined} : models,...(previous.generationVersion==='two-pass' ? {twoPassUnet:models.unet,latentUpscaler:models.latentUpscaler ?? previous.latentUpscaler} : {})});store.mutate(state=>storeVideoSettings(state,config));return settings();},
@@ -315,6 +315,7 @@ export function createPhotoVideos({store,dataDir,comfyJson,comfyAt,outputDir,isB
       for(const file of files) fs.unlinkSync(file);
       store.mutate(state=>{state.photoVideos=state.photoVideos.filter(item=>item.id!==id);if(row.testSourceId && !others.length) state.jobs=state.jobs.filter(job=>job.id!==row.jobId);state.galleryEntries=(state.galleryEntries || []).filter(entry=>entry.ownerId!==ownerId || entry.mediaType!=='video' || entry.videoId!==id);});return {ok:true,deletedFiles:files.size};
     },
+    testSourceImage(jobId) {const job=jobFor('admin',jobId);if(!job.videoTestSourceId) throw fail('找不到測試圖片。',404);const file=testSourceFile(job.videoTestSourceId);if(!fs.existsSync(file)) throw fail('測試圖片已不存在。',404);return file;},
     file(ownerId,id) {const row=requireRow(ownerId,id),job=jobFor(ownerId,row.jobId);if(row.status!=='completed' || job.outputsDeletedAt) throw fail('影片尚未完成或已刪除。',404);const file=dataFile(row);if(!fs.existsSync(file)) throw fail('影片檔案已不存在。',404);return file;},
     close() {closed=true;shutdown.abort();if(timer) clearInterval(timer);},
   };

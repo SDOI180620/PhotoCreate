@@ -232,7 +232,7 @@ test('撤除已發布的服裝狀態分類項目，同步移除顧客舊提詞�
   assert.equal(photo.clothingState,null);assert.ok(!photo.prompt.includes(oldPreset.prompt));assert.ok(!photo.prompt.includes(other.prompt));
 });
 
-test('刪除已發布服裝狀態後重新發布清理結果，保留其他未發布編輯及原照片快照',async t=>{
+test('刪除已發布服裝狀態同步清理，已開放提詞保持最新內容且原照片保留快照',async t=>{
   const f=await fixture(t),alice=f.visitor();
   const draft={...DRAFT,mode:'random',randomPoolMode:'selected',cameraEnabled:false,clothingStateIds:['clothing-state-neat']};
   assert.equal((await fetch(f.base+'/api/customer-recipe',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(draft)})).status,200);
@@ -244,7 +244,7 @@ test('刪除已發布服裝狀態後重新發布清理結果，保留其他未�
   const after=f.store.read();
   assert.deepEqual(after.customerRecipe.pools.clothingState,[]);
   assert.notEqual(after.customerRecipe.updatedAt,'2020-01-01T00:00:00.000Z','Deleting a published choice must republish the cleaned configuration');
-  assert.notEqual(after.customerRecipe.pools.pose.find(row=>row.id==='pose-standing').prompt,'Unpublished pose edit');
+  assert.equal(after.customerRecipe.pools.pose.find(row=>row.id==='pose-standing').prompt,'Unpublished pose edit');
   assert.deepEqual(after.jobs[0],original);
   assert.equal((await alice.request('/state')).data.presets.some(row=>row.id==='clothing-state-neat'),false);
 });
@@ -519,7 +519,8 @@ test('刪除衣服與官方角色同步發布移除候選，保留顧客角色�
   const garment=await fetch(f.base+'/api/assets/garments/garment-a',{method:'DELETE'});assert.equal(garment.status,200);assert.equal((await garment.json()).customerRecipeUpdated,true);
   const character=await fetch(f.base+'/api/assets/characters/character',{method:'DELETE'});assert.equal(character.status,200);assert.equal((await character.json()).customerRecipeUpdated,true);
   const after=f.store.read();assert.deepEqual(after.customerRecipe.pools.garment.map(row=>row.id),['garment-b']);assert.deepEqual(after.customerRecipe.characterIds,['character-other']);
-  assert.deepEqual(after.customerRecipe.pools.garment[0],before.pools.garment.find(row=>row.id==='garment-b'));assert.deepEqual(after.customerRecipe.pools.quality,before.pools.quality);
+  assert.deepEqual(after.customerRecipe.pools.garment[0],{...before.pools.garment.find(row=>row.id==='garment-b'),description:'UNPUBLISHED_WARDROBE_CHANGE'});
+  assert.deepEqual(after.customerRecipe.pools.quality,before.pools.quality.map(row=>row.id==='quality-editorial' ? {...row,prompt:'UNPUBLISHED_PROMPT_CHANGE'} : row));
   assert.deepEqual(after.draft.characterIds,['character-other']);assert.deepEqual(after.jobs.find(row=>row.id===snapshot.id),snapshot);
   const customer=(await alice.request('/state')).data;assert.deepEqual(customer.characters.map(row=>row.id).sort(),['character-other',personal.id].sort());assert.deepEqual(customer.garments.map(row=>row.id),['garment-b']);
   assert.equal((await alice.request('/characters/character/image')).status,404);assert.equal((await alice.request('/garments/garment-a/image')).status,404);

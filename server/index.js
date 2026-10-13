@@ -16,7 +16,8 @@ import { createVisitorRouter } from './visitors.js';
 import { createPhotoFolders } from './photo-folders.js';
 import { belongsToStudio,operatorState,jobSummary } from './studio-ownership.js';
 import { photoPromptDetails } from './photo-prompts.js';
-import { createCustomerRecipe, customerProductionState, customerRecipeSummary } from './customer-recipe.js';
+import { createCustomerRecipe, customerProductionState, customerRecipeSummary, customerDraft, customerCharacters } from './customer-recipe.js';
+import {createCustomerConfigs} from './customer-configs.js';
 import { CATEGORIES, buildShotPlans, getOutputSize, normalizePresetImport, referenceOnlyPrompt } from '../shared/domain.js';
 import { ACTIVE_STATUSES, RETRYABLE_STATUSES, STOPPABLE_STATUSES, defaultBatchName } from '../shared/batches.js';
 import { jobUpdateFromComfy } from './job-status.js';
@@ -68,7 +69,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     loadImage:async(base,image)=>Buffer.from(await (await comfyAt(base,`/view?${new URLSearchParams({filename:image.filename,subfolder:image.subfolder || '',type:image.type || 'output'})}`)).arrayBuffer()),...photoStorageOptions});
   const characterPromptProfiles=createCharacterPromptProfiles(store);
   const photoFolders=createPhotoFolders(store);
-  const authentication=createAuthentication({dataDir,publicUrl,claimLegacyStudio:(legacyOwner,ownerId)=>{
+  const authentication=createAuthentication({dataDir,publicUrl,customerConfigExists:id=>customerConfigs.has(id),claimLegacyStudio:(legacyOwner,ownerId)=>{
     store.mutate(state=>{for(const collection of ['characters','jobs','batches']) for(const row of state[collection]) if(row.visitorId===legacyOwner) row.visitorId=ownerId;});
   }});
   const environment = createEnvironmentManager({dataDir,fetchImpl,...environmentOptions});
@@ -139,12 +140,14 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
       return recipe;
     } catch {return null;}
   };
+  const customerConfigs=createCustomerConfigs({store,getDefaultRecipe:getCustomerRecipe,getDefaultVideoSettings:()=>photoVideos.publicSettings()});
   app.use('/api/studio',authentication.requireCustomer,createVisitorRouter({store,dataDir,
     getCharacterTurnarounds:()=>characterTurnarounds,
     getGalleryMusic:()=>galleryMusic,
     getPhotoVideos:()=>photoVideos,
     photoFolders,
-    getCustomerRecipe,
+    getCustomerRecipe:configId=>customerConfigs.get(configId).recipe,
+    getCustomerVideoSettings:configId=>customerConfigs.videos(configId),
     isInstalling:()=>environment.isActive() || galleryMusic?.hasWork() || photoVideos?.hasWork(),
     uploadCharacter:(files,visitorId,profiles)=>saveAssetUploads('characters',files,visitorId,profiles),
     uploadGarment:(files,visitorId)=>saveAssetUploads('garments',files,visitorId),
@@ -161,6 +164,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
       return {...view,jobs:own.jobs.map(jobSummary),workflow:workflowSummary(workflow,own.workflowName || WORKFLOW_NAME),
         cameraWorkflow:{ready:Boolean(cameraWorkflow),name:own.cameraWorkflowName || cameraWorkflowPath(own.settings.cameraVersion),version:cameraWorkflowVersion(cameraWorkflow),error:own.cameraWorkflowError || ''}};
     });
+    state.customerConfigs=customerConfigs.list();
     const workflow=state.workflow;
     state.photoFolders=photoFolders.list('admin');
     return {...state,videos:photoVideos.list('admin'),videoSettings:photoVideos.settings(),publishedVideoSettings:photoVideos.publicSettings(),customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,photoVideo:PHOTO_VIDEO_VERSION,garmentSources:GARMENT_SOURCES_VERSION,imagePreviews:1,managedPhotos:1,fullBackups:1,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true,characterPools:true,characterProfile:1,characterPromptSettings:1,characterPromptProfiles:1,characterTurnaround:1,gpuMemoryControl:true,presetPreviews:1,presetPreviewRatios:1,presetReview:1,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,photoRefinement:PHOTO_REFINEMENT_VERSION,cameraFraming:CAMERA_FRAMING_VERSION},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
@@ -300,12 +304,16 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     store.mutate(state => {state.draft = reconcileDraftCandidates(state,draft);state.workbenchDrafts={...state.workbenchDrafts,...Object.fromEntries(Object.entries(modeDrafts).map(([mode,value])=>[mode,reconcileDraftCandidates(state,value)])),[draft.mode || 'combinations']:state.draft};});
     res.json({ok:true});
   });
+  app.get('/api/customer-configs',(req,res)=>res.json(customerConfigs.list()));
+  app.post('/api/customer-configs',(req,res)=>res.status(201).json(customerConfigs.save(req.body)));
+  app.patch('/api/customer-configs/:id',(req,res)=>res.json(customerConfigs.save(req.body,req.params.id)));
   app.put('/api/customer-recipe',(req,res)=>{
     if(!req.body || typeof req.body!=='object' || Array.isArray(req.body) || req.body.mode!=='random') throw fail('請在隨機寫真中設定顧客候選。');
     let recipe;
     try {const state=store.read();recipe=createCustomerRecipe(state,reconcileDraftCandidates(state,req.body));} catch(error) {throw fail(error.message);}
     store.mutate(state=>{state.customerRecipe=recipe;});
     photoVideos.publish();
+    customerConfigs.usePublishedVideos();
     res.json(customerRecipeSummary(recipe));
   });
   app.put('/api/settings',(req,res) => {
@@ -467,7 +475,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
       if(req.params.kind==='garments') {
         const garment=garmentFields({...item,...req.body});
         if(garment.sourceType==='image' && !item.fileName) throw fail('圖片版服裝需要先匯入參考圖。');
-        return Object.assign(item,garment);
+        Object.assign(item,garment);reconcileLibrarySelections(state);return item;
       }
       if(req.params.kind==='characters') for(const key of ['cupSize','heightCm']) if(Object.hasOwn(req.body,key)) {if(Object.hasOwn(profile,key)) item[key]=profile[key];else delete item[key];}
       return Object.assign(item,fields);
@@ -555,14 +563,30 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     res.json(state.workflow);
   });
 
-  app.post('/api/shots/preview',(req,res) => res.json(buildShotPlans(operatorState(store.read()),req.body)));
-  function createShots(body,{visitorId,requestId,customerRecipe} = {}) {
+  function adminShootingInput(state,body) {
+    const own=operatorState(state);
+    if(body.mode!=='random' || !body.customerConfigId) return {state:own,body};
+    const recipe=customerConfigs.get(body.customerConfigId).recipe;
+    if(!recipe) throw fail('這份參數設定檔尚未準備好，請先保存可用候選。');
+    const characters=customerCharacters(own,recipe),selected=body.characterIds ?? (body.characterId ? [body.characterId] : characters.map(row=>row.id));
+    if(!Array.isArray(selected) || selected.some(id=>!characters.some(row=>row.id===id))) throw fail('請選擇這份參數設定檔開放的角色。');
+    const draft={...customerDraft(recipe,{characterId:selected[0],count:body.randomCount,aspectRatio:body.aspectRatio || 'reference',batchName:body.batchName,cameraEnabled:body.cameraEnabled ?? false}),
+      characterIds:selected,seed:body.seed ?? -1,folderId:body.folderId};
+    return {state:customerProductionState({...own,characters},recipe),body:draft};
+  }
+  app.post('/api/shots/preview',(req,res) => {
+    const input=adminShootingInput(store.read(),req.body);
+    res.json(buildShotPlans(input.state,input.body));
+  });
+  function createShots(body,{visitorId,requestId,customerRecipe,customerShootKey} = {}) {
     const state=store.read();
     const folderId=photoFolders.requireFolder(visitorId || 'admin',body.folderId);
-    const plans = buildShotPlans(customerRecipe ? customerProductionState(state,customerRecipe) : operatorState(state),body);
+    const input=customerRecipe ? {state:customerProductionState(state,customerRecipe),body} : adminShootingInput(state,body);
+    body=input.body;
+    const plans = buildShotPlans(input.state,body,{allowUnspecified:customerRecipe?.custom===true});
     if(plans.some(job => productionStages(job).includes('angle')) && !store.read().cameraWorkflow) throw fail('請先載入 3D 相機換角度工作流。');
     const name = safeText(body.batchName ?? '',200,'拍攝組名稱') || defaultBatchName(plans);
-    const batch = {id:randomUUID(),name,createdAt:new Date().toISOString(),...(visitorId ? {visitorId,visitorRequestId:requestId,characterId:body.characterId,count:plans.length,aspectRatio:body.aspectRatio,cameraEnabled:body.cameraEnabled !== false,folderId} : {})};
+    const batch = {id:randomUUID(),name,createdAt:new Date().toISOString(),...(visitorId ? {visitorId,visitorRequestId:requestId,characterId:body.characterId,count:plans.length,aspectRatio:body.aspectRatio,cameraEnabled:body.cameraEnabled !== false,folderId,...(customerShootKey ? {customerShootKey} : {})} : {})};
     const shots = plans.map(shot => ({...shot,batchId:batch.id,status:'draft',createdAt:batch.createdAt,images:[],...(productionStages(shot).includes('angle') ? {cameraVersion:cameraWorkflowVersion(state.cameraWorkflow),cameraWorkflowSnapshot:structuredClone(state.cameraWorkflow)} : {}),...(visitorId ? {visitorId} : {}),...(folderId ? {[visitorId ? 'folderId' : 'adminFolderId']:folderId} : {})}));
     store.mutate(state => {state.batches.unshift(batch);state.jobs.unshift(...shots);});
     return shots;
@@ -607,7 +631,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     const version=cameraWorkflowVersion(state.cameraWorkflow);
     const job = {...plan,seed:cameraSource.seed ?? source.seed,jobKind:'angle-edit',cameraMode:'multiangle',cameraVersion:version,cameraEnabled:true,executionMode:'staged',camera:{id:`angle-${requestId}`,category:'camera',name:cameraName,angle:cameraAngle,prompt:cameraPrompt(cameraAngle,version),tags:[]},angleSteps,refineSteps:REFINE_STEPS,refineDenoise,
       workflowSnapshot:structuredClone(state.workflow),cameraWorkflowSnapshot:structuredClone(state.cameraWorkflow),cameraSource,sourceImage:structuredClone(cameraSource.image),sourceImageIndex:imageIndex,sourceComfyUrl:cameraSource.comfyUrl || state.settings.comfyUrl,
-      name:`${source.garment.name} · ${cameraName} · 重製 ${plan.remakeVersion}`,prompt:`${cameraPrompt(cameraAngle,version)}\n\n高清修正：${REFINE_PROMPT}`,status:'draft',createdAt:new Date().toISOString(),images:[],...(visitorId ? {visitorId} : {})};
+      name:`${source.garment?.name || source.character?.name || source.name} · ${cameraName} · 重製 ${plan.remakeVersion}`,prompt:`${cameraPrompt(cameraAngle,version)}\n\n高清修正：${REFINE_PROMPT}`,status:'draft',createdAt:new Date().toISOString(),images:[],...(visitorId ? {visitorId} : {})};
     delete job.sourceInput;
     delete job.sourceInputComfyUrl;
     store.mutate(current => current.jobs.unshift(job));
@@ -636,7 +660,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     return {job,created:true};
   }
   app.post('/api/jobs/:id/refine',(req,res)=>{const result=refineShot(req.params.id,req.body);res.status(result.created ? 201 : 200).json(result);});
-  function customShot(id,body,{visitorId} = {}) {
+  function customShot(id,body,{visitorId,customerRecipe} = {}) {
     const {requestId,imageIndex=0} = body || {};
     if(typeof requestId!=='string' || !/^[\w-]{1,120}$/.test(requestId)) throw fail('自訂拍攝請求 ID 無效。');
     if(!Number.isInteger(imageIndex) || imageIndex<0 || imageIndex>99) throw fail('照片索引無效。');
@@ -650,7 +674,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
       return {job:existing,created:false};
     }
     const photoSource=resolveSelectedPhotoSource(state,source,imageIndex);
-    const recipe=visitorId ? getCustomerRecipe() : null,selectedPresets={};
+    const recipe=visitorId ? customerRecipe : null,selectedPresets={};
     const garments=visitorId ? [...(recipe?.pools.garment || []),...state.garments.filter(row=>row.visitorId===visitorId)] : state.garments.filter(row=>belongsToStudio(row));
     const garment=customization.clothingMode==='reference' ? garments.find(row=>row.id===customization.garmentId) : null;
     if(customization.clothingMode==='reference' && !garment) throw fail('請選擇官方服裝或你上傳的服裝。');
@@ -845,7 +869,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   app.get('/api/photo-videos/parameters',async(req,res)=>res.json(await photoVideos.parameters(req.query.generationVersion)));
   app.get('/api/photo-videos/test-images',(req,res)=> {
     const limit=Math.max(1,Math.min(24,Number(req.query.limit) || 12)),offset=Math.max(0,Number(req.query.offset) || 0),query=String(req.query.q || '').toLocaleLowerCase();
-    const items=store.read(state=>state.jobs.filter(job=>belongsToStudio(job) && job.status==='completed' && !job.videoTestSourceId && !job.previewSessionId && !job.visitorDeletedAt && !job.outputsDeletedAt && (!query || (job.name || job.garment?.name || '').toLocaleLowerCase().includes(query))).flatMap(job=>(job.images || []).map((image,imageIndex)=>({jobId:job.id,imageIndex,name:job.name || job.garment?.name || '照片',image:'/api/jobs/'+job.id+'/image?index='+imageIndex}))));
+    const items=store.read(state=>state.jobs.filter(job=>belongsToStudio(job) && job.status==='completed' && !job.videoTestSourceId && !job.previewSessionId && !job.visitorDeletedAt && !job.outputsDeletedAt && (!query || (job.name || job.garment?.name || '').toLocaleLowerCase().includes(query))).flatMap(job=>(job.images || []).map((image,imageIndex)=>({jobId:job.id,imageIndex,name:job.name || job.garment?.name || '照片',image:'/api/jobs/'+job.id+'/image/'+imageIndex}))));
     res.json({items:items.slice(offset,offset+limit),total:items.length});
   });
   app.get('/api/photo-videos/tests',(req,res)=>res.json(photoVideos.list('admin',undefined,{tests:true,sessionId:req.query.sessionId})));
@@ -861,7 +885,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     if(!Array.isArray(req.body?.selectedPromptIds)) throw fail('請選擇要開放的影片提詞。');
     res.json(photoVideos.selectPrompts(req.body.selectedPromptIds));
   });
-  app.post('/api/photo-videos/publish',(req,res)=>res.json(photoVideos.publish()));
+  app.post('/api/photo-videos/publish',(req,res)=>{const published=photoVideos.publish();customerConfigs.usePublishedVideos();res.json(published);});
   app.get('/api/photo-videos/workflows',async(req,res)=> {
     const base=req.query.url ? normalizeComfyUrl(req.query.url) : store.read().settings.comfyUrl;
     const paths=await comfyJson('/userdata?dir=workflows&recurse=true&split=false',{},base);
@@ -1126,6 +1150,12 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     const source = stage === undefined ? job : job?.stageResults?.[stage];
     const image = job && !job.outputsDeletedAt && (stage === undefined || source?.completed) ? source?.images?.[Number(index)] : null;
     if (!image) throw fail('找不到輸出圖片。',404);
+    if(job.videoTestSourceId) {
+      const file=photoVideos.testSourceImage(id);
+      if(thumbnail!==undefined && !download) return imagePreviews.send(res,{key:`video-test:${job.videoTestSourceId}`,file,size:thumbnail});
+      if(download) res.attachment(path.basename(image.filename));
+      return res.set('Cache-Control','private, no-cache').type('image/png').sendFile(file);
+    }
     const query = new URLSearchParams({filename:image.filename,subfolder:image.subfolder || '',type:image.type || 'output'});
     const settings=store.read(state=>state.settings),base=source.comfyUrl || job.comfyUrl || settings.comfyUrl;
     const saved=photoStorage.find(base,image);

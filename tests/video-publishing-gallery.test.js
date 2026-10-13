@@ -19,17 +19,18 @@ test('editable workflow and API preserve every node, input and connection, inclu
   assert.throws(()=>convertVideoWorkflow(invalid,videoObjectInfo()),/缺少必要輸入/);
 });
 
-test('video prompt drafts and selections reach customers only on publish; published text survives edits and restarts',async t=> {
+test('video prompt selections reach customers on publish; edits to selected text reach customers immediately and survive restarts',async t=> {
   const f=await videoFixture();t.after(()=>f.close());const alice=await f.customer('publication');f.store.mutate(state=>{state.jobs[0].visitorId=alice.ownerId;});
   const created=await f.request('/photo-videos/prompts',{name:'Upper-body motion',prompt:'Gently sway and slowly frame the upper body.'});assert.equal(created.status,201);
   await f.request('/photo-videos/selection',{selectedPromptIds:[created.data.id]},'PATCH');
   assert.equal((await alice.request('/state')).data.videoSettings.prompts[0].prompt,DEFAULT_VIDEO_PROMPT);
   assert.equal((await alice.request('/jobs/original/video',{requestId:'unpublished-0001',mode:'official',presetId:created.data.id})).status,400);
   await f.request('/photo-videos/publish',{});let published=(await alice.request('/state')).data.videoSettings.prompts;assert.deepEqual(published,[created.data]);
-  await f.request('/photo-videos/prompts/'+created.data.id,{name:'Edited draft',prompt:'Do not release this edit yet.'},'PATCH');
+  await f.request('/photo-videos/prompts/'+created.data.id,{name:'Updated motion',prompt:'Wave gently and turn toward the window.'},'PATCH');
+  published=[{id:created.data.id,name:'Updated motion',prompt:'Wave gently and turn toward the window.'}];
   assert.deepEqual((await alice.request('/state')).data.videoSettings.prompts,published);
   assert.equal((await alice.request('/jobs/original/video',{requestId:'published-video-0002',mode:'official',presetId:created.data.id})).status,202);
-  assert.equal(f.store.read().photoVideos[0].prompt,created.data.prompt);await f.photoVideos.tick();await f.finish();
+  assert.equal(f.store.read().photoVideos[0].prompt,'Wave gently and turn toward the window.');await f.photoVideos.tick();await f.finish();
   await f.restart();assert.deepEqual((await alice.request('/state')).data.videoSettings.prompts,published);
   await f.request('/photo-videos/selection',{selectedPromptIds:[]},'PATCH');await f.request('/photo-videos/publish',{});
   assert.deepEqual((await alice.request('/state')).data.videoSettings.prompts,[]);

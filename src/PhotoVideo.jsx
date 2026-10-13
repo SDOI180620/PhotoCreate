@@ -1,19 +1,19 @@
 import {useEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
-import {Check,Download,Film,Images,Loader2,RefreshCw,Save,Trash2,X} from 'lucide-react';
+import {Check,Download,Film,Images,Loader2,Play,RefreshCw,Save,Trash2,X} from 'lucide-react';
 import {defaultVideoSettings,VIDEO_DURATIONS,VIDEO_ASPECT_RATIOS,VIDEO_GENERATION_VERSIONS,videoIsActive,videoStatus} from '../shared/photo-video.js';
 import {randomId} from './ids.js';
 import {CustomerPromptLibrary} from './CustomerLibrary.jsx';
 import './photo-video.css';
 
-export function VideoResults({videos=[],image,busy,onStop,onRemove,gallery=[],galleryFolders=[],onAddToGallery}) {
+export function VideoResults({videos=[],image,busy,onStop,onRemove,onPlay,gallery=[],galleryFolders=[],onAddToGallery}) {
   const [removeId,setRemoveId]=useState(''),[folderId,setFolderId]=useState('');
   return videos.length>0 && <div className="photo-video-results" aria-label="這張照片的影片">{videos.map(row=><article key={row.id} className="photo-video-result">
     <div className="photo-video-result-heading"><div><strong><Film size={17}/>{row.presetName || (row.mode==='custom' ? '自行輸入' : '官方提詞')}</strong><div className="photo-video-result-meta"><span>{row.duration} 秒</span><span>{VIDEO_ASPECT_RATIOS[row.aspectRatio || 'reference']}</span></div></div><div className="photo-video-result-status"><span className={'photo-video-status status-'+row.status} role="status">{videoIsActive(row) ? <Loader2 size={14} className="spin"/> : row.status==='completed' ? <Check size={14}/> : null}{videoIsActive(row) ? '影片製作中' : videoStatus(row)}</span>{videoIsActive(row) && onStop && <button type="button" className="photo-video-stop" aria-label="停止影片" disabled={busy} onClick={()=>onStop(row.id)}>{row.status==='stopping' || row.status==='uncertain' ? '確認停止' : '停止'}</button>}</div></div>
-    {row.video && <video aria-label={`${row.duration} 秒影片`} src={row.video} poster={image} controls playsInline preload="metadata"/>}
+    {row.video && <video aria-label={`${row.duration} 秒影片`} src={row.video} poster={typeof image==='function' ? image(row) : image} controls playsInline preload="metadata"/>}
     {row.error && <p className="photo-video-error" role="status">{row.error}</p>}
 
-    <div className="photo-video-result-actions">{row.video && <a href={`${row.video}?download=1`} download><Download size={14}/>下載影片</a>}{!videoIsActive(row) && onRemove && <button type="button" className="photo-video-delete" disabled={busy} onClick={()=>setRemoveId(row.id)}><Trash2 size={16}/>刪除影片</button>}</div>
+    <div className="photo-video-result-actions">{row.video && onPlay && <button type="button" onClick={()=>onPlay(row)}><Play size={16}/>播放影片</button>}{row.video && <a href={`${row.video}?download=1`} download><Download size={14}/>下載影片</a>}{!videoIsActive(row) && onRemove && <button type="button" className="photo-video-delete" disabled={busy} onClick={()=>setRemoveId(row.id)}><Trash2 size={16}/>刪除影片</button>}</div>
     <details><summary>影片提詞</summary><p className="photo-video-prompt-text">{row.prompt}</p></details>
     {row.video && onAddToGallery && <div className="photo-video-feature-actions">{gallery.some(entry=>entry.mediaType==='video' && entry.videoId===row.id) ? <span><Check size={14}/>這段影片已加入精選</span> : <><label>影片精選分類<select aria-label={`影片精選分類 ${row.id}`} value={galleryFolders.some(folder=>folder.id===folderId) ? folderId : ''} disabled={busy} onChange={event=>setFolderId(event.target.value)}><option value="">未分類</option>{galleryFolders.map(folder=><option key={folder.id} value={folder.id}>{folder.name}</option>)}</select></label><button type="button" disabled={busy} onClick={()=>onAddToGallery(row.jobId,row.imageIndex,folderId,{mediaType:'video',videoId:row.id})}><Images size={14}/>將這段影片加入精選</button></>}</div>}
 

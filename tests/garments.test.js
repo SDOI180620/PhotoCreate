@@ -31,7 +31,7 @@ test('混合圖片與提詞服裝保存各自快照，實際工作流分別只�
   for(const input of [{...promptGarment,prompt:''},{...promptGarment,prompt:7},{...promptGarment,prompt:'x'.repeat(20001)},{...promptGarment,sourceType:'unknown'},{...promptGarment,tags:[7]}]) assert.throws(()=>garmentFields(input));
 });
 
-test('新增及編輯服裝提詞驗證整筆資料，歷史與顧客已發布版本只在再次套用後更新',async t=>{
+test('新增及編輯服裝提詞驗證整筆資料，顧客已開放服裝立即更新且歷史保留快照',async t=>{
   const f=await fixture(t),before=f.store.read();
   for(const input of [{name:'',sourceType:'prompt',prompt:'coat'},{name:'coat',sourceType:'prompt',prompt:''},{name:'coat',sourceType:'image',prompt:'coat'}]) assert.equal((await f.request('/garments',input)).status,400);
   assert.deepEqual(f.store.read().garments,before.garments);
@@ -41,8 +41,8 @@ test('新增及編輯服裝提詞驗證整筆資料，歷史與顧客已發布�
   assert.equal(customerRecipeMatches(f.store.read(),publishedDraft),true);
   const [shot]=buildShotPlans(f.store.read(),publishedDraft);f.store.mutate(state=>state.jobs.push({...shot,status:'draft',images:[],createdAt:new Date().toISOString()}));
   const edited=await f.request(`/assets/garments/${id}`,{name:'新的針織套裝',prompt:'A navy knit cardigan and grey trousers.'},'PATCH');assert.equal(edited.status,200);
-  assert.equal(f.store.read().customerRecipe.pools.garment[0].prompt,promptGarment.prompt);assert.equal(f.store.read().jobs[0].garment.prompt,promptGarment.prompt);
-  assert.equal(customerRecipeMatches(f.store.read(),publishedDraft),false);
+  assert.equal(f.store.read().customerRecipe.pools.garment[0].prompt,'A navy knit cardigan and grey trousers.');assert.equal(f.store.read().jobs[0].garment.prompt,promptGarment.prompt);
+  assert.equal(customerRecipeMatches(f.store.read(),publishedDraft),true);
   assert.equal((await f.request(`/assets/garments/${id}`,{sourceType:'image',fileName:'outside.png'},'PATCH')).status,400);
   assert.equal((await f.request(`/assets/garments/${id}`,{prompt:''},'PATCH')).status,400);
   assert.equal((await f.request('/customer-recipe',publishedDraft,'PUT')).status,200);assert.equal(f.store.read().customerRecipe.pools.garment[0].prompt,edited.data.prompt);

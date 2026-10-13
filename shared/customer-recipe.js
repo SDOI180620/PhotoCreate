@@ -3,6 +3,7 @@ import {getShotRecipe,optionalPresetSelections,selectedCharacterIds} from './dom
 import {ORIGINAL_CAMERA} from './camera.js';
 
 export const CUSTOMER_MAX_SHOOT_COUNT=12;
+export const CUSTOMER_MAX_SHOOT_CANDIDATES=10000;
 export const CUSTOMER_SHOOT_COUNTS=[1,2,4,8,12];
 
 const SETTINGS=['cameraMode','cameraEnabled','steps','resolution','angleSteps','refineDenoise','negative','extra','sceneInteraction','randomOptional'];

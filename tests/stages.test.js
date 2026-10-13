@@ -249,7 +249,7 @@ test('重啟升級管理與已發布顧客鏡位，保持候選名單、手動�
   assert.deepEqual(after.jobs,before.jobs);
   assert.deepEqual(after.customerRecipe.characterIds,recipe.characterIds);
   assert.deepEqual(after.customerRecipe.settings,recipe.settings);
-  assert.deepEqual(after.customerRecipe.pools.garment,recipe.pools.garment);
-  assert.equal(after.customerRecipe.updatedAt,recipe.updatedAt);
+  assert.deepEqual(after.customerRecipe.pools.garment,[{id:'saved-outfit',name:'Saved outfit'}]);
+  assert.notEqual(after.customerRecipe.updatedAt,recipe.updatedAt);
   store.close();store=createStore(dir);assert.deepEqual(store.read(),after);
 });

@@ -68,7 +68,7 @@ export function validateTemplate(graph) {
 export function referenceKinds(shot) {
   if(shot.jobKind==='character-turnaround') return ['character'];
   if(shot.jobKind==='photo-edit') return ['character',...(!isPromptGarment(shot.garment) && shot.garment?.fileName ? ['garment'] : [])];
-  return ['character',...(!isPromptGarment(shot.garment) ? ['garment'] : []),...(shot.scene ? ['scene'] : [])];
+  return ['character',...(shot.garment && !isPromptGarment(shot.garment) ? ['garment'] : []),...(shot.scene ? ['scene'] : [])];
 }
 
 export function buildComfyPrompt(template, shot, images) {

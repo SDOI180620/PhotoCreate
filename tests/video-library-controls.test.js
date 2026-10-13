@@ -22,7 +22,7 @@ test('video prompts use ordinary preset CRUD, search and review; drafts publish 
   const state=f.store.read(),body={...state.draft,mode:'random',randomPoolMode:'all',characterIds:['character']};
   assert.equal((await f.request('/customer-recipe',body,'PUT')).status,200);
   assert.deepEqual(f.photoVideos.publicSettings().prompts.map(row=>row.id),[prompt.id]);
-  await f.request('/presets',{...prompt,prompt:'A new draft.'});assert.equal(f.photoVideos.publicSettings().prompts[0].prompt,prompt.prompt);
+  await f.request('/presets',{...prompt,prompt:'A new draft.'});assert.equal(f.photoVideos.publicSettings().prompts[0].prompt,'A new draft.');
   await f.request('/presets/'+prompt.id,undefined,'DELETE');assert.equal(f.photoVideos.publicSettings().prompts.length,0);
   await f.request('/presets/natural',undefined,'DELETE');await f.restart();assert.deepEqual(f.photoVideos.settings().prompts,[]);
 });
@@ -41,6 +41,15 @@ test('editing video parameters saves the editable workflow and changes the next 
   const current=(await f.request('/photo-videos/parameters')).data;assert.equal((await f.request('/photo-videos/settings',{workflowParameters:{...changed,megapixels:0.01},workflowRevision:current.revision},'PUT')).status,400);
   assert.deepEqual(f.control.workflows.get('workflows/PhotoCreate/01 FastH3 Trim - 圖生影片.json'),ui);
 });
+test('影片提詞測試的照片來源連結可直接載入圖片，供卡片與播放封面使用',async t=> {
+  const f=await fixture(t),choices=await f.request('/photo-videos/test-images');
+  assert.equal(choices.status,200);assert.equal(choices.data.items.length,2);
+  for(const item of choices.data.items) {
+    const image=await adminFetch(f.base+item.image);
+    assert.equal(image.status,200);assert.match(image.headers.get('content-type'),/^image\/png/);
+  }
+});
+
 test('prompt testing uses an owned generated photo and an unsaved prompt without publishing or adding clips to the photo library',async t=> {
   const f=await fixture(t),customer=await f.customer('test-private');
   f.store.mutate(state=>state.jobs.push({...state.jobs[0],id:'foreign-photo',visitorId:customer.ownerId}));

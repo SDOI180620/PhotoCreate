@@ -80,8 +80,11 @@
 .video-test-upload{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .video-test-upload small,.video-test-photos span,.video-test-source span{color:var(--color-text-dim);font-size:11px}
 .video-test-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.video-test-photo{display:grid;align-content:start;gap:6px;min-width:0}
 .video-test-photos button{padding:5px;border:2px solid transparent;border-radius:9px;background:var(--color-surface);display:grid;gap:5px;text-align:left;min-width:0;cursor:pointer}
 .video-test-photos button[aria-pressed=true]{border-color:var(--color-primary)}
+.video-test-photos .video-test-play{display:flex;justify-content:center;align-items:center;gap:6px;min-height:36px;background:var(--color-primary);color:#fff;font:inherit;font-size:12px;font-weight:600}
+.video-test-play small{font-size:11px;font-weight:400}
 .video-test-photos img{width:100%;height:120px;object-fit:cover;border-radius:5px}
 .video-test-photos span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .video-test-source{display:grid;gap:6px}

@@ -55,8 +55,14 @@
 .account-row-actions .button {padding:7px 10px;font-size:11px}
 .account-empty {text-align:center;display:grid;justify-items:center;color:#8c9685;padding:45px 0;gap:8px}
 .account-empty small {font-size:11px}
-.account-edit {margin-top:24px}
-.account-edit form {grid-template-columns:1fr 1fr auto;align-items:end}
+.account-edit-dialog {width:520px;max-width:calc(100vw - 32px);max-height:90dvh;padding:0;border:1px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface);color:var(--color-text);box-shadow:var(--shadow-lg);font:inherit;overflow:auto}
+.account-edit-dialog::backdrop {background:var(--color-overlay);backdrop-filter:blur(3px)}
+.account-edit-heading {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:22px 24px;border-bottom:1px solid var(--color-border)}
+.account-edit-dialog h2 {margin:0;overflow-wrap:anywhere}
+.account-edit-dialog form {display:flex;flex-direction:column;gap:0;margin:0}
+.account-edit-body {display:grid;gap:18px;padding:24px}
+.account-edit-dialog label>input,.account-edit-dialog label>select {margin-top:0}
+.account-edit-footer {display:flex;justify-content:flex-end;gap:10px;padding:18px 24px;border-top:1px solid var(--color-border);background:var(--color-bg)}
 .account-message {padding:12px 18px;background:#edf4e9;color:#4a6d3e;border-radius:7px;display:flex;gap:8px;align-items:center;margin-bottom:18px}
 .account-message.error {background:#fbefed;color:#ae4d42}
 .account-password {margin-top:24px}

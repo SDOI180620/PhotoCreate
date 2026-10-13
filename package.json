@@ -24,6 +24,8 @@
     "test:photo-refinement-ui": "node tests/photo-refinement-browser.mjs",
     "test:photo-video-ui": "node tests/photo-video-browser.mjs",
     "test:customer-library-ui": "node tests/customer-library-browser.mjs",
+    "test:customer-configs-ui": "node --test tests/customer-configs-browser.mjs",
+    "test:customer-custom-shoot-ui": "node --test tests/customer-custom-shoot-browser.mjs",
     "test:preset-review-ui": "node tests/preset-review-browser.mjs",
     "test:gallery-ui": "node tests/gallery-layout-browser.mjs",
     "test:loading-ui": "node tests/image-loading-browser.mjs",

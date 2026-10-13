@@ -2,8 +2,8 @@ import {DEFAULT_DRAFT} from '../shared/draft.js';
 import {buildShotPlans,OPTIONAL_PRESET_POOL_FIELDS} from '../shared/domain.js';
 import {customerRecipeCandidate} from '../shared/customer-recipe.js';
 
-// Publish the selected rows as well as their settings. Library edits and new
-// candidates stay in the workbench until the operator applies them again.
+// Publish selected rows and settings. Selected library entries stay current;
+// new candidates and selection changes require applying the configuration.
 export function createCustomerRecipe(state,input) {
   const {draft,recipe}=customerRecipeCandidate(state,input);
   const character={id:'recipe-validation',name:'Recipe validation',description:''};

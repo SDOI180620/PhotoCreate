@@ -1,0 +1,35 @@
+.customer-configs {display:grid;gap:20px}
+.customer-configs .account-message {margin:0}
+.config-heading {display:flex;justify-content:space-between;gap:24px;align-items:center}
+.config-heading h2 {display:flex;gap:10px;align-items:center;font-size:17px;margin-bottom:7px}
+.config-selector {display:flex;align-items:end;gap:12px;min-width:360px}
+.config-selector label {flex:1}
+.config-create form {display:flex;gap:12px;align-items:end;margin-bottom:10px}
+.config-create label {flex:1;max-width:480px}
+.config-name {display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:20px}
+.config-name>label {width:300px;max-width:100%}
+.config-name>div {display:flex;align-items:center;gap:18px}
+.config-name>div>span {max-width:360px}
+.config-editor {display:grid;grid-template-columns:195px minmax(0,1fr);gap:20px;align-items:start}
+.config-categories.panel {padding:12px}
+.config-categories button {display:flex;width:100%;justify-content:space-between;gap:16px;align-items:center;padding:13px 14px;border-radius:var(--radius-sm);text-align:left}
+.config-categories button small {color:var(--color-text-dim);font-size:11px}
+.config-categories button.active {background:var(--color-secondary);color:var(--color-primary);font-weight:600}
+.config-candidate-heading {display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:20px}
+.config-candidate-heading h2 {font-size:17px;margin-bottom:4px}
+.config-selection-actions {display:flex;gap:8px}
+.config-search {display:flex;gap:10px;align-items:center;margin-bottom:20px}
+.config-search>input {margin:0}
+.config-choice-grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;max-height:530px;overflow:auto;padding:3px}
+.config-choice {display:flex;align-items:center;gap:12px;padding:15px 12px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);cursor:pointer;min-width:0}
+.config-choice.selected {background:var(--color-soft);border-color:#b3c2a8}
+.config-choice>input {margin:0;flex-shrink:0}
+.config-choice>img,.config-choice-icon {width:44px;height:55px;object-fit:cover;border-radius:4px;flex-shrink:0}
+.config-choice-icon {display:grid;place-items:center;background:var(--color-secondary);color:var(--color-primary)}
+.config-choice>span:last-child {min-width:0;display:grid;gap:4px}
+.config-choice strong {font-weight:500;overflow-wrap:anywhere}
+.config-choice small {color:var(--color-text-dim);font-size:10px;overflow-wrap:anywhere}
+.config-guidance {padding-top:22px}
+.config-empty {text-align:center;padding:50px 12px;color:var(--color-text-dim)}
+@media(max-width:1100px) {.config-heading,.config-name {align-items:stretch;flex-direction:column}.config-selector {min-width:0}.config-name>div {justify-content:space-between}.config-editor {grid-template-columns:160px minmax(0,1fr)}}
+@media(max-width:760px) {.config-heading,.config-name,.config-candidates {padding:20px}.config-editor {grid-template-columns:1fr}.config-categories {display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.config-categories button {padding:10px 8px;gap:4px;flex-wrap:wrap}.config-candidate-heading {align-items:start;flex-direction:column}.config-choice-grid {grid-template-columns:1fr}.config-name>div {align-items:start;flex-direction:column}.config-create form {flex-wrap:wrap}.config-create label {flex-basis:100%}.config-selector {align-items:stretch;flex-direction:column}.config-selector .button {align-self:start}}

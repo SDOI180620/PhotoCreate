@@ -1,6 +1,7 @@
 import {imagePreview} from './image-preview.js';
 import PhotoPrompts from './PhotoPrompts.jsx';
 import Accounts from './Accounts.jsx';
+import CustomerConfigs from './CustomerConfigs.jsx';
 import {FolderDestination} from './PhotoFolders.jsx';
 import {checkAuthentication} from './auth-api.js';
 import {randomId} from './ids.js';
@@ -22,6 +23,7 @@ import EnvironmentSetup from './EnvironmentSetup.jsx';
 import DataTransfer from './DataTransfer.jsx';
 import {DEFAULT_DRAFT} from '../shared/draft.js';
 import {customerRecipeMatches} from '../shared/customer-recipe.js';
+import {applyCustomerConfig} from '../shared/customer-configs.js';
 import {reconcileDraftCandidates as reconcilePresetDraft} from '../shared/library-selections.js';
 import {DEFAULT_PHOTO_CUSTOMIZATION,PHOTO_CUSTOMIZATION_VERSION,photoCustomizationError} from '../shared/photo-customization.js';
 import PhotoCustomization from './PhotoCustomization.jsx';
@@ -38,7 +40,7 @@ import {cameraVersion,cameraWorkflowPath} from '../shared/camera-version.js';
 import { RETRYABLE_STATUSES, STOPPABLE_STATUSES } from '../shared/batches.js';
 
 const ASSET_LABELS = {garments:{name:'服裝',title:'服裝圖庫',subtitle:'每一套服裝，都是下一組寫真的起點。',icon:Shirt},characters:{name:'角色',title:'角色參考',subtitle:'保存角色的外貌與辨識特徵。',icon:UserRound}};
-const PAGES = [{id:'studio',label:'拍攝工作檯',icon:SlidersHorizontal},{id:'garments',label:'服裝圖庫',icon:Shirt},{id:'references',label:'角色參考',icon:UserRound},{id:'character-prompts',label:'角色提詞設定',icon:Settings2},{id:'presets',label:'提詞資料庫',icon:FileJson},{id:'jobs',label:'拍攝清單',icon:Layers3},{id:'gallery',label:'成果畫廊',icon:Images},{id:'video-settings',label:'影片設定',icon:Film},{id:'music',label:'播放音樂',icon:Music2},{id:'accounts',label:'顧客帳號',icon:Users}];
+const PAGES = [{id:'studio',label:'拍攝工作檯',icon:SlidersHorizontal},{id:'garments',label:'服裝圖庫',icon:Shirt},{id:'references',label:'角色參考',icon:UserRound},{id:'character-prompts',label:'角色提詞設定',icon:Settings2},{id:'presets',label:'提詞資料庫',icon:FileJson},{id:'jobs',label:'拍攝清單',icon:Layers3},{id:'gallery',label:'成果畫廊',icon:Images},{id:'video-settings',label:'影片設定',icon:Film},{id:'music',label:'播放音樂',icon:Music2},{id:'customer-configs',label:'參數設定檔',icon:Settings2},{id:'accounts',label:'顧客帳號',icon:Users}];
 
 async function api(endpoint,options = {}) {
   const isForm = options.body instanceof FormData;
@@ -233,7 +235,7 @@ function Studio({state,draft,setDraft,onChangeMode,onApplyCustomer,onPick,onUplo
   const missingLabels = {character:'角色',garment:'服裝',pose:'動作',camera:'攝影角度',lighting:'光線',color:'色彩',quality:'畫質',expression:'表情',gaze:'視線',clothingState:'服裝狀態',interaction:'場景'};
   const publishMissing=Object.entries(pools).find(([key,rows])=>key!=='character' && !rows.length)?.[0];
   const publishDisabledReason = busy ? '正在保存設定，請稍候。' : updateRequired ? '目前後台尚未載入候選選擇更新，請重新啟動 PhotoCreate 後再套用。' : error || (!recipe ? '無法讀取候選設定。' : !stepsValid ? '請輸入 1–100 的整數採樣步數。' : publishMissing ? `請先選擇${missingLabels[publishMissing]}候選。` : '');
-  const customerUnchanged=customerRecipeMatches(state,draft) && videoPublicationMatches(state.videoSettings,state.publishedVideoSettings);
+  const customerUnchanged=Boolean(draft.customerConfigId) || customerRecipeMatches(state,draft) && videoPublicationMatches(state.videoSettings,state.publishedVideoSettings);
   const valid = Boolean(!updateRequired && character && recipe && stepsValid && !missing && Number.isInteger(count) && count > 0 && count <= 100 && (random || Number.isInteger(copies) && copies >= 1 && copies <= 10));
   const selectedFor = category => {
     const ids = selectedPresetIds(draft,category);
@@ -258,6 +260,7 @@ function Studio({state,draft,setDraft,onChangeMode,onApplyCustomer,onPick,onUplo
         <button aria-label="候選組合" aria-pressed={!random} className={!random ? 'active' : ''} onClick={() => onChangeMode('combinations')}><Layers3 size={16}/>候選組合<small>管理員測試</small></button>
         <button aria-label="隨機寫真" aria-pressed={random} className={random ? 'active' : ''} onClick={() => onChangeMode('random')}><WandSparkles size={16}/>隨機寫真<small>顧客設定</small></button>
       </div>
+      {random && state.customerConfigs && <div className="shoot-config-selector"><label>隨機拍攝設定檔<select aria-label="隨機拍攝設定檔" value={draft.customerConfigId || ''} disabled={busy} onChange={event=>setDraft(current=>applyCustomerConfig(current,state.customerConfigs.configs.find(row=>row.id===event.target.value),state))}><option value="">工作檯自訂候選</option>{state.customerConfigs.configs.map(row=><option key={row.id} value={row.id}>{row.name}</option>)}</select></label><p className="field-help">選設定檔可使用與該檔顧客相同的候選。修改候選或提詞時會切換為工作檯自訂，原設定檔會保留。</p></div>}
       {random ? <><p className="field-help">選定給顧客使用的服裝、動作與攝影設定，再按「套用至顧客攝影棚」。每張照片從這些候選各取一項。</p><div className="random-mode-settings"><label>測試張數<input aria-label="隨機張數" type="number" min={1} max={100} value={draft.randomCount} onChange={e => setDraft(current => ({...current,randomCount:e.target.value}))}/></label><label>候選範圍<select aria-label="隨機候選範圍" value={draft.randomPoolMode} onChange={e => setDraft(current => ({...current,randomPoolMode:e.target.value}))}><option value="all">全部提詞庫</option><option value="selected">僅已選候選</option></select></label></div><p className="field-help">表情、視線、服裝狀態、場景都可複選；選了就加入搭配。未指定視線時自然配合動作，其他選填項目清空後不使用。顧客自行選角色、張數與照片比例；你也可以建立隨機清單先測試。</p></> : <p className="field-help">供管理員測試：所選候選逐一組合，建立清單後手動生成。這裡的設定與顧客攝影棚分開保存。</p>}
       <div className="basic-generation-settings">
       <div className="output-ratio-field"><label>輸出比例<select aria-label="輸出比例" value={draft.aspectRatio || 'reference'} onChange={e => setDraft(current => ({...current,aspectRatio:e.target.value}))}>{Object.entries(OUTPUT_RATIOS).map(([id,option]) => <option key={id} value={id}>{option.label}</option>)}</select></label><p className="field-help">{outputSize ? `預計輸出 ${outputSize.width} × ${outputSize.height} px` : '輸出尺寸跟隨人物參考圖的比例。'}</p></div>
@@ -408,7 +411,18 @@ const restoredModeDrafts = state => Object.fromEntries(Object.entries(state.work
 
 export default function App({accountMenu}) {
   const [state,setState] = useState(null);
-  const [draft,setDraft] = useState(DEFAULT_DRAFT);
+  const [draft,setRawDraft] = useState(DEFAULT_DRAFT);
+  const setDraft=update=>setRawDraft(current=>{
+    const next=typeof update==='function' ? update(current) : update;
+    const fields=['garmentIds',...Object.values(PRESET_SELECTION_FIELDS),'steps','resolution','extra','negative','sceneInteraction','randomPoolMode'];
+    return current.mode==='random' && current.customerConfigId && next.customerConfigId===current.customerConfigId && fields.some(key=>JSON.stringify(current[key])!==JSON.stringify(next[key])) ? {...next,customerConfigId:''} : next;
+  });
+  const configuredDraft=(data,value)=>{
+    const restored=restoredDraft(data,value);
+    if(restored.mode!=='random' || restored.customerConfigId==='') return restored;
+    const id=restored.customerConfigId ?? data.customerConfigs?.defaultId;
+    return applyCustomerConfig(restored,data.customerConfigs?.configs.find(row=>row.id===id),data);
+  };
   const [page,setPage] = useState(()=>new URLSearchParams(location.search).get('page')==='character-prompts' ? 'character-prompts' : 'studio');
   const [modal,setModal] = useState(null);
   const [status,setStatus] = useState({connected:false,checking:true});
@@ -426,9 +440,19 @@ export default function App({accountMenu}) {
   const toastTimer = useRef(null);
   const notify = (message,type = 'success') => {setToast({message,type});clearTimeout(toastTimer.current);toastTimer.current = setTimeout(() => setToast(null),6000);};
   const reload = async () => {const data = await api('/state');setState(data);return data;};
+  useEffect(()=>{
+    if(!state || !initialized.current) return;
+    setRawDraft(current=>{
+      if(current.mode!=='random' || !current.customerConfigId) return current;
+      const config=state.customerConfigs?.configs.find(row=>row.id===current.customerConfigId);
+      if(!config) return current;
+      const next=applyCustomerConfig(current,config,state);
+      return JSON.stringify(next)===JSON.stringify(current) ? current : next;
+    });
+  },[state?.customerConfigs]);
   const checkConnection = async () => {setStatus(value => ({...value,checking:true}));const result = await api('/comfy/status');setStatus({...result,checking:false});return result;};
   useEffect(() => {
-    api('/state').then(data=>{modeDrafts.current=restoredModeDrafts(data);setState(data);setDraft(restoredDraft(data,data.draft || {}));initialized.current=true;}).catch(error=>setLoadError(error.message));
+    api('/state').then(data=>{modeDrafts.current=restoredModeDrafts(data);setState(data);setRawDraft(configuredDraft(data,data.draft || {}));initialized.current=true;}).catch(error=>setLoadError(error.message));
     api('/comfy/status').then(connection=>setStatus({...connection,checking:false})).catch(error=>setStatus({connected:false,checking:false,error:error.message}));
     const timer = setInterval(() => api('/comfy/status').then(result => setStatus({...result,checking:false})).catch(() => setStatus({connected:false})),20000);
     return () => {clearInterval(timer);clearTimeout(toastTimer.current);};
@@ -458,7 +482,7 @@ export default function App({accountMenu}) {
   const changeMode = mode => {
     if(mode===draft.mode) return;
     modeDrafts.current[draft.mode]=structuredClone(draft);
-    setDraft({...structuredClone(DEFAULT_DRAFT),...structuredClone(modeDrafts.current[mode] || draft),mode});
+    setRawDraft(configuredDraft(state,{...structuredClone(DEFAULT_DRAFT),...structuredClone(modeDrafts.current[mode] || draft),mode}));
   };
   const importedData = async result => {
     const data=await reload();
@@ -554,6 +578,7 @@ export default function App({accountMenu}) {
   const closeModal = () => setModal(current=>current?.returnModal || null);
   const openPreset = preset=>setModal(current=>({type:'preset',preset,returnModal:current?.type==='inspect' ? current : null}));
   const currentInfo = page === 'studio' ? {title:'拍攝工作檯',subtitle:'把每一套服裝，變成一組有風格的寫真。',eyebrow:'CREATE YOUR NEXT SHOOT'} : page === 'garments' ? {...ASSET_LABELS.garments,eyebrow:'THE WARDROBE'} : page === 'references' ? {title:'角色參考',subtitle:'保存角色的外貌與辨識特徵。',eyebrow:'YOUR VISUAL REFERENCES'} : page === 'character-prompts' ? {title:'角色提詞設定',subtitle:'為不同身高與 Cup 保存描述，讓角色資料自動帶入拍攝。',eyebrow:'PhotoCreate'} : page === 'presets' ? {title:'提詞資料庫',subtitle:'收集好用的描述，讓每一次拍攝都更有方向。',eyebrow:'THE PROMPT COLLECTION'} : page === 'video-settings' ? {title:'影片設定',subtitle:'設定官方提詞與預設秒數，讓顧客把喜歡的照片變成影片。',eyebrow:'BRING YOUR PHOTOS TO LIFE'} : page === 'music' ? {title:'播放音樂',subtitle:'為精選寫真準備配樂，讓顧客自由選擇。',eyebrow:'MUSIC FOR YOUR SELECTS'} : page === 'accounts' ? {title:'顧客帳號',subtitle:'管理顧客的登入帳號，讓每位顧客保有自己的攝影棚。',eyebrow:'PhotoCreate'} : page === 'gallery' ? {title:'成果畫廊',subtitle:'挑選喜歡的照片，不滿意的勾選重製。',eyebrow:'REVIEW YOUR PHOTOGRAPHS'} : {title:'拍攝清單',subtitle:'每次拍攝收成一組，進入組內查看照片與生成進度。',eyebrow:'FROM BRIEF TO PHOTOGRAPH'};
+  if(page==='customer-configs') Object.assign(currentInfo,{title:'參數設定檔',subtitle:'為不同帳號設定可用的角色、服裝、提詞與動畫。',eyebrow:'PhotoCreate'});
   if(!state) return <div className="app-loading"><Aperture size={42} strokeWidth={1.1}/><h1>PhotoCreate</h1>{loadError ? <><p>{loadError}</p><button className="button primary" onClick={() => location.reload()}>重新連線</button></> : <p><Loader2 size={16} className="spin"/>正在開啟你的寫真工作檯…</p>}</div>;
   return <div className="app-shell"><aside className="sidebar"><a href="#" className="brand" onClick={e => {e.preventDefault();setPage('studio');}}><span className="brand-icon"><Aperture size={25} strokeWidth={1.3}/></span><span>PhotoCreate<small>YOUR PRIVATE PHOTO STUDIO</small></span></a><div className="workspace-label">WORKSPACE <span>管理工作室</span></div><nav>{PAGES.map(item => <button key={item.id} aria-label={item.label} className={`nav-item ${page === item.id ? 'active' : ''}`} onClick={() => setPage(item.id)}><item.icon size={18} strokeWidth={1.6}/><span>{item.label}</span>{item.id === 'garments' && state.garments.length > 0 && <small>{state.garments.length}</small>}{item.id === 'jobs' && state.batches?.length > 0 && <small>{state.batches.length}</small>}</button>)}</nav><div className="sidebar-bottom"><div className="studio-note"><span className="note-line"/><span className="eyebrow">MADE FOR YOUR IDEAS</span><p>一張參考圖，<br/>一個新的拍攝故事。</p><Camera size={25} strokeWidth={1}/></div><button className="sidebar-settings" onClick={() => setModal({type:'settings'})}><Settings2 size={17}/>工作流與連線設定</button><div className="local-storage"><Database size={13}/><span>SQLite · 本機保存</span><span className="status-dot"/></div></div></aside>
     <main className="main-content"><header className="topbar"><div className="breadcrumb">工作室<ChevronRight size={13}/><span>{currentInfo.title}</span></div><div className="topbar-actions"><button className="button danger-ghost stop-all" aria-label="停止全部製作" title="停止目前製作並保留已完成圖片" disabled={stopping || !state.features?.stopJobs || !activeJobs} onClick={() => stopJobs({all:true})}>{stopping ? <Loader2 size={14} className="spin"/> : <Square size={14}/>}停止製作</button><span className="workflow-chip"><Aperture size={13}/>Qwen Image 2.1</span><button className={`connection-pill ${status.connected ? 'online' : ''}`} onClick={() => setModal({type:'settings'})}><span className="status-dot"/>{status.checking ? '連線檢查中' : status.connected ? 'ComfyUI 已連線' : 'ComfyUI 未連線'}</button>{accountMenu}</div></header><div className="page-content"><div className="page-heading"><div><span className="eyebrow">{currentInfo.eyebrow}</span><h1>{currentInfo.title}<span className="heading-dot">.</span></h1><p>{currentInfo.subtitle}</p></div>{page === 'studio' && <div className="page-number"><span>STUDIO</span><strong>01 /</strong></div>}</div>
@@ -561,6 +586,7 @@ export default function App({accountMenu}) {
       {!state.workflow.ready && <div className="workflow-warning"><Aperture size={18}/><span>工作流尚未就緒。你可以先管理素材與建立拍攝清單。</span><button onClick={() => setModal({type:'settings'})}>載入工作流<ArrowRight size={14}/></button></div>}
       {page === 'studio' && <Studio onClearVideoPrompts={()=>safely(run(()=>api('/photo-videos/selection',{method:'PATCH',body:{selectedPromptIds:[]}}),'影片提詞選擇已保存，套用至顧客攝影棚後生效。'))} onCreateFolder={folderActions.create} state={state} draft={draft} setDraft={setDraft} onChangeMode={changeMode} onApplyCustomer={() => safely(run(async () => {await flushDraft();return api('/customer-recipe',{method:'PUT',body:draft});},'已套用顧客候選與提詞；管理員測試不會改動此設定。'))} onPick={kind => setModal({type:'picker',kind})} onUpload={onUpload} onCreate={() => safely(run(async () => {const shots = await api('/jobs',{method:'POST',body:draft});setPage('jobs');return shots;},shots => `已建立一組${draft.mode === 'random' ? '隨機' : ''}拍攝，共 ${shots.length} 張照片。請檢查後再生成。`))} onExport={() => safely(run(async () => {const shots = await api('/shots/preview',{method:'POST',body:draft});downloadJson({version:1,batchName:draft.batchName || undefined,workflow:state.workflow.name,shots},'photocreate-shooting-plan.json');}))} connected={status.connected} onChoosePreset={category => setModal({type:'promptPool',category})} onSettings={() => setModal({type:'settings'})} onAddOptionalPreset={(category,initialPrompt) => setModal({type:'preset',category,initialPrompt,fromStudio:true})} busy={busy} saved={saved} notify={notify}/>}
       {page === 'accounts' && <Accounts api={api}/>}
+      {page === 'customer-configs' && <CustomerConfigs state={state} api={api} onSaved={reload}/>}
       {page === 'music' && <MusicLibrary api={api}/>}
       {page === 'video-settings' && <VideoSettings api={api} onSaved={reload} onOpenLibrary={()=>setPage('presets')} onOpenEnvironment={()=>setModal({type:'settings'})}/>}
       {page === 'character-prompts' && <CharacterPromptSettings settings={state.settings.characterPrompts} profiles={state.settings.characterPromptProfiles} supported={state.features?.characterPromptSettings===1} profilesSupported={state.features?.characterPromptProfiles===1} busy={busy} onSave={settings=>run(()=>api('/character-prompt-settings',{method:'PUT',body:settings}),'角色提詞設定已保存，將套用到新拍攝與角色轉圖。')} onProfilesChange={(action,{id,body})=>run(()=>api(`/character-prompt-profiles${action==='create' ? '' : `/${id}`}`,{method:action==='create' ? 'POST' : action==='remove' ? 'DELETE' : 'PUT',body}),action==='create' ? '設定檔已建立。' : action==='remove' ? '設定檔已刪除。' : body?.activate ? '設定檔已套用，新拍攝與角色轉圖將使用這份提詞。' : '設定檔已保存。')}/>}
