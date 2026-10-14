@@ -9,6 +9,7 @@ import {login,loginBrowser} from './auth-client.js';
 import {previewFixture,until} from './preset-preview-fixture.js';
 
 const f=await previewFixture(),browser=await chromium.launch({executablePath:process.env.PHOTOCREATE_BROWSER || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});
+const videoPrompts=f.photoVideos.publicSettings().prompts;
 const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],closed=[];
 page.on('pageerror',error=>errors.push(error.message));
 page.on('request',request=>{if(request.method()==='DELETE' && /\/api\/preset-previews\/[^/]+$/.test(new URL(request.url()).pathname)) closed.push(new URL(request.url()).pathname.split('/').at(-1));});
@@ -19,6 +20,7 @@ const overflow=element=>element.scrollWidth>element.clientWidth;
 fs.mkdirSync('test-results',{recursive:true});
 try {
   f.store.mutate(state=>{
+    for(const row of videoPrompts) if(!state.presets.some(preset=>preset.id===row.id)) state.presets.push({...row,category:'video',tags:[]});
     const [plan]=buildShotPlans(state,{...DRAFT,copies:1,garmentIds:['garment-a'],poseIds:['pose-standing'],cameraMode:'multiangle',cameraEnabled:false});
     const base={...plan,status:'completed',createdAt:'2026-10-12T00:00:00Z',images:[{filename:'wardrobe-history.png',subfolder:'PhotoCreate',type:'output'}]};
     state.jobs=Array.from({length:7},(_,i)=>({...base,id:`wardrobe-history-${i}`,name:`服裝成果 ${i+1}`}));
@@ -53,12 +55,15 @@ try {
   await expect(editor.getByRole('textbox',{name:'服裝提詞',exact:true})).toBeVisible();assert.equal(await editor.evaluate(overflow),false);assert.equal(await editor.locator('.garment-editor-body').evaluate(overflow),false);await editor.screenshot({path:path.resolve('test-results/garment-prompt-mobile.png')});
   await editor.locator('.preset-photos').scrollIntoViewIfNeeded();assert.equal(await editor.locator('.preset-trial-controls').evaluate(overflow),false);await editor.screenshot({path:path.resolve('test-results/garment-trial-mobile.png')});await page.keyboard.press('Escape');
 
-  // Publish from the actual workbench, including both image and prompt choices.
+  // Workbench choices stay local; save customer availability in the account configuration.
   await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'拍攝工作檯',exact:true}).click();await page.getByRole('button',{name:'隨機寫真',exact:true}).click();
   await page.getByRole('button',{name:'選擇角色參考圖',exact:true}).click();const characterPicker=page.getByRole('dialog',{name:/選擇角色參考圖/});const selectAllCharacters=characterPicker.getByRole('button',{name:'全選',exact:true});if(await selectAllCharacters.isEnabled())await selectAllCharacters.click();await characterPicker.getByRole('button',{name:'使用所選圖片',exact:true}).click();
   await page.getByRole('button',{name:'選擇服裝',exact:true}).click();const emptyPicker=page.getByRole('dialog',{name:'選擇服裝',exact:true});await emptyPicker.getByRole('button',{name:'清空已選',exact:true}).click();await emptyPicker.getByRole('button',{name:'使用所選服裝',exact:true}).click();await expect(emptyPicker).toHaveCount(0);
   await page.getByRole('button',{name:'選擇服裝',exact:true}).click();const picker=page.getByRole('dialog',{name:'選擇服裝',exact:true});await expect(picker.getByRole('button',{name:'清空已選',exact:true})).toBeDisabled();await picker.getByRole('button',{name:'選擇服裝 白色洋裝',exact:true}).click();await picker.getByRole('button',{name:'選擇服裝 奶油白針織套裝',exact:true}).click();await picker.getByRole('button',{name:'使用所選服裝',exact:true}).click();
-  await page.getByRole('button',{name:'套用至顧客攝影棚',exact:true}).click();await expect.poll(()=>f.store.read().customerRecipe?.pools.garment.map(row=>row.id).sort()).toEqual(['garment-a',saved.id].sort());
+  await expect(page.getByRole('button',{name:'套用至顧客攝影棚',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'參數設定檔',exact:true}).click();await page.getByRole('button',{name:'設定服裝候選',exact:true}).click();
+  await page.getByRole('button',{name:'清空此分類',exact:true}).click();await page.getByRole('checkbox',{name:'白色洋裝',exact:true}).check();await page.getByRole('checkbox',{name:'奶油白針織套裝',exact:true}).check();
+  await page.getByRole('button',{name:'保存設定檔',exact:true}).click();await expect.poll(()=>f.store.read().customerRecipe?.pools.garment.map(row=>row.id).sort()).toEqual(['garment-a',saved.id].sort());
 
   await f.authentication.createCustomer({username:'wardrobe-browser',password:'customer-pass'});const customer=await login(f.base,'wardrobe-browser','customer-pass');
   const accounts=new DatabaseSync(path.join(f.dataDir,'accounts.sqlite'),{readOnly:true});const ownerId=accounts.prepare('SELECT owner_id FROM accounts WHERE id=?').get(customer.user.id).owner_id;accounts.close();

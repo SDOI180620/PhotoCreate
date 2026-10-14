@@ -29,6 +29,16 @@ test('三視圖正提詞合併尺寸設定，只有角色一張參考；一般�
   const legacy={...settings};delete legacy.turnaroundPrompt;assert.equal(normalizeCharacterPromptSettings(legacy).turnaroundPrompt,DEFAULT_TURNAROUND_PROMPT);
 });
 
+test('三視圖從 CFG 1 啟用負面引導，保留較高 CFG、一般拍攝與原工作流',()=>{
+  const shot={id:randomUUID(),jobKind:'character-turnaround',prompt:DEFAULT_TURNAROUND_PROMPT,negative:TURNAROUND_NEGATIVE,resolution:1024,steps:30,seed:100,aspectRatio:'16:9'};
+  for(const cfg of [1,2,4]) {
+    const template=structuredClone(TEMPLATE);template['7'].inputs.cfg=cfg;const before=structuredClone(template);
+    const turnaround=buildComfyPrompt(template,shot,{character:'role.png'}),regular=buildComfyPrompt(template,{...shot,jobKind:undefined},{character:'role.png'});
+    assert.equal(turnaround['7'].inputs.cfg,Math.max(3,cfg));
+    assert.equal(regular['7'].inputs.cfg,cfg);assert.deepEqual(template,before);
+  }
+});
+
 test('三視圖先產圖與私人預覽，確認前不新增角色或正式拍攝，保存的提詞設定參與生成',async t=>{
   const f=await previewFixture();t.after(()=>f.close());
   const settings=defaultCharacterPromptSettings();settings.turnaroundPrompt='Three views of the same character, front, profile, back.';settings.cupPrompts.C='custom C shape';settings.heightPrompts['160to170']='custom medium height';
@@ -36,6 +46,7 @@ test('三視圖先產圖與私人預覽，確認前不新增角色或正式拍�
   const before=f.store.read(),result=await start(f,randomUUID(),{cupSize:'C',heightCm:166});assert.equal(result.status,202);
   await until(()=>f.submitted.length===1);
   const text=Object.values(f.submitted[0].prompt).find(row=>row.class_type==='TextEncodeQwenImage21').inputs;
+  assert.equal(Object.values(f.submitted[0].prompt).find(row=>row.class_type==='KSampler').inputs.cfg,3);
   assert(text.prompt.includes(settings.turnaroundPrompt));assert(text.prompt.includes('custom C shape'));assert(text.prompt.includes('custom medium height'));assert(!text.prompt.includes(SINGLE_SUBJECT_PROMPT));
   assert.equal((await start(f,result.id,{cupSize:'C',heightCm:166})).status,202);assert.equal(f.submitted.length,1);
   assert.equal((await start(f,result.id,{heightCm:167})).status,409);
@@ -45,6 +56,20 @@ test('三視圖先產圖與私人預覽，確認前不新增角色或正式拍�
   assert.deepEqual(f.calls.filter(route=>['/free','/interrupt'].includes(route)),[]);
   await f.request(`/character-turnarounds/${result.id}`,undefined,'DELETE');await f.characterTurnarounds.tick();
   assert.equal((await f.request(`/character-turnarounds/${result.id}`)).status,410);assert(!fs.existsSync(path.join(f.dataDir,'character-turnarounds',result.id)));assert(!fs.existsSync(path.join(f.outputDir,'PhotoCreate','_character_turnarounds',result.id)));
+});
+
+test('三視圖保存的自訂或空白負面提詞原樣送入編碼器，已送出轉圖保留快照',async t=>{
+  for(const negative of ['custom floating head exclusion\ncustom hairstyle exclusion','']) await t.test(negative ? '自訂負面提詞' : '空白負面提詞',async t=>{
+    const f=await previewFixture();t.after(()=>f.close());
+    const settings=defaultCharacterPromptSettings();settings.turnaroundNegative=negative;
+    assert.equal((await f.request('/character-prompt-settings',settings,'PUT')).status,200);
+    const result=await start(f);assert.equal(result.data.negative,negative);await until(()=>f.submitted.length===1);
+    const text=Object.values(f.submitted[0].prompt).find(row=>row.class_type==='TextEncodeQwenImage21').inputs;
+    assert.equal(text.negative_prompt,negative);
+    settings.turnaroundNegative='later exclusions';await f.request('/character-prompt-settings',settings,'PUT');
+    assert.equal((await f.request(`/character-turnarounds/${result.id}`)).data.negative,negative);
+    assert.equal(text.negative_prompt,negative);
+  });
 });
 
 test('三視圖 API 隔離顧客、管理員與未登入者，顧客可轉圖和讀取自己的預覽',async t=>{

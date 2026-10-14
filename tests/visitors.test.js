@@ -194,6 +194,37 @@ test('顧客直接永久刪除照片會清理版本與實體產出，確認前�
   const single=await bob.request(`/jobs/${other}`,{permanent:true},'DELETE');assert.equal(single.status,200);assert.equal(single.data.deletedFiles,1);assert(!fs.existsSync(file('keep-shared.png')));
 });
 
+test('保留精選的永久刪除保護整組版本、回收紀錄、資料夾與實體檔案',async t=>{
+  for(const scope of ['photos','trash','folder']) await t.test(scope,async t=>{
+    const f=await fixture(t),alice=f.visitor(),bob=f.visitor(),character=(await alice.request('/state')).data.characters[0];
+    const folder=(await alice.request('/folders',{name:'精選與一般照片'})).data;
+    const created=await alice.request('/shoots',{characterId:character.id,count:2,folderId:folder.id,requestId:randomUUID()});
+    await alice.request('/jobs/stop',{all:true});
+    const [favorite,plain]=created.data.jobs.map(row=>row.id),version=randomUUID();
+    const picture=id=>({filename:`${id}.png`,subfolder:'PhotoCreate/test-output',type:'output'}),file=id=>path.join(f.outputDir,'PhotoCreate','test-output',`${id}.png`);
+    for(const id of [favorite,plain,version]) fs.writeFileSync(file(id),PNG);
+    f.store.mutate(state=>{
+      for(const id of [favorite,plain]) Object.assign(state.jobs.find(row=>row.id===id),{status:'completed',stageResults:{},images:[picture(id)]});
+      state.jobs.push({...structuredClone(state.jobs.find(row=>row.id===favorite)),id:version,rootJobId:favorite,remakeVersion:1,images:[picture(version)]});
+    });
+    assert.equal((await alice.request('/gallery',{jobId:favorite,imageIndex:0})).status,201);
+    if(scope==='trash') f.store.mutate(state=>{for(const job of state.jobs) job.visitorDeletedAt=new Date().toISOString();});
+    const route=scope==='folder' ? `/folders/${folder.id}` : scope==='trash' ? '/photos/purge' : '/photos/delete';
+    const body=scope==='folder' ? {deletePhotos:true,keepFeatured:true} : {ids:[version,plain],permanent:true,keepFeatured:true},method=scope==='folder' ? 'DELETE' : 'POST';
+    const before=f.store.read().jobs;
+    assert.equal((await bob.request(route,body,method)).status,404);assert.deepEqual(f.store.read().jobs,before);
+    assert.equal((await alice.request(route,{...body,keepFeatured:'true'},method)).status,400);assert.deepEqual(f.store.read().jobs,before);
+    const result=await alice.request(route,body,method);assert.equal(result.status,200);assert.equal(result.data.count,1);assert.equal(result.data.retainedCount,2);
+    assert.equal(fs.existsSync(file(plain)),false);assert(fs.existsSync(file(favorite)));assert(fs.existsSync(file(version)));
+    assert.deepEqual(f.store.read().jobs,before.filter(row=>row.id!==plain));assert.equal(f.store.read().galleryEntries.length,1);
+    assert(f.store.read().photoFolders.some(row=>row.id===folder.id));
+    const single=await alice.request(`/jobs/${favorite}`,{permanent:true,keepFeatured:true},'DELETE');
+    assert.equal(single.status,200);assert.equal(single.data.count,0);assert.equal(single.data.deletedFiles,0);assert(fs.existsSync(file(favorite)));
+    const state=(await alice.request('/state')).data;assert.equal(state.canKeepFeaturedPhotos,true);
+    assert((scope==='trash' ? state.trash : state.jobs).some(row=>row.id===favorite && row.featured));
+  });
+});
+
 test('永久刪除顧客資料夾清理全部版本與回收照片，拍攝中及檔案清理失敗保留資料',async t=>{
   const f=await fixture(t),alice=f.visitor(),bob=f.visitor(),character=(await alice.request('/state')).data.characters[0];
   const folder=(await alice.request('/folders',{name:'旅行'})).data,empty=(await alice.request('/folders',{name:'空資料夾'})).data;

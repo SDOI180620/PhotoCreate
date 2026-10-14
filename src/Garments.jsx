@@ -76,7 +76,7 @@ export function GarmentEditor({asset,onClose,onSave,onDelete,busy,features,aspec
       <label>標籤<input disabled={busy} value={form.tags} onChange={event=>setForm({...form,tags:event.target.value})} placeholder="例如：白色, 針織, 日常（用逗號分隔）"/></label>
       {remove && <p className="inline-error" role="alert">確定將「{asset.name}」移出圖庫？已建立的拍攝仍會保留原本的服裝設定。</p>}
     </div><PresetPhotos kind="garment" garmentId={asset?.id} value={value} supported={supported && features?.presetPreviews===1} ratioSupported={features?.presetPreviewRatios===1} initialAspectRatio={aspectRatio} request={request} disabled={busy}/></div>
-    <footer className="garment-dialog-footer">{asset && <button type="button" className="button danger-ghost" disabled={busy} onClick={()=>remove ? onDelete() : setRemove(true)}><Trash2 size={15}/>{remove ? '確定移出圖庫' : '移出圖庫'}</button>}<p>保存後，可在拍攝工作檯勾選並套用至顧客。</p><button type="submit" className="button primary" disabled={busy || !valid || !supported}><Check size={16}/>保存服裝</button></footer>
+    <footer className="garment-dialog-footer">{asset && <button type="button" className="button danger-ghost" disabled={busy} onClick={()=>remove ? onDelete() : setRemove(true)}><Trash2 size={15}/>{remove ? '確定移出圖庫' : '移出圖庫'}</button>}<p>保存後，到「參數設定檔」勾選顧客可用的服裝。</p><button type="submit" className="button primary" disabled={busy || !valid || !supported}><Check size={16}/>保存服裝</button></footer>
     </form>
   </GarmentDialog>;
 }

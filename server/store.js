@@ -5,7 +5,7 @@ import { DEFAULT_PRESETS } from '../shared/domain.js';
 import { migrateShootBatches } from '../shared/batches.js';
 import { upgradeCameraMapping } from '../shared/camera.js';
 import { reconcileLibrarySelections } from '../shared/library-selections.js';
-import {defaultCharacterPromptSettings} from '../shared/character-profile.js';
+import {defaultCharacterPromptSettings,DEFAULT_TURNAROUND_NEGATIVE,LEGACY_TURNAROUND_PROMPT,PREVIOUS_TURNAROUND_PROMPT} from '../shared/character-profile.js';
 import {DEFAULT_TURNAROUND_PROMPT} from '../shared/character-turnaround.js';
 import {PORTRAIT_SCENE_PAIRS} from '../shared/portrait-scenes.js';
 import {migrateSceneDescriptions} from './scene-preset-migrations.js';
@@ -82,8 +82,12 @@ export function createStore(dataDir) {
   state.settings.releaseGpuMemory ??= false;
   state.settings.cameraVersion ??= cameraWorkflowVersion(state.cameraWorkflow);
   state.settings.characterPrompts ??= defaultCharacterPromptSettings();
-  state.settings.characterPrompts.turnaroundPrompt ??= DEFAULT_TURNAROUND_PROMPT;
   state.settings.characterPromptProfiles ??= initialCharacterPromptProfiles(state.settings.characterPrompts);
+  for(const settings of [state.settings.characterPrompts,...state.settings.characterPromptProfiles.profiles.map(row=>row.settings)]) {
+    settings.turnaroundPrompt ??= DEFAULT_TURNAROUND_PROMPT;
+    settings.turnaroundNegative ??= DEFAULT_TURNAROUND_NEGATIVE;
+    if([LEGACY_TURNAROUND_PROMPT,PREVIOUS_TURNAROUND_PROMPT].includes(settings.turnaroundPrompt.trim())) settings.turnaroundPrompt=DEFAULT_TURNAROUND_PROMPT;
+  }
   const activePromptProfile=state.settings.characterPromptProfiles.profiles.find(row=>row.id===state.settings.characterPromptProfiles.activeId);
   if(!activePromptProfile) throw new Error('使用中的角色提詞設定檔不存在。');
   activePromptProfile.settings=structuredClone(state.settings.characterPrompts);

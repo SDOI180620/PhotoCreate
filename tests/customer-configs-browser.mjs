@@ -7,6 +7,7 @@ import {chromium,expect} from '@playwright/test';
 import {createApp} from '../server/index.js';
 import {fixtureState,TEMPLATE,PNG,DRAFT} from './fixtures.js';
 import {loginBrowser} from './auth-client.js';
+import {defaultCharacterPromptSettings} from '../shared/character-profile.js';
 
 async function fixture(t) {
   const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-configs-ui-'));
@@ -31,8 +32,71 @@ async function fixture(t) {
   return {page,base};
 }
 
-test('管理員可在設定頁命名設定檔、勾選服裝和動作，保存後重新開啟仍保留',async t=>{
-  const {page}=await fixture(t);
+test('工作檯只供試拍，調整自訂候選不會發布或修改顧客設定檔',async t=>{
+  const {page,base}=await fixture(t);
+  const before=await (await page.request.get(base+'/api/customer-configs')).json();
+  const publishes=[];
+  page.on('request',request=>{if(['/api/customer-recipe','/api/photo-videos/publish'].includes(new URL(request.url()).pathname)) publishes.push(request.url());});
+  await expect(page.getByRole('button',{name:'套用至顧客攝影棚',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('region',{name:'首頁影片提詞',exact:true})).toHaveCount(0);
+  await page.getByRole('combobox',{name:'隨機拍攝設定檔',exact:true}).selectOption('');
+  const saved=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/draft' && response.request().method()==='PUT');
+  await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('60');
+  await saved;
+  await page.reload();
+  await expect(page.getByRole('spinbutton',{name:'採樣步數',exact:true})).toHaveValue('60');
+  assert.deepEqual(await (await page.request.get(base+'/api/customer-configs')).json(),before);
+  assert.deepEqual(publishes,[]);
+  fs.mkdirSync('test-results',{recursive:true});
+  await page.screenshot({path:'test-results/studio-without-publishing-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Workbench has no mobile overflow');
+  await page.screenshot({path:'test-results/studio-without-publishing-mobile.png',fullPage:true});
+  await page.setViewportSize({width:1440,height:1000});
+  await page.getByRole('button',{name:'管理顧客設定檔',exact:true}).click();
+  await expect(page.getByRole('button',{name:'保存設定檔',exact:true})).toBeVisible();
+});
+
+test('參數設定檔的編輯直接前往角色提詞頁，返回後保留尚未保存的拍攝設定',async t=>{
+  const {page,base}=await fixture(t);
+  const created=await page.request.post(base+'/api/character-prompt-profiles',{data:{name:'棚拍角色提詞',settings:defaultCharacterPromptSettings()}});
+  assert.equal(created.status(),201);const library=await created.json(),profileId=library.selectedId;
+  const configCreated=await page.request.post(base+'/api/customer-configs',{data:{name:'外拍參數'}});
+  assert.equal(configCreated.status(),201);const configId=(await configCreated.json()).id;
+  await page.reload();await page.getByRole('button',{name:'參數設定檔',exact:true}).click();
+  await page.getByRole('combobox',{name:'參數設定檔',exact:true}).selectOption(configId);
+  await page.getByRole('textbox',{name:'設定檔名稱',exact:true}).fill('外拍參數更新');
+  await page.getByRole('combobox',{name:'角色提詞設定檔',exact:true}).selectOption(profileId);
+  await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('55');
+  await page.getByRole('button',{name:'編輯角色提詞',exact:true}).click();
+  const editor=page.getByRole('form',{name:'角色提詞設定',exact:true});
+  await expect(page.locator('.page-heading h1')).toContainText('角色提詞設定');await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.page-heading')).toBeInViewport();
+  await expect(editor.getByRole('tab',{name:'棚拍角色提詞',exact:true})).toHaveAttribute('aria-selected','true');
+  await editor.getByRole('textbox',{name:'設定檔名稱',exact:true}).fill('棚拍角色提詞更新');
+  await editor.getByRole('button',{name:'保存設定',exact:true}).click();
+  await expect(editor.locator('.character-prompt-save-controls [role="status"]')).toContainText('設定已保存');
+  fs.mkdirSync('test-results',{recursive:true});await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:'test-results/customer-character-prompt-page-desktop.png'});
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await editor.evaluate(element=>element.scrollWidth<=element.clientWidth),'Character prompt editor fits mobile');
+  await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:'test-results/customer-character-prompt-page-mobile.png'});
+  await page.getByRole('button',{name:'參數設定檔',exact:true}).click();
+  await expect(page.getByRole('combobox',{name:'參數設定檔',exact:true})).toHaveValue(configId);
+  await expect(page.getByRole('textbox',{name:'設定檔名稱',exact:true})).toHaveValue('外拍參數更新');
+  await expect(page.getByRole('combobox',{name:'角色提詞設定檔',exact:true})).toHaveValue(profileId);
+  await expect(page.getByRole('spinbutton',{name:'採樣步數',exact:true})).toHaveValue('55');
+  await page.getByRole('button',{name:'保存設定檔',exact:true}).click();await expect(page.getByRole('status')).toContainText('設定檔已保存');
+  await page.reload();await page.getByRole('button',{name:'參數設定檔',exact:true}).click();
+  await page.getByRole('combobox',{name:'參數設定檔',exact:true}).selectOption(configId);
+  await expect(page.getByRole('combobox',{name:'角色提詞設定檔',exact:true})).toHaveValue(profileId);
+  await page.getByRole('button',{name:'編輯角色提詞',exact:true}).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);await expect(editor).toContainText('綁定的參數設定檔：外拍參數更新');
+  await expect(editor.getByRole('button',{name:'刪除設定檔',exact:true})).toBeDisabled();
+});
+
+test('管理員可在設定頁保存候選與拍攝參數，重新開啟仍保留且不改動其他設定檔',async t=>{
+  const {page,base}=await fixture(t);
+  const before=await (await page.request.get(base+'/api/customer-configs')).json();
   await expect(page.getByRole('button',{name:'參數設定檔',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'參數設定檔',exact:true}).click();
   await page.getByRole('button',{name:'新增設定檔',exact:true}).click();
@@ -45,6 +109,12 @@ test('管理員可在設定頁命名設定檔、勾選服裝和動作，保存�
   await page.getByRole('button',{name:'設定動作候選',exact:true}).click();
   await page.getByRole('button',{name:'清空此分類',exact:true}).click();
   await page.getByRole('checkbox',{name:'側坐回眸',exact:true}).check();
+  await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('60');
+  await page.getByRole('combobox',{name:'參考解析度',exact:true}).selectOption('1024');
+  await page.locator('.config-generation summary').click();
+  await page.getByRole('textbox',{name:'場景補充',exact:true}).fill('A quiet garden.');
+  await page.getByRole('textbox',{name:'補充拍攝提詞',exact:true}).fill('Soft wind in the hair.');
+  await page.getByRole('textbox',{name:'負面提詞',exact:true}).fill('blurry, text');
   await page.getByRole('button',{name:'保存設定檔',exact:true}).click();
   await expect(page.getByRole('status')).toContainText('設定檔已保存');
   await page.reload();await page.getByRole('button',{name:'參數設定檔',exact:true}).click();
@@ -55,10 +125,20 @@ test('管理員可在設定頁命名設定檔、勾選服裝和動作，保存�
   await page.getByRole('button',{name:'設定動作候選',exact:true}).click();
   await expect(page.getByRole('checkbox',{name:'側坐回眸',exact:true})).toBeChecked();
   await expect(page.getByRole('checkbox',{name:'自然半蹲前傾',exact:true})).not.toBeChecked();
+  await expect(page.getByRole('spinbutton',{name:'採樣步數',exact:true})).toHaveValue('60');
+  await expect(page.getByRole('combobox',{name:'參考解析度',exact:true})).toHaveValue('1024');
+  await page.locator('.config-generation summary').click();
+  await expect(page.getByRole('textbox',{name:'場景補充',exact:true})).toHaveValue('A quiet garden.');
+  await expect(page.getByRole('textbox',{name:'補充拍攝提詞',exact:true})).toHaveValue('Soft wind in the hair.');
+  await expect(page.getByRole('textbox',{name:'負面提詞',exact:true})).toHaveValue('blurry, text');
+  const after=await (await page.request.get(base+'/api/customer-configs')).json();
+  assert.deepEqual(after.configs.find(row=>row.id===after.defaultId),before.configs.find(row=>row.id===before.defaultId));
   fs.mkdirSync('test-results',{recursive:true});
   await page.screenshot({path:'test-results/customer-configs-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:'test-results/customer-configs-mobile.png',fullPage:true});
+  const layout=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,overflow:[...document.querySelectorAll('.customer-configs *')].filter(element=>element.getBoundingClientRect().right>innerWidth).map(element=>({tag:element.tagName,classes:element.className,right:element.getBoundingClientRect().right})).slice(0,12)}));
+  assert.ok(layout.scroll<=layout.width,JSON.stringify(layout));
 });
 
 test('帳號頁可建立顧客並用對話框修改參數設定檔，重新載入仍顯示已指定名稱',async t=>{

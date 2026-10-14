@@ -66,6 +66,7 @@ try {
   assert.deepEqual(fs.readFileSync(path.join(f.dataDir,'uploads',customerAsset.fileName)),PNG);
   await customer.getByRole('button',{name:`選擇角色 ${customerAsset.name}`,exact:true}).click();
   const edit=customer.getByRole('dialog',{name:'編輯角色',exact:true});
+  await expect(edit).toHaveCount(0);await customer.getByRole('button',{name:`編輯角色 ${customerAsset.name}`,exact:true}).click();
   await expect(edit.getByLabel('胸部尺寸',{exact:true})).toHaveValue('D');await expect(edit.getByLabel('身高（公分）',{exact:true})).toHaveValue('172');
   await edit.getByLabel('胸部尺寸',{exact:true}).selectOption('C');await edit.getByLabel('身高（公分）',{exact:true}).fill('166');
   await edit.getByRole('button',{name:'轉成三視圖',exact:true}).click();await until(()=>f.submitted.length===6);

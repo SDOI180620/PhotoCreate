@@ -53,6 +53,7 @@
 .character-prompt-editor-footer > button {flex-shrink:0}
 .character-prompt-preview {position:sticky;top:90px;border-top:3px solid var(--color-primary)}
 .character-prompt-preview > h2 {font-size:16px;font-weight:600}
+.character-prompt-preview > h3 {font-size:12px;font-weight:600;color:var(--color-primary);margin:14px 0 8px}
 .character-prompt-preview > p {font-size:12px;color:var(--color-text-dim);margin:8px 0 18px}
 .character-prompt-preview .character-profile-fields {grid-template-columns:1fr;gap:15px}
 .character-prompt-matches {display:flex;flex-wrap:wrap;gap:6px;margin:20px 0 12px}

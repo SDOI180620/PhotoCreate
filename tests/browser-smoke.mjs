@@ -8,6 +8,7 @@ import { createStore } from '../server/store.js';
 import { PNG, TEMPLATE } from './fixtures.js';
 import { CAMERA_TEMPLATE } from './camera-fixtures.js';
 import { SINGLE_SUBJECT_PROMPT } from '../shared/subject.js';
+import { REFERENCE_INSTRUCTION } from '../shared/domain.js';
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-test-browser-'));
 const comfyOutputDir = path.join(dataDir,'comfy-output');
@@ -217,7 +218,7 @@ try {
   await expect(page.getByRole('combobox',{name:'編輯服裝提詞',exact:true})).toHaveCount(0);
   await expect(page.locator('.prompt-preview')).toContainText(`Character details: ${characterPrompt}`);
   await expect(page.locator('.prompt-preview')).not.toContainText(whiteGarmentPrompt);
-  await expect(page.locator('.prompt-preview')).toContainText('clothing from <image2>');
+  await expect(page.locator('.prompt-preview')).toContainText(REFERENCE_INSTRUCTION);
   await expect(page.getByRole('textbox',{name:'場景',exact:true})).toHaveValue('');
   await expect(page.locator('.prompt-preview')).not.toContainText('Picture 3');
   await expect(page.locator('.prompt-preview')).not.toContainText('Environment:');
@@ -252,7 +253,7 @@ try {
   await expect(page.locator('.reference-card textarea')).toHaveCount(0);
   await expect(page.locator('.prompt-preview')).toContainText(`Character details: ${characterPrompt}`);
   await expect(page.locator('.prompt-preview')).not.toContainText(whiteGarmentPrompt);
-  await expect(page.locator('.prompt-preview')).toContainText('clothing from <image2>');
+  await expect(page.locator('.prompt-preview')).toContainText(REFERENCE_INSTRUCTION);
   await expect(expressionPicker).toContainText('已選：溫柔眼神測試');
   await expect(clothingStatePicker).toContainText('已選：自然捲袖測試');
   await expect(page.locator('.prompt-preview')).toContainText('Facial expression: A gentle gaze with relaxed eyes.');
@@ -352,7 +353,7 @@ try {
   await page.getByRole('textbox',{name:'場景',exact:true}).fill('');
   await expect(page.locator('.prompt-preview')).not.toContainText('Scene:');
   await page.getByRole('textbox',{name:'拍攝組名稱',exact:true}).fill('100 張測試組');
-  for(const name of ['漫步瞬間','倚牆凝視','側身整理髮絲']) await choosePrompt('動作',name);
+  for(const id of ['pose-walking','pose-leaning','pose-profile']) {const row=store.read().presets.find(row=>row.id===id);await choosePrompt('動作',row.name,row.prompt);}
   await page.getByRole('button',{name:'進階生成設定',exact:true}).click();
   await page.getByLabel('每組張數',{exact:true}).fill('10');
   await expect(page.locator('.shoot-total strong')).toContainText('100');
@@ -598,6 +599,9 @@ try {
   await page.reload();
   await page.getByRole('button',{name:'隨機寫真',exact:true}).click();
   await expect(page.getByRole('spinbutton',{name:'隨機張數',exact:true})).toHaveValue('30');
+  await page.getByRole('button',{name:'選擇角色參考圖',exact:true}).click();
+  await page.getByRole('dialog').locator('.picker-card').first().click();
+  await page.getByRole('dialog').getByRole('button',{name:'使用所選圖片',exact:true}).click();
   for(const name of ['表情','服裝狀態','場景']) {
     await expect(page.getByRole('checkbox',{name:`隨機使用${name}`,exact:true})).toHaveCount(0);
     await expect(page.getByRole('button',{name:`選擇${name}提詞`,exact:true})).toBeEnabled();
@@ -612,6 +616,7 @@ try {
   await expressionPicker.getByRole('button',{name:'清除表情提詞',exact:true}).click();
   await expect(page.locator('.prompt-preview')).not.toContainText('Facial expression:');
   await expect(page.locator('.pool-option')).toHaveCount(0);
+  const lightingDraft=store.read().draft,expectedLightingCount=(lightingDraft.lightingIds || [lightingDraft.lightingId].filter(Boolean)).length+2;
   await page.getByRole('button',{name:'選擇光線提詞',exact:true}).click();
   const poolDialog = page.getByRole('dialog');
   await expect(poolDialog.locator('.pool-option')).toHaveCount(8);
@@ -622,12 +627,12 @@ try {
   await poolDialog.getByRole('button',{name:'光線下一頁',exact:true}).click();
   await expect(poolDialog.locator('.pool-option')).toHaveCount(8);
   await poolDialog.locator('.pool-option:not(.selected)').first().click();
-  await expect(poolDialog.getByRole('button',{name:'使用所選提詞 (3)',exact:true})).toBeVisible();
+  await expect(poolDialog.getByRole('button',{name:`使用所選提詞 (${expectedLightingCount})`,exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/prompt-pool-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   if(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth)) throw new Error('Mobile prompt picker overflow.');
   await page.screenshot({path:'test-results/prompt-pool-mobile.png',fullPage:true});
-  await poolDialog.getByRole('button',{name:'使用所選提詞 (3)',exact:true}).click();
+  await poolDialog.getByRole('button',{name:`使用所選提詞 (${expectedLightingCount})`,exact:true}).click();
   await expect(page.getByRole('combobox',{name:'隨機候選範圍',exact:true})).toHaveValue('selected');
   await page.getByRole('combobox',{name:'隨機候選範圍',exact:true}).selectOption('all');
   await page.getByRole('spinbutton',{name:'隨機張數',exact:true}).fill('0');

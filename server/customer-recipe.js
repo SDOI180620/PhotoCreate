@@ -1,6 +1,7 @@
 import {DEFAULT_DRAFT} from '../shared/draft.js';
 import {buildShotPlans,OPTIONAL_PRESET_POOL_FIELDS} from '../shared/domain.js';
 import {customerRecipeCandidate} from '../shared/customer-recipe.js';
+import {characterPromptSettingsFor} from '../shared/character-prompt-profiles.js';
 
 // Publish selected rows and settings. Selected library entries stay current;
 // new candidates and selection changes require applying the configuration.
@@ -18,7 +19,7 @@ export function customerCharacters(state,recipe,visitorId) {
 }
 
 export function customerProductionState(state,recipe) {
-  return {...state,garments:recipe.pools.garment,presets:Object.entries(recipe.pools).filter(([key])=>key!=='garment').flatMap(([,rows])=>rows)};
+  return {...state,settings:{...state.settings,characterPrompts:characterPromptSettingsFor(state,recipe.characterPromptProfileId)},garments:recipe.pools.garment,presets:Object.entries(recipe.pools).filter(([key])=>key!=='garment').flatMap(([,rows])=>rows)};
 }
 
 export function customerDraft(recipe,{characterId,count,aspectRatio,batchName,cameraEnabled=false}) {

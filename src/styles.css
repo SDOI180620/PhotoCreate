@@ -293,13 +293,8 @@ code,pre {font-family:var(--font-mono)}
 .shooting-mode-tabs button {flex:1;display:flex;justify-content:center;align-items:center;gap:7px;padding:10px;font-size:12px;border-radius:var(--radius-sm);color:var(--color-text-dim)}
 .shooting-mode-tabs button.active {background:var(--color-primary);color:var(--color-white)}
 .shooting-mode-tabs button small {font-size:10px;opacity:.75}
-.customer-publish-panel {display:flex;flex-wrap:wrap;align-items:center;gap:16px;border-top:1px solid var(--color-border);padding-top:18px;margin-top:20px}
-.customer-publish-panel > div {flex:1;min-width:180px}
-.customer-publish-panel strong {font-size:12px}
-.customer-publish-panel p {font-size:11px;color:var(--color-text-dim);line-height:1.7;margin:5px 0}
-.customer-publish-panel small {font-size:10px;color:var(--color-text-dim)}
-.customer-publish-panel > .field-help {flex-basis:100%;margin:0}
-.customer-publish-panel > .customer-publish-reason {flex-basis:100%;margin:0;color:var(--color-error)}
+.studio-customer-settings {display:flex;flex-wrap:wrap;align-items:center;gap:16px;border-top:1px solid var(--color-border);padding-top:18px;margin-top:20px}
+.studio-customer-settings > .field-help {flex:1;min-width:180px;margin:0}
 .random-mode-settings {display:grid;grid-template-columns:100px minmax(0,1fr);gap:16px;margin-top:15px}
 .random-mode-settings label {font-size:11px}
 .prompt-pool-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}

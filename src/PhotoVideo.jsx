@@ -67,7 +67,7 @@ export function VideoCreator({jobId,imageIndex=0,image,settings=defaultVideoSett
   </div>;
 }
 
-export function VideoSettings({api,onSaved,onOpenEnvironment,onOpenLibrary}) {
+export function VideoSettings({api,onSaved,onOpenEnvironment,onOpenLibrary,onOpenCustomerConfigs}) {
   const [form,setForm]=useState(null),[parameters,setParameters]=useState(null),[availability,setAvailability]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[workflowError,setWorkflowError]=useState(''),[notice,setNotice]=useState('');
   const mounted=useRef(true),parameterRequest=useRef(0);
   const readParameters=async(version=form?.generationVersion)=>{const request=++parameterRequest.current;setParameters(null);setWorkflowError('');try {const result=await api('/photo-videos/parameters'+(version ? '?generationVersion='+encodeURIComponent(version) : ''));if(mounted.current && request===parameterRequest.current) setParameters(result);return result;} catch(cause) {if(mounted.current && request===parameterRequest.current) setWorkflowError(cause.message);throw cause;}};
@@ -97,7 +97,7 @@ export function VideoSettings({api,onSaved,onOpenEnvironment,onOpenLibrary}) {
       </div></fieldset>
       <p className="field-help">{form.generationVersion==='two-pass' ? `二採使用 ${parameters?.steps || 8} 步基礎排程的前 ${parameters?.firstPassSteps || 4} 步，升頻後再細化 ${parameters?.refineSteps || 3} 步。預設 0.4 MP → 1 MP，需安裝 NVFP4 與 Latent 升頻模型。` : '一採預設 Euler／Simple／8 步／1 MP。'}保存會同步更新 ComfyUI 工作流，保留其他節點設定與連線。</p>
       {workflowError && <p role="alert" className="inline-error">{workflowError}</p>}<button type="button" className="button secondary" disabled={busy} onClick={()=>readParameters().catch(cause=>setWorkflowError(cause.message))}><RefreshCw size={14}/>重新讀取影片參數</button>
-      <p className="field-help">官方影片提詞與其他提詞共用「提詞資料庫」，在首頁勾選後套用至顧客攝影棚。</p>{onOpenLibrary && <button type="button" className="button secondary" onClick={onOpenLibrary}>到提詞庫管理影片提詞</button>}
+      <p className="field-help">官方影片提詞在「提詞資料庫」管理；顧客可用的提詞在「參數設定檔 → 動畫」勾選，保存後依帳號設定生效。</p>{onOpenLibrary && <button type="button" className="button secondary" onClick={onOpenLibrary}>到提詞庫管理影片提詞</button>}{onOpenCustomerConfigs && <button type="button" className="button secondary" onClick={onOpenCustomerConfigs}>管理顧客影片選項</button>}
       <p className="field-help">H3 工作流、模型選擇與下載位於「工作室設定 → 環境與工作流」。</p>{onOpenEnvironment && <button type="button" className="button secondary" disabled={busy} onClick={onOpenEnvironment}><Download size={15}/>開啟 H3 環境與模型下載</button>}
       {availability && <div className={availability.ready ? 'photo-video-availability ready' : 'photo-video-availability'} role="status">{availability.ready ? 'H3 工作流與模型已就緒。' : availability.error}</div>}
       {notice && <p className="photo-video-notice" role="status">{notice}</p>}<button className="button primary" disabled={busy || !parameters}>{busy ? <Loader2 size={16} className="spin"/> : <Save size={16}/>}保存影片設定</button>

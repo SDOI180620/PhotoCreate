@@ -35,10 +35,14 @@ try {
 
   await page.getByRole('tab',{name:'三視圖提詞 圖轉圖',exact:true}).click();
   await page.getByRole('textbox',{name:'轉成三視圖的提詞',exact:true}).fill('Show the same character in front, side and back views. Keep consistent face and clothing.');
+  await page.getByRole('textbox',{name:'三視圖負面提詞',exact:true}).fill('heads above the front and side collars, duplicated faces');
+  await expect(page.getByLabel('產生的三視圖負面提詞',{exact:true})).toHaveText('heads above the front and side collars, duplicated faces');
   await expect(preview()).toContainText('front, side and back');await expect(preview()).toContainText('B cup (small bust with natural proportions)');
   await save().click();await expect(save()).toBeDisabled();
   await page.goto(f.base+'/admin?page=character-prompts');await page.getByRole('tab',{name:'三視圖提詞 圖轉圖',exact:true}).click();
   await expect(page.getByRole('textbox',{name:'轉成三視圖的提詞',exact:true})).toHaveValue('Show the same character in front, side and back views. Keep consistent face and clothing.');
+  await expect(page.getByRole('textbox',{name:'三視圖負面提詞',exact:true})).toHaveValue('heads above the front and side collars, duplicated faces');
+  await page.getByRole('textbox',{name:'三視圖負面提詞',exact:true}).fill('');await expect(page.getByLabel('產生的三視圖負面提詞',{exact:true})).toHaveText('未設定負面提詞。');await save().click();await expect(save()).toBeDisabled();assert.equal(f.store.read().settings.characterPrompts.turnaroundNegative,'');
   await page.getByRole('tab',{name:'Cup 提詞 A–Z',exact:true}).click();
 
   await page.route('**/api/character-prompt-settings',route=>route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'測試保存失敗，請重試。'})}));
@@ -65,6 +69,13 @@ try {
   await page.getByRole('tab',{name:'三視圖提詞 圖轉圖',exact:true}).click();assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'Turnaround settings fit the mobile viewport');
   await expect(preview()).toContainText('very small bust with natural shape');await page.screenshot({path:'test-results/character-prompts-turnaround-mobile.png',fullPage:true});await page.getByRole('tab',{name:'Cup 提詞 A–Z',exact:true}).click();
   await page.getByRole('spinbutton',{name:'身高（公分）',exact:true}).fill('');await page.getByRole('combobox',{name:'胸部尺寸',exact:true}).selectOption('');await expect(preview()).toContainText('未填寫身高與 Cup');
+  await page.route('**/api/state',async route=>{
+    const response=await route.fetch(),state=await response.json();delete state.features.characterTurnaroundNegativePrompt;
+    await route.fulfill({response,contentType:'application/json',body:JSON.stringify(state)});
+  });
+  await page.goto(f.base+'/admin?page=character-prompts');await page.getByRole('tab',{name:'三視圖提詞 圖轉圖',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'三視圖負面提詞',exact:true})).toBeDisabled();await expect(page.getByRole('textbox',{name:'轉成三視圖的提詞',exact:true})).toBeEnabled();
+  await expect(page.getByText('請重新啟動 PhotoCreate 服務，啟用負面提詞編輯與保存。',{exact:true})).toBeVisible();
   assert.deepEqual(errors,[]);
   console.log('Character prompt settings UI passed: height boundaries, A–Z Cup and turnaround editing, combined live preview, save/reload, blank rules, save failure/retry, defaults, keyboard tabs, and mobile layout.');
 } finally {await browser.close();await f.close();}

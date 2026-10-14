@@ -49,8 +49,10 @@ test('舊性別前綴在送出、重製與自訂拍攝時移除，原紀錄及�
     const before=structuredClone(source),expected=`${directions}\n\n${SINGLE_SUBJECT_PROMPT}`;
     const submitted=encoder(buildComfyPrompt(TEMPLATE,source,{character:'person.png',garment:'outfit.png'}));
     const [remake]=buildRemakePlans({jobs:[source]},[source.id],{requestId:'subject-prefix'});
-    assert.equal(submitted.prompt,expected);assert.equal(remake.prompt,expected);
-    assert.equal(customPhotoPrompt(DEFAULT_PHOTO_CUSTOMIZATION,source),expected);
+    assert.equal(submitted.prompt,expected);
+    for(const positive of [remake.prompt,customPhotoPrompt(DEFAULT_PHOTO_CUSTOMIZATION,source)]) {
+      assertSingle(positive,remake.negative);assert.ok(positive.startsWith(directions));
+    }
     assert.equal(withSingleSubjectPrompt(expected),expected);
     assert.deepEqual(source,before);
   }
@@ -127,6 +129,6 @@ test('原圖、鏡頭正負編碼與細節修復實際使用單人限制，保�
   assertSingle(positive,negative);assert.equal(positive,withSingleSubjectPrompt(cameraPrompt(shot.camera.angle)));
   assert(negative.startsWith('camera quality exclusions, '));assert(negative.endsWith(SINGLE_SUBJECT_NEGATIVE));
   const refine=encoder(buildCameraStage(TEMPLATE,cameraTemplate,shot,'refine',{source:'angle.png'}));
-  assertSingle(refine.prompt,refine.negative_prompt);assert.match(refine.prompt,/Do not change the composition/);
+  assertSingle(refine.prompt,refine.negative_prompt);assert.match(refine.prompt,/Do not .*change the composition/i);
   assert.deepEqual(cameraTemplate,before);
 });

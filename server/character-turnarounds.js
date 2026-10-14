@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import express from 'express';
 import multer from 'multer';
 import {characterProfile} from '../shared/character-profile.js';
-import {characterTurnaroundPrompt,TURNAROUND_NEGATIVE} from '../shared/character-turnaround.js';
+import {characterTurnaroundPrompt,characterTurnaroundNegative} from '../shared/character-turnaround.js';
 import {getOutputSize} from '../shared/domain.js';
 import {createStageRunner} from './stage-runner.js';
 import {validateTemplate} from './workflow.js';
@@ -121,10 +121,10 @@ export function createCharacterTurnarounds({dataDir,store,outputDir,comfyJson,co
   const view=session=>{
     const job=memory.jobs.find(row=>row.id===session.id),status=session.result ? 'completed' : session.resultError ? 'failed' : job?.status==='completed' ? 'downloading' : job?.status || 'queued';
     const prefix=session.owner==='admin' ? '/api' : '/api/studio';
-    return {id:session.id,status,profile:session.profile,prompt:session.prompt,image:session.result ? `${prefix}/character-turnarounds/${session.id}/image` : null,
+    return {id:session.id,status,profile:session.profile,prompt:session.prompt,negative:session.negative,image:session.result ? `${prefix}/character-turnarounds/${session.id}/image` : null,
       error:session.resultError || (job?.error ? session.owner==='admin' ? job.error : '轉圖暫時未完成，請確認攝影棚連線後再試。' : '')};
   };
-  function start(id,file,input,owner) {
+  function start(id,file,input,owner,{characterPromptSettings,generationSettings}={}) {
     id=validId(id);const profile=characterProfile(input),sourceType=turnaroundImageType(file?.buffer);
     const hash=createHash('sha256').update(file.buffer).update(JSON.stringify(profile)).digest('hex'),existing=sessions.get(id);
     if(existing) {sessionFor(id,owner);if(existing.hash!==hash) throw fail('這個轉圖請求已用於另一張圖片或資料。',409);return view(existing);}
@@ -132,11 +132,11 @@ export function createCharacterTurnarounds({dataDir,store,outputDir,comfyJson,co
     if([...sessions.values()].filter(row=>!row.closedAt).length>=100 || [...sessions.values()].filter(row=>!row.closedAt && row.owner===owner).length>=50) throw fail('待確認的三視圖過多，請先確認或關閉部分圖片。',409);
     if([...sessions.values()].reduce((sum,row)=>sum+(row.source?.length || 0),file.buffer.length)>150*1024*1024) throw fail('待轉圖的角色圖片超過 150 MB，請先等部分轉圖完成。',409);
     const snapshot=store.read();if(isInstalling() || !snapshot.workflow) throw fail('請先完成環境設定並載入圖轉圖工作流。',503);validateTemplate(snapshot.workflow);
-    const saved=snapshot.draft || {},resolution=[1024,1536,2048].includes(Number(saved.resolution)) ? Number(saved.resolution) : 1536,steps=Number.isInteger(Number(saved.steps)) && Number(saved.steps)>=1 && Number(saved.steps)<=100 ? Number(saved.steps) : 40;
+    const saved=generationSettings || snapshot.draft || {},resolution=[1024,1536,2048].includes(Number(saved.resolution)) ? Number(saved.resolution) : 1536,steps=Number.isInteger(Number(saved.steps)) && Number(saved.steps)>=1 && Number(saved.steps)<=100 ? Number(saved.steps) : 40;
     const directory=outputDir(),outputRoot=localUrl(snapshot.settings.comfyUrl) && directory && fs.statSync(directory,{throwIfNoEntry:false})?.isDirectory() ? path.resolve(directory) : undefined;
-    const prompt=characterTurnaroundPrompt(profile,snapshot.settings.characterPrompts);
-    const session={id,owner,hash,profile,prompt,source:file.buffer,sourceType,createdAt:clock(),touchedAt:clock(),comfyUrl:snapshot.settings.comfyUrl,outputRoot,promptIds:[]};
-    const job={id,jobKind:'character-turnaround',character:{id,...profile},prompt,negative:TURNAROUND_NEGATIVE,seed:Math.floor(Math.random()*2**48),resolution,steps,aspectRatio:'16:9',outputWidth:getOutputSize('16:9',resolution).width,outputHeight:getOutputSize('16:9',resolution).height,cameraEnabled:false,executionMode:'staged',status:'draft',images:[],createdAt:new Date(clock()).toISOString()};
+    const promptSettings=characterPromptSettings || snapshot.settings.characterPrompts,prompt=characterTurnaroundPrompt(profile,promptSettings),negative=characterTurnaroundNegative(promptSettings);
+    const session={id,owner,hash,profile,prompt,negative,source:file.buffer,sourceType,createdAt:clock(),touchedAt:clock(),comfyUrl:snapshot.settings.comfyUrl,outputRoot,promptIds:[]};
+    const job={id,jobKind:'character-turnaround',character:{id,...profile},prompt,negative,seed:Math.floor(Math.random()*2**48),resolution,steps,aspectRatio:'16:9',outputWidth:getOutputSize('16:9',resolution).width,outputHeight:getOutputSize('16:9',resolution).height,cameraEnabled:false,executionMode:'staged',status:'draft',images:[],createdAt:new Date(clock()).toISOString()};
     sessions.set(id,session);memory.jobs.push(job);persist();
     runner.start([id],{...snapshot,settings:{...snapshot.settings,releaseGpuMemory:false}}).catch(error=>{if(!closed) memoryStore.mutate(state=>{const current=state.jobs.find(row=>row.id===id);if(current && !current.stopRequestedAt) Object.assign(current,{status:'failed',error:error.message});});});
     return view(session);
@@ -195,12 +195,12 @@ export function createCharacterTurnarounds({dataDir,store,outputDir,comfyJson,co
   return {start,discard,image,tick,close,status:async(id,owner)=>{const session=sessionFor(id,owner);await tick();return view(session);},hasWork:()=>memory.jobs.some(row=>ACTIVE.includes(row.status)) || [...sessions.values()].some(row=>row.closedAt && row.promptIds.length && !row.cancelSettled)};
 }
 
-export function characterTurnaroundRouter(getManager,owner) {
-  const router=express.Router(),upload=multer({storage:multer.memoryStorage(),limits:{fileSize:MAX_IMAGE,files:1,fields:1,parts:2,fieldSize:20000}}).single('image');
+export function characterTurnaroundRouter(getManager,owner,settingsFor=()=>({})) {
+  const router=express.Router(),upload=multer({storage:multer.memoryStorage(),limits:{fileSize:MAX_IMAGE,files:1,fields:3,parts:4,fieldSize:20000}}).single('image');
   router.use((req,res,next)=>{res.set({'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});next();});
   router.put('/:id',(req,res,next)=>{if(Number(req.headers['content-length'])>MAX_IMAGE+1024*1024) return next(fail('角色圖片最多 25 MB。',413));next();},upload,(req,res)=>{
     let profile={};if(req.body.profile!==undefined) {try {profile=JSON.parse(req.body.profile);} catch {throw fail('角色資料格式不正確。');}}
-    res.status(202).json(getManager().start(req.params.id,req.file,profile,owner(req)));
+    res.status(202).json(getManager().start(req.params.id,req.file,profile,owner(req),settingsFor(req)));
   });
   router.get('/:id',async(req,res)=>res.json(await getManager().status(req.params.id,owner(req))));
   router.get('/:id/image',(req,res)=>{const result=getManager().image(req.params.id,owner(req));res.type(result.mime).sendFile(result.file);});

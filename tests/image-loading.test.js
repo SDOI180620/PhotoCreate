@@ -103,8 +103,12 @@ test('opening a large project omits execution graphs while batch export retains 
     state.jobs.push({...state.jobs[0],id:'private-history',visitorId:'other-owner'});
     state.batches=[{id:'history-batch',name:'歷史拍攝',createdAt:source.createdAt}];
   });
+  await f.request('/api/customer-configs'); // Finish first-load configuration migration before checking snapshots.
   const before=f.store.read(),response=await f.request('/api/state'),text=await response.text(),state=JSON.parse(text);
-  assert.equal(state.jobs.length,100);assert.ok(text.length<500000,'The entry response must not repeat large ComfyUI graphs for every historical photo');
+  const promptCharacters=state.jobs.reduce((sum,job)=>sum+JSON.stringify(job.prompt).length+JSON.stringify(job.negative).length,0);
+  assert.equal(state.jobs.length,100);assert.ok(text.length-promptCharacters<500000,'Response metadata must stay small independently of the saved photograph prompts');
+  assert(!text.includes(graph.large.inputs.value),'The entry response must not repeat large ComfyUI graphs for every historical photo');
+  assert.equal(state.jobs[0].prompt,before.jobs[0].prompt);assert.equal(state.jobs[0].negative,before.jobs[0].negative);
   assert.equal(state.jobs[0].workflowSnapshot,undefined);assert.equal(state.jobs[0].apiPrompt,undefined);
   assert.equal(state.jobs[0].stageResults.base.apiPrompt,undefined);assert.deepEqual(state.jobs[0].images,before.jobs[0].images);
   const exported=await f.request('/api/batches/history-batch/export');assert.equal(exported.status,200);

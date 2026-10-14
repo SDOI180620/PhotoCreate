@@ -15,7 +15,7 @@ export function createCharacterPromptProfiles(store) {
   function saveActive(input) {
     input=object(input);
     return store.mutate(state=>{
-      const settings=normalizeCharacterPromptSettings({...input,turnaroundPrompt:input.turnaroundPrompt===undefined ? state.settings.characterPrompts.turnaroundPrompt : input.turnaroundPrompt});
+      const settings=normalizeCharacterPromptSettings({...input,turnaroundPrompt:input.turnaroundPrompt===undefined ? state.settings.characterPrompts.turnaroundPrompt : input.turnaroundPrompt,turnaroundNegative:input.turnaroundNegative===undefined ? state.settings.characterPrompts.turnaroundNegative : input.turnaroundNegative});
       const library=state.settings.characterPromptProfiles;
       profileFor(library,library.activeId).settings=structuredClone(settings);
       state.settings.characterPrompts=settings;
@@ -41,7 +41,10 @@ export function createCharacterPromptProfiles(store) {
     return store.mutate(state=>{
       const library=state.settings.characterPromptProfiles,profile=profileFor(library,id);
       if(input.name!==undefined) {const name=normalizeCharacterPromptProfileName(input.name);uniqueName(library,name,id);profile.name=name;}
-      if(input.settings!==undefined) profile.settings=normalizeCharacterPromptSettings(input.settings);
+      if(input.settings!==undefined) {
+        const settings=object(input.settings);
+        profile.settings=normalizeCharacterPromptSettings({...settings,turnaroundNegative:settings.turnaroundNegative===undefined ? profile.settings.turnaroundNegative : settings.turnaroundNegative});
+      }
       if(input.activate===true) library.activeId=id;
       if(library.activeId===id) state.settings.characterPrompts=structuredClone(profile.settings);
       return view(library,id);
@@ -51,6 +54,7 @@ export function createCharacterPromptProfiles(store) {
     return store.mutate(state=>{
       const library=state.settings.characterPromptProfiles;profileFor(library,id);
       if(id===library.activeId) throw fail('使用中的設定檔不能刪除，請先套用另一份設定檔。',409);
+      if(state.customerConfigs?.some(row=>row.characterPromptProfileId===id)) throw fail('角色提詞設定檔已綁定參數設定檔，請先到「參數設定檔」改綁後再刪除。',409);
       library.profiles=library.profiles.filter(row=>row.id!==id);return view(library);
     });
   }

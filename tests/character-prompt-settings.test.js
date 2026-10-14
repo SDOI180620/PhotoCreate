@@ -37,12 +37,15 @@ test('Cup A–Z 可獨立修改與留白，未填寫的角色資料不加入描�
 });
 
 test('設定須完整且長度有效，保存時清理空白並隔離物件',()=>{
-  const input=defaultCharacterPromptSettings();input.heightPrompts.below140='  short proportions\n ';input.cupPrompts.A='  ';
+  const input=defaultCharacterPromptSettings();input.heightPrompts.below140='  short proportions\n ';input.cupPrompts.A='  ';input.turnaroundNegative='  custom exclusions\n ';
   const normalized=normalizeCharacterPromptSettings(input);
   assert.equal(normalized.heightPrompts.below140,'short proportions');assert.equal(normalized.cupPrompts.A,'');
+  assert.equal(normalized.turnaroundNegative,'custom exclusions');assert.equal(normalizeCharacterPromptSettings({...input,turnaroundNegative:'  '}).turnaroundNegative,'');
   normalized.cupPrompts.B='changed';assert.notEqual(normalized.cupPrompts.B,input.cupPrompts.B);
   for(const invalid of [null,[],{}, {...input,heightPrompts:[]},{...input,cupPrompts:{...input.cupPrompts,A:42}},{...input,cupPrompts:{...input.cupPrompts,Z:'x'.repeat(CHARACTER_PROMPT_MAX_LENGTH+1)}}]) assert.throws(()=>normalizeCharacterPromptSettings(invalid));
   const missing=structuredClone(input);delete missing.heightPrompts['160to170'];assert.throws(()=>normalizeCharacterPromptSettings(missing));
+  for(const turnaroundNegative of [null,42,[],{},'x'.repeat(CHARACTER_PROMPT_MAX_LENGTH+1)]) assert.throws(()=>normalizeCharacterPromptSettings({...input,turnaroundNegative}));
+  const legacy=structuredClone(input);delete legacy.turnaroundNegative;assert.equal(normalizeCharacterPromptSettings(legacy).turnaroundNegative,defaultCharacterPromptSettings().turnaroundNegative);
 });
 
 test('新拍攝及工作檯預覽使用設定，重製與角度後自訂保留當時提詞',()=>{
@@ -65,11 +68,13 @@ test('新拍攝及工作檯預覽使用設定，重製與角度後自訂保留�
 
 test('設定 API 保存至 SQLite、拒絕錯誤更新且顧客不能修改',async t=>{
   const f=await previewFixture();t.after(()=>f.close());
-  const state=await f.request('/state');assert.equal(state.data.features.characterPromptSettings,1);assert.deepEqual(state.data.settings.characterPrompts,defaultCharacterPromptSettings());
-  const settings=defaultCharacterPromptSettings();settings.turnaroundPrompt='Custom three-view instruction.';settings.heightPrompts['170plus']='  tall custom proportions  ';settings.cupPrompts.Z='unique Z description';
+  const state=await f.request('/state');assert.equal(state.data.features.characterPromptSettings,1);assert.equal(state.data.features.characterTurnaroundNegativePrompt,1);assert.deepEqual(state.data.settings.characterPrompts,defaultCharacterPromptSettings());
+  const settings=defaultCharacterPromptSettings();settings.turnaroundPrompt='Custom three-view instruction.';settings.turnaroundNegative='custom heads exclusion';settings.heightPrompts['170plus']='  tall custom proportions  ';settings.cupPrompts.Z='unique Z description';
   const saved=await f.request('/character-prompt-settings',settings,'PUT');assert.equal(saved.status,200);assert.equal(saved.data.heightPrompts['170plus'],'tall custom proportions');
-  const legacy=structuredClone(saved.data);delete legacy.turnaroundPrompt;assert.equal((await f.request('/character-prompt-settings',legacy,'PUT')).data.turnaroundPrompt,settings.turnaroundPrompt);
+  const legacy=structuredClone(saved.data);delete legacy.turnaroundPrompt;delete legacy.turnaroundNegative;
+  const legacySaved=await f.request('/character-prompt-settings',legacy,'PUT');assert.equal(legacySaved.data.turnaroundPrompt,settings.turnaroundPrompt);assert.equal(legacySaved.data.turnaroundNegative,settings.turnaroundNegative);
   assert.equal((await f.request('/character-prompt-settings',{heightPrompts:[]},'PUT')).status,400);assert.deepEqual(f.store.read().settings.characterPrompts,saved.data);
+  for(const turnaroundNegative of [null,42,[],'x'.repeat(CHARACTER_PROMPT_MAX_LENGTH+1)]) assert.equal((await f.request('/character-prompt-settings',{...saved.data,turnaroundNegative},'PUT')).status,400);
   const reopened=createStore(f.dataDir);try {assert.deepEqual(reopened.read().settings.characterPrompts,saved.data);} finally {reopened.close();}
   await f.authentication.createCustomer({username:'prompt-settings-customer',password:'profile-password'});
   const session=await login(f.base,'prompt-settings-customer','profile-password');

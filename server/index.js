@@ -26,6 +26,7 @@ import {createPresetPreviews,relatedPresetPhotos,relatedGarmentPhotos} from './p
 import {GARMENT_SOURCES_VERSION,garmentFields} from '../shared/garments.js';
 import {createCharacterTurnarounds,characterTurnaroundRouter} from './character-turnarounds.js';
 import {createCharacterPromptProfiles} from './character-prompt-profiles.js';
+import {characterPromptSettingsFor} from '../shared/character-prompt-profiles.js';
 import {createGalleryMusic} from './gallery-music.js';
 import {createPhotoVideos} from './photo-videos.js';
 import {loadVideoWorkflow,videoUiTemplate} from './video-workflow.js';
@@ -148,6 +149,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     photoFolders,
     getCustomerRecipe:configId=>customerConfigs.get(configId).recipe,
     getCustomerVideoSettings:configId=>customerConfigs.videos(configId),
+    getCustomerCharacterPrompts:configId=>characterPromptSettingsFor(store.read(),customerConfigs.get(configId).characterPromptProfileId),
     isInstalling:()=>environment.isActive() || galleryMusic?.hasWork() || photoVideos?.hasWork(),
     uploadCharacter:(files,visitorId,profiles)=>saveAssetUploads('characters',files,visitorId,profiles),
     uploadGarment:(files,visitorId)=>saveAssetUploads('garments',files,visitorId),
@@ -156,7 +158,11 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     sendImage:serveJobImage,sendAngleSource:serveAngleSource,sendCharacterReference:serveCharacterReference,sendAssetImage:serveAssetImage,
   }));
   app.use('/api',(req,res,next)=>req.method==='GET' && req.path==='/health' ? next() : authentication.requireAdmin(req,res,next));
-  app.use('/api/character-turnarounds',characterTurnaroundRouter(()=>characterTurnarounds,()=>'admin'));
+  app.use('/api/character-turnarounds',characterTurnaroundRouter(()=>characterTurnarounds,()=>'admin',req=>{
+    const config=req.body?.customerConfigId ? customerConfigs.get(req.body.customerConfigId) : null;
+    try {return {characterPromptSettings:characterPromptSettingsFor(store.read(),config?.characterPromptProfileId || req.body?.characterPromptProfileId),generationSettings:config?.recipe?.settings};}
+    catch(error) {throw fail(error.message);}
+  }));
   const publicState = () => {
     const customerRecipe=getCustomerRecipe();
     const state = store.read(current=>{
@@ -167,7 +173,7 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
     state.customerConfigs=customerConfigs.list();
     const workflow=state.workflow;
     state.photoFolders=photoFolders.list('admin');
-    return {...state,videos:photoVideos.list('admin'),videoSettings:photoVideos.settings(),publishedVideoSettings:photoVideos.publicSettings(),customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,photoVideo:PHOTO_VIDEO_VERSION,garmentSources:GARMENT_SOURCES_VERSION,imagePreviews:1,managedPhotos:1,fullBackups:1,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true,characterPools:true,characterProfile:1,characterPromptSettings:1,characterPromptProfiles:1,characterTurnaround:1,gpuMemoryControl:true,presetPreviews:1,presetPreviewRatios:1,presetReview:1,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,photoRefinement:PHOTO_REFINEMENT_VERSION,cameraFraming:CAMERA_FRAMING_VERSION},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
+    return {...state,videos:photoVideos.list('admin'),videoSettings:photoVideos.settings(),publishedVideoSettings:photoVideos.publicSettings(),customerRecipeSummary:customerRecipeSummary(customerRecipe),workflow,features:{authentication:true,photoVideo:PHOTO_VIDEO_VERSION,garmentSources:GARMENT_SOURCES_VERSION,imagePreviews:1,managedPhotos:1,fullBackups:1,photoFolders:true,stopJobs:true,stagedProduction:true,optionalCamera:true,optionalPresetPools:true,characterPools:true,characterProfile:1,characterPromptSettings:1,characterPromptProfiles:1,customerCharacterPromptProfiles:1,characterTurnaround:1,characterTurnaroundNegativePrompt:1,gpuMemoryControl:true,presetPreviews:1,presetPreviewRatios:1,presetReview:1,photoCustomization:PHOTO_CUSTOMIZATION_VERSION,photoRefinement:PHOTO_REFINEMENT_VERSION,cameraFraming:CAMERA_FRAMING_VERSION},storage:{engine:'SQLite',search:'FTS5',presetCount:state.presets.length}};
   };
   const adminJob=(id,state)=>{
     const job=state ? state.jobs.find(row=>row.id===id && belongsToStudio(row))
@@ -564,8 +570,14 @@ export function createApp({ dataDir = path.join(rootDir,'data'), fetchImpl = fet
   });
 
   function adminShootingInput(state,body) {
-    const own=operatorState(state);
-    if(body.mode!=='random' || !body.customerConfigId) return {state:own,body};
+    let own=operatorState(state);
+    if(body.mode!=='random' || !body.customerConfigId) {
+      if(body.characterPromptProfileId) {
+        try {own={...own,settings:{...own.settings,characterPrompts:characterPromptSettingsFor(own,body.characterPromptProfileId)}};}
+        catch(error) {throw fail(error.message);}
+      }
+      return {state:own,body};
+    }
     const recipe=customerConfigs.get(body.customerConfigId).recipe;
     if(!recipe) throw fail('這份參數設定檔尚未準備好，請先保存可用候選。');
     const characters=customerCharacters(own,recipe),selected=body.characterIds ?? (body.characterId ? [body.characterId] : characters.map(row=>row.id));

@@ -9,10 +9,12 @@ import {loginBrowser} from './auth-client.js';
 import {previewFixture} from './preset-preview-fixture.js';
 
 const f=await previewFixture({camera:false});
+const videoPrompts=f.photoVideos.publicSettings().prompts;
 const draft={...f.store.read().draft,...DRAFT,mode:'random',randomPoolMode:'selected',characterIds:['character'],cameraEnabled:false,randomCount:1,copies:1,
   cameraIds:['camera-full'],lightingIds:['light-window'],colorIds:['color-natural'],qualityIds:['quality-editorial'],
   expressionIds:['expression-smile'],clothingStateIds:['clothing-state-breeze'],interactionIds:['interaction-window']};
 f.store.mutate(state=>{
+  for(const row of videoPrompts) if(!state.presets.some(preset=>preset.id===row.id)) state.presets.push({...row,category:'video',tags:[]});
   state.draft=draft;state.workbenchDrafts={random:draft};state.customerRecipe=createCustomerRecipe(state,draft);
   const plan=buildShotPlans(state,{...draft,cameraEnabled:true,garmentIds:['garment-a'],poseIds:['pose-standing']})[0];
   const base={...plan,batchId:'review-batch',status:'completed',createdAt:'2026-10-11T00:00:00Z',images:[{filename:'review.png',subfolder:'PhotoCreate',type:'output'}]};
@@ -29,15 +31,19 @@ const closeEditor=async()=>{await page.getByRole('dialog').last().getByRole('but
 const poseName=f.store.read().presets.find(row=>row.id==='pose-standing').name;
 const poseCard=()=>page.locator('.preset-card').filter({has:page.getByRole('heading',{name:poseName,exact:true})});
 try {
-  await loginBrowser(page,f.base);await expect(apply).toBeDisabled();
-  await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('60');await expect(apply).toBeEnabled();
-  await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('40');await expect(apply).toBeDisabled();
-  await page.getByRole('spinbutton',{name:'隨機張數',exact:true}).fill('5');await expect(apply).toBeDisabled();
-  await page.getByRole('combobox',{name:'輸出比例',exact:true}).selectOption('16:9');await expect(apply).toBeDisabled();
-  await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('60');await apply.click();
-  await expect.poll(()=>Number(f.store.read().customerRecipe.settings.steps)).toBe(60);await expect(apply).toBeDisabled();
-  await page.reload();await expect(apply).toBeDisabled();
-  await page.locator('.customer-publish-panel').screenshot({path:path.resolve('test-results/customer-publish-unchanged.png')});
+  await loginBrowser(page,f.base);await expect(apply).toHaveCount(0);
+  const originalRecipe=structuredClone(f.store.read().customerRecipe);
+  await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('60');
+  await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('40');
+  await page.getByRole('spinbutton',{name:'隨機張數',exact:true}).fill('5');
+  await page.getByRole('combobox',{name:'輸出比例',exact:true}).selectOption('16:9');
+  assert.deepEqual(f.store.read().customerRecipe,originalRecipe);
+  await page.getByRole('button',{name:'參數設定檔',exact:true}).click();
+  await page.getByRole('spinbutton',{name:'採樣步數',exact:true}).fill('60');
+  await page.getByRole('button',{name:'保存設定檔',exact:true}).click();
+  await expect.poll(()=>Number(f.store.read().customerRecipe.settings.steps)).toBe(60);
+  await page.reload();await expect(apply).toHaveCount(0);
+  await page.locator('.studio-customer-settings').screenshot({path:path.resolve('test-results/customer-config-guidance.png')});
 
   await page.getByRole('button',{name:'提詞資料庫',exact:true}).click();
   await poseCard().getByRole('button',{name:`標記為已確認 ${poseName}`,exact:true}).click();
@@ -52,8 +58,7 @@ try {
   await editor.getByRole('button',{name:'保存提詞',exact:true}).click();await expect(editor).toHaveCount(0);
   await expect.poll(()=>f.store.read().presets.find(row=>row.id==='pose-standing').prompt).toBe('Updated browser pose');
   await expect(poseCard().getByRole('img',{name:'已確認',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'拍攝工作檯',exact:true}).click();await expect(apply).toBeEnabled();
-  await apply.click();await expect(apply).toBeDisabled();
+  await page.getByRole('button',{name:'拍攝工作檯',exact:true}).click();await expect(apply).toHaveCount(0);
   await page.getByRole('button',{name:'選擇動作提詞',exact:true}).click();
   const picker=page.getByRole('dialog',{name:'選擇動作提詞 · 可複選',exact:true});
   const pose=picker.getByRole('button',{name:poseName,exact:true});
@@ -63,7 +68,7 @@ try {
   assert.ok(mark.x>box.x+box.width/2,'Review icon is on the right, separate from the selection box');
   await picker.screenshot({path:path.resolve('test-results/preset-review-picker.png')});
   await pose.click();await expect(pose).toHaveAttribute('aria-pressed','false');await expect(pose.getByRole('img',{name:'已確認',exact:true})).toBeVisible();
-  await picker.getByRole('button',{name:'取消',exact:true}).click();await expect(apply).toBeDisabled();
+  await picker.getByRole('button',{name:'取消',exact:true}).click();await expect(apply).toHaveCount(0);
 
   await page.getByRole('button',{name:'成果畫廊',exact:true}).click();
   let photo=page.locator('.gallery-card[data-job-id="review-photo"]');
@@ -102,7 +107,7 @@ try {
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:path.resolve('test-results/preset-review-mobile.png')});
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Mobile has no horizontal overflow');
-  await page.getByRole('button',{name:'拍攝工作檯',exact:true}).click();await expect(apply).toBeDisabled();
+  await page.getByRole('button',{name:'拍攝工作檯',exact:true}).click();await expect(apply).toHaveCount(0);
   if(errors.length) throw new Error(errors.join('\n'));
-  console.log('UI passed: persistent review toggles, separate selection/review icons, all eight photo tag dialogs, preserved shot snapshots, deleted ID safety, inspector return, lightbox close, unchanged/change/revert/apply tracking and mobile layout.');
+  console.log('UI passed: persistent review toggles, separate selection/review icons, all eight photo tag dialogs, preserved shot snapshots, deleted ID safety, inspector return, lightbox close, independent workbench/configuration settings and mobile layout.');
 } finally {await browser.close();await f.close();}

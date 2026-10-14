@@ -2,6 +2,7 @@ import { getOutputSize } from '../shared/domain.js';
 import {withSingleSubjectPrompt,withSingleSubjectNegative} from '../shared/subject.js';
 import {isPromptGarment} from '../shared/garments.js';
 import {comfyInputFields,isComfyWidget,widgetDefault} from '../shared/comfy-widgets.js';
+import {TURNAROUND_MIN_CFG} from '../shared/character-turnaround.js';
 
 export const WORKFLOW_NAME = '02 Qwen Image 2.1 Uncensored 5090 High Quality - 圖生圖';
 export const WORKFLOW_PATH = `Qwen Image 2.1/${WORKFLOW_NAME}.json`;
@@ -91,6 +92,8 @@ export function buildComfyPrompt(template, shot, images) {
   text.inputs.resolution = shot.resolution;
   graph[samplerId].inputs.seed = shot.seed;
   graph[samplerId].inputs.steps = shot.steps;
+  // CFG 1 skips negative conditioning; turnaround layout exclusions need it.
+  if(shot.jobKind==='character-turnaround') graph[samplerId].inputs.cfg=Math.max(TURNAROUND_MIN_CFG,Number(graph[samplerId].inputs.cfg) || 1);
   const outputSize = shot.outputWidth === undefined && shot.outputHeight === undefined
     ? getOutputSize(shot.aspectRatio ?? 'reference',shot.resolution)
     : {width:shot.outputWidth,height:shot.outputHeight};

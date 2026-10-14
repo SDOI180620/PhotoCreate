@@ -32,7 +32,7 @@ test('服裝備註改名、多段修改與清空不改變生成提詞，圖片�
   const encoder = graph['12'];
   assert.equal(graph[encoder.inputs['images.image_1'][0]].inputs.image,'person.png');
   assert.equal(graph[encoder.inputs['images.image_2'][0]].inputs.image,'outfit.png');
-  assert.match(encoder.inputs.prompt,/character from <image1> in the clothing from <image2>/);
+  assert.ok(encoder.inputs.prompt.includes(REFERENCE_INSTRUCTION));
   assert.doesNotMatch(encoder.inputs.prompt,/PRIVATE_NOTE|PRIVATE_LIBRARY_NAME|Picture 1|Picture 2|<image 2>/);
   state.garments[0].description = '';
   assert.equal(buildShotPlans(state,DRAFT)[0].prompt,original.prompt);

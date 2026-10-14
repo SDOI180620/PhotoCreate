@@ -105,6 +105,7 @@ try {
   await deletion.getByRole('button',{name:'取消',exact:true}).click();await expect(photos.locator('.pc-photo-card-shell')).toHaveCount(2);
   await photos.getByRole('button',{name:'刪除資料夾',exact:true}).click();
   await deletion.getByRole('button',{name:'確認永久刪除',exact:true}).click();
+  await page.getByRole('dialog',{name:'所選照片包含精選，仍要刪除？',exact:true}).getByRole('button',{name:'仍要永久刪除',exact:true}).click();
   await expect(deletion).toHaveCount(0);await closed();
   await expect(photos.getByRole('button',{name:'資料夾 全部照片',exact:true})).toHaveText('全部照片141');
   await expect(gallery.getByRole('button',{name:'資料夾 全部照片',exact:true})).toHaveText('全部照片141');

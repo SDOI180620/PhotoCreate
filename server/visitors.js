@@ -37,7 +37,7 @@ const publicJob=job=>{
 };
 
 // Every read and mutation checks the authenticated account's stable owner ID.
-export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,getCustomerRecipe,getCustomerVideoSettings,getCharacterTurnarounds,getGalleryMusic,getPhotoVideos,uploadCharacter,uploadGarment,createShots,remakeShots,angleShot,refineShot,customShot,queueShots,stopShots,purgeOutputs,sendImage,sendAngleSource,sendCharacterReference,sendAssetImage}) {
+export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,getCustomerRecipe,getCustomerVideoSettings,getCustomerCharacterPrompts=()=>undefined,getCharacterTurnarounds,getGalleryMusic,getPhotoVideos,uploadCharacter,uploadGarment,createShots,remakeShots,angleShot,refineShot,customShot,queueShots,stopShots,purgeOutputs,sendImage,sendAngleSource,sendCharacterReference,sendAssetImage}) {
   const router=express.Router();
   const gallery=createFeaturedGallery(store,ownerId=>getPhotoVideos().list(ownerId));
   const customerPrompts=createCustomerPrompts(store);
@@ -51,7 +51,7 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     res.set({'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});
     next();
   });
-  router.use('/character-turnarounds',characterTurnaroundRouter(getCharacterTurnarounds,req=>req.visitorId));
+  router.use('/character-turnarounds',characterTurnaroundRouter(getCharacterTurnarounds,req=>req.visitorId,req=>({characterPromptSettings:getCustomerCharacterPrompts(req.account.customer_config_id),generationSettings:req.customerRecipe?.settings})));
   const ownedJob=(id,visitorId,includeDeleted=false)=>{
     const job=store.read(state=>state.jobs.find(row=>row.id===id && row.visitorId===visitorId && (includeDeleted || !row.visitorDeletedAt)));
     if(!job) throw fail('找不到這張照片。',404);
@@ -74,7 +74,22 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     const ids=new Set(jobs.map(job=>job.id));
     if(store.read(state=>(state.photoVideos || []).some(row=>ids.has(row.jobId) && videoIsActive(row)))) throw fail('請先停止這張照片的影片，確認停止後再刪除。',409);
   };
-  const permanentlyDelete=(jobs,folder)=>{
+  const keepFeaturedRequest=req=>{
+    const keepFeatured=req.body?.keepFeatured ?? false;
+    if(typeof keepFeatured!=='boolean') throw fail('精選保留設定格式無效。');
+    return keepFeatured;
+  };
+  const permanentlyDelete=(jobs,folder,keepFeatured=false)=>{
+    let retainedCount=0;
+    if(keepFeatured) {
+      const candidates=new Map(jobs.map(job=>[job.id,job]));
+      const featuredRoots=store.read(state=>new Set((state.galleryEntries || []).filter(entry=>{
+        const job=candidates.get(entry.jobId);return job && entry.ownerId===job.visitorId;
+      }).map(entry=>{const job=candidates.get(entry.jobId);return job.rootJobId || job.id;})));
+      const removable=jobs.filter(job=>!featuredRoots.has(job.rootJobId || job.id));
+      retainedCount=jobs.length-removable.length;jobs=removable;
+      if(!jobs.length) return {ok:true,count:0,retainedCount,deletedFiles:0};
+    }
     if(jobs.some(job=>STOPPABLE_STATUSES.includes(job.status))) throw fail('請先暫停拍攝，確認停止後才能永久刪除。',409);
     assertVideosStopped(jobs);
     const ids=new Set(jobs.map(job=>job.id));
@@ -85,9 +100,9 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
       state.galleryEntries=(state.galleryEntries || []).filter(row=>!ids.has(row.jobId));
       const batches=new Set(jobs.map(job=>job.batchId));
       state.batches=state.batches.filter(batch=>!batches.has(batch.id) || state.jobs.some(job=>job.batchId===batch.id));
-      if(folder) state.photoFolders=(state.photoFolders || []).filter(row=>row.id!==folder.id || row.ownerId!==folder.ownerId);
+      if(folder && !keepFeatured) state.photoFolders=(state.photoFolders || []).filter(row=>row.id!==folder.id || row.ownerId!==folder.ownerId);
     });
-    return {ok:true,count:jobs.length,deletedFiles};
+    return {ok:true,count:jobs.length,deletedFiles,...(keepFeatured ? {retainedCount} : {})};
   };
   const permanentRequest=req=>{
     const permanent=req.body?.permanent ?? false;
@@ -103,13 +118,18 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     if(!state.workflow || cameraEnabled && !state.cameraWorkflow || isInstalling()) throw fail('攝影棚正在準備，請稍後再試。',503);
   };
   const stateFor=(visitorId,recipe,videoSettings)=>{
-    const state=store.read(current=>({
-      characters:customerCharacters(current,recipe,visitorId).map(row=>publicCharacter(row,visitorId)),
-      garments:current.garments.filter(row=>row.visitorId===visitorId).map(row=>publicGarment(row,visitorId)),
-      jobs:current.jobs.filter(job=>job.visitorId===visitorId && !job.visitorDeletedAt).map(publicJob),
-      trash:current.jobs.filter(job=>job.visitorId===visitorId && job.visitorDeletedAt).map(job=>({...publicJob(job),deletedAt:job.visitorDeletedAt})),
-      workflow:Boolean(current.workflow),cameraWorkflow:Boolean(current.cameraWorkflow),
-    }));
+    const state=store.read(current=>{
+      // Recycled photos retain their gallery selections until permanently deleted.
+      const featuredJobs=new Set((current.galleryEntries || []).filter(row=>row.ownerId===visitorId).map(row=>row.jobId));
+      const photo=job=>({...publicJob(job),featured:featuredJobs.has(job.id)});
+      return {
+        characters:customerCharacters(current,recipe,visitorId).map(row=>publicCharacter(row,visitorId)),
+        garments:current.garments.filter(row=>row.visitorId===visitorId).map(row=>publicGarment(row,visitorId)),
+        jobs:current.jobs.filter(job=>job.visitorId===visitorId && !job.visitorDeletedAt).map(photo),
+        trash:current.jobs.filter(job=>job.visitorId===visitorId && job.visitorDeletedAt).map(job=>({...photo(job),deletedAt:job.visitorDeletedAt})),
+        workflow:Boolean(current.workflow),cameraWorkflow:Boolean(current.cameraWorkflow),
+      };
+    });
     const videos=getPhotoVideos().list(visitorId);
     return {characters:state.characters,photoVideo:PHOTO_VIDEO_VERSION,videos,videoSettings:{defaultDuration:videoSettings.defaultDuration,defaultAspectRatio:videoSettings.defaultAspectRatio,prompts:videoSettings.prompts},
       folders:photoFolders.list(visitorId),
@@ -117,7 +137,7 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
       music:getGalleryMusic().list(true),
       jobs:state.jobs.map(job=>({...job,videos:videos.filter(row=>row.jobId===job.id)})),trash:state.trash,
       ready:Boolean(recipe && ['garment','pose','lighting','color','quality'].every(key=>recipe.pools[key]?.length) && state.workflow && !isInstalling()),cameraReady:Boolean(state.workflow && state.cameraWorkflow && !isInstalling()),
-      wardrobeCount:recipe?.pools.garment.length || 0,maxCount:CUSTOMER_MAX_SHOOT_COUNT,canQueueShoots:true,canStopShootBatches:true,canEditCharacters:true,canPermanentlyDeletePhotos:true,characterProfile:1,characterTurnaround:1,turnaroundReady:Boolean(state.workflow && !isInstalling()),photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION,
+      wardrobeCount:recipe?.pools.garment.length || 0,maxCount:CUSTOMER_MAX_SHOOT_COUNT,canQueueShoots:true,canStopShootBatches:true,canEditCharacters:true,canPermanentlyDeletePhotos:true,canKeepFeaturedPhotos:true,characterProfile:1,characterTurnaround:1,turnaroundReady:Boolean(state.workflow && !isInstalling()),photoCustomization:PHOTO_CUSTOMIZATION_VERSION,cameraFraming:CAMERA_FRAMING_VERSION,
       garmentSources:1,photoRefinement:PHOTO_REFINEMENT_VERSION,refineReady:Boolean(state.workflow && !isInstalling()),
       personalLibrary:1,customerPrompts:customerPrompts.list(visitorId),
       garments:[...(recipe?.pools.garment || []).map(row=>publicGarment(row,visitorId)),...state.garments],
@@ -182,18 +202,18 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     photoFolders.requireFolder(req.visitorId,req.params.id);
     const roots=new Set(store.read().jobs.filter(job=>job.visitorId===req.visitorId && job.folderId===req.params.id).map(job=>job.rootJobId || job.id));
     const jobs=store.read().jobs.filter(job=>job.visitorId===req.visitorId && roots.has(job.rootJobId || job.id));
-    const result=permanentlyDelete(jobs,{id:req.params.id,ownerId:req.visitorId});
+    const result=permanentlyDelete(jobs,{id:req.params.id,ownerId:req.visitorId},keepFeaturedRequest(req));
     res.json(result);
   });
   router.post('/photos/move',(req,res)=>res.json(photoFolders.move(req.visitorId,req.body?.ids,req.body?.folderId)));
   router.post('/photos/delete',(req,res)=>{
-    if(permanentRequest(req)) return res.json(permanentlyDelete(selectedFamilies(req)));
+    if(permanentRequest(req)) return res.json(permanentlyDelete(selectedFamilies(req),undefined,keepFeaturedRequest(req)));
     const jobs=selectedFamilies(req),ids=new Set(jobs.map(job=>job.id)),deletedAt=new Date().toISOString();assertVideosStopped(jobs);
     store.mutate(state=>{for(const job of state.jobs) if(ids.has(job.id) && job.visitorId===req.visitorId) job.visitorDeletedAt ||= deletedAt;});
     res.json({ok:true,count:jobs.length});
   });
   router.post('/photos/purge',(req,res)=>{
-    res.json(permanentlyDelete(selectedFamilies(req,true)));
+    res.json(permanentlyDelete(selectedFamilies(req,true),undefined,keepFeaturedRequest(req)));
   });
   router.get('/jobs/:id/prompts',(req,res)=>{
     const job=ownedJob(req.params.id,req.visitorId,true);
@@ -204,7 +224,7 @@ export function createVisitorRouter({store,dataDir,photoFolders,isInstalling,get
     if(typeof allVersions!=='boolean') throw fail('刪除範圍格式無效。');
     const root=job.rootJobId || job.id;
     const jobs=allVersions ? store.read().jobs.filter(row=>row.visitorId===req.visitorId && (row.rootJobId || row.id)===root) : [job];
-    if(deleting && permanentRequest(req)) return res.json(permanentlyDelete(jobs));
+    if(deleting && permanentRequest(req)) return res.json(permanentlyDelete(jobs,undefined,keepFeaturedRequest(req)));
     if(deleting) assertVideosStopped(jobs);
     if(jobs.some(row=>STOPPABLE_STATUSES.includes(row.status))) throw fail('照片正在拍攝，完成後才能刪除。',409);
     const ids=new Set(jobs.map(row=>row.id)),deletedAt=new Date().toISOString();

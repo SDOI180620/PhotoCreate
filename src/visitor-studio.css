@@ -181,6 +181,10 @@
 .pc-prompt-panel .pc-error button {margin-left:10px;text-decoration:underline}
 .pc-photo-image {position:relative;aspect-ratio:3/4;border-radius:11px;overflow:hidden;background:#e9e3f1}
 .pc-photo-image>img {width:100%;height:100%;object-fit:cover}
+.pc-featured-mark {display:inline-grid;place-items:center;flex-shrink:0;width:30px;height:30px;border:1px solid #dfbf79;border-radius:50%;background:#fff8e8;color:#a46b14;box-shadow:0 2px 8px #5338181a}
+.pc-featured-mark.inline {width:auto;height:auto;border:0;background:none;box-shadow:none}
+.pc-photo-badges {position:absolute;bottom:12px;left:12px;display:flex;align-items:center;gap:6px;max-width:calc(100% - 54px);pointer-events:none}
+.pc-photo-badges .pc-photo-video-badge {position:static;min-width:0;padding:6px 8px;font-size:11px}
 .pc-photo-zoom {position:absolute;bottom:12px;right:12px;background:#ffffffbd;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;color:#554166;opacity:0;transition:opacity .15s}
 .pc-photo-card:hover .pc-photo-zoom,.pc-photo-card:focus-visible .pc-photo-zoom {opacity:1}
 .pc-photo-status {position:absolute;top:12px;right:12px;display:flex;align-items:center;justify-content:center;gap:6px;max-width:calc(100% - 62px);background:#ffffffeb;border:1px solid #e4d9ee;border-radius:6px;padding:7px 9px;font-size:10px;color:#745987}
@@ -236,6 +240,8 @@
 .pc-purge-dialog h2 {font-size:21px;margin:16px 0 11px}
 .pc-purge-dialog p {font-size:13px;line-height:1.8;color:#796485}
 .pc-purge-dialog>div {display:flex;justify-content:flex-end;gap:10px;margin-top:23px}
+.pc-purge-dialog .pc-purge-actions.has-featured-choice {display:grid;grid-template-columns:1fr 1fr}
+.pc-purge-actions .pc-delete-unfeatured {grid-column:1 / -1}
 .pc-purge-dialog button {display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 15px;border:1px solid #dcd0e8;border-radius:7px;background:#f9f6fc;color:#685575;font:inherit;font-size:12px;cursor:pointer}
 .pc-purge-dialog button.pc-permanent-delete {background:#a63b54;color:#fff;border-color:#a63b54}
 .pc-purge-dialog button:disabled {opacity:.45;cursor:default}

@@ -13,7 +13,8 @@ const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 fs.mkdirSync('test-results',{recursive:true});
 const draft={...DRAFT,characterIds:['character'],copies:1,garmentIds:['garment-a'],poseIds:['pose-portrait-action-rail-squat'],expressionIds:['expression-smile'],gazeIds:[],mode:'random',randomPoolMode:'selected',randomCount:2,cameraEnabled:false};
-f.store.mutate(state=>{state.draft=structuredClone(draft);state.customerRecipe=createCustomerRecipe(state,draft);});
+const videoPrompts=f.photoVideos.publicSettings().prompts;
+f.store.mutate(state=>{state.draft=structuredClone(draft);state.customerRecipe=createCustomerRecipe(state,draft);for(const row of videoPrompts) if(!state.presets.some(preset=>preset.id===row.id)) state.presets.push({...row,category:'video',tags:[]});});
 try {
   await loginBrowser(page,f.base);
   const field=page.getByRole('group',{name:'視線提詞',exact:true});
@@ -28,8 +29,15 @@ try {
   await expect(page.locator('.prompt-preview')).toContainText('Gaze direction:');
   await expect(page.locator('.prompt-preview')).toContainText('normal standing height');
   await field.screenshot({path:path.resolve('test-results/gaze-controls-desktop.png')});
-  await page.getByRole('button',{name:'套用至顧客攝影棚',exact:true}).click();
+  await page.getByRole('button',{name:'參數設定檔',exact:true}).click();
+  await page.getByRole('button',{name:'設定視線候選',exact:true}).click();
+  await page.getByRole('checkbox',{name:'看向畫面左側',exact:true}).check();
+  await page.getByRole('checkbox',{name:'看向手中物件',exact:true}).check();
+  const configSaved=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/customer-configs/default' && response.request().method()==='PATCH');
+  await page.getByRole('button',{name:'保存設定檔',exact:true}).click();
+  const result=await configSaved;assert.equal(result.status(),200,await result.text());
   await expect.poll(()=>f.store.read(state=>state.customerRecipe.pools.gaze.map(row=>row.id))).toEqual(['gaze-left','gaze-object']);
+  await page.getByRole('button',{name:'拍攝工作檯',exact:true}).click();
   await page.reload();await expect(field).toContainText('看向畫面左側、看向手中物件');
   await page.setViewportSize({width:390,height:844});await expect(field).toBeVisible();
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
@@ -63,5 +71,5 @@ try {
   assert.ok(edited.prompt.includes(edited.gaze.prompt));assert.ok(!edited.prompt.includes(f.store.read(state=>state.jobs.find(row=>row.id==='gaze-source').gaze.prompt)));
   assert.equal(edited.prompt.split('Gaze direction:').length,2);
   assert.deepEqual(errors,[]);
-  console.log('Gaze selection, publishing, reload, mobile layout and customer photo customization passed.');
+  console.log('Gaze selection, account configuration saving, reload, mobile layout and customer photo customization passed.');
 } finally {await browser.close();await f.close();}

@@ -30,6 +30,7 @@
     "test:gallery-ui": "node tests/gallery-layout-browser.mjs",
     "test:loading-ui": "node tests/image-loading-browser.mjs",
     "test:photo-selection-ui": "node tests/photo-selection-browser.mjs",
+    "test:featured-protection-ui": "node tests/featured-photo-protection-browser.mjs",
     "test:folder-loading-ui": "node tests/photo-folders-on-demand-browser.mjs",
     "test:video-environment-ui": "node tests/video-environment-browser.mjs",
     "test:video-publishing-ui": "node tests/video-publishing-browser.mjs",

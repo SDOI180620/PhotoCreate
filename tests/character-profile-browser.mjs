@@ -67,7 +67,8 @@ try {
   await edit.getByRole('button',{name:'儲存角色設定',exact:true}).click();await expect(edit).toHaveCount(0);
   const saved=f.store.read().characters.find(row=>row.id===personal.id);assert.equal(saved.name,'我的角色');assert.equal(saved.cupSize,'B');assert.equal(saved.heightCm,158.5);
   assert.deepEqual(f.store.read().jobs.find(row=>row.visitorId===personal.visitorId).character,originalProfile);
-  await customer.getByRole('button',{name:'選擇角色 我的角色',exact:true}).click();await expect(edit).toBeVisible();
+  await customer.getByRole('button',{name:'選擇角色 我的角色',exact:true}).click();await expect(customer.getByRole('button',{name:'選擇角色 我的角色',exact:true})).toHaveAttribute('aria-pressed','true');await expect(edit).toHaveCount(0);
+  await customer.getByRole('button',{name:'編輯角色 我的角色',exact:true}).click();await expect(edit).toBeVisible();
   await edit.getByLabel('角色名稱',{exact:true}).fill('未保存');await edit.getByRole('button',{name:'取消',exact:true}).click();assert.equal(f.store.read().characters.find(row=>row.id===personal.id).name,'我的角色');
   await customer.getByRole('button',{name:'編輯角色 我的角色',exact:true}).click();await edit.getByRole('button',{name:'刪除角色',exact:true}).click();
   await edit.getByRole('button',{name:'保留角色',exact:true}).click();assert(f.store.read().characters.some(row=>row.id===personal.id));

@@ -8,6 +8,9 @@ import {createApp} from '../server/index.js';
 import {fixtureState,TEMPLATE,PNG,DRAFT} from './fixtures.js';
 import {login} from './auth-client.js';
 import {CAMERA_TEMPLATE} from './camera-fixtures.js';
+import {SINGLE_SUBJECT_PROMPT,SINGLE_SUBJECT_NEGATIVE} from '../shared/subject.js';
+const assertSinglePositive=positive=>assert.equal(positive.split(SINGLE_SUBJECT_PROMPT).length,2);
+const assertSingleNegative=negative=>{const terms=negative.split(',').map(term=>term.trim());for(const term of SINGLE_SUBJECT_NEGATIVE.split(', ')) assert.ok(terms.includes(term),term);};
 
 async function fixture(t) {
   const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'PhotoCreate-customer-shoot-'));
@@ -51,6 +54,76 @@ async function fixture(t) {
   };
   return {request,customer,base,finish};
 }
+
+test('顧客自訂動作保留原文，正向提詞恢復單人限制',async t=>{
+  const f=await fixture(t),customer=await f.customer();
+  const action='Two adult friends sit together on a park bench, talking.';
+  const result=await customer.request('/shoots',{characterId:'character',mode:'custom',count:1,aspectRatio:'16:9',requestId:randomUUID(),selections:{
+    clothing:[{source:'official',id:'garment-b'}],pose:[{source:'temporary',name:'兩人聊天',prompt:action}],
+  }});
+  assert.equal(result.status,202);
+  const details=await customer.request(`/jobs/${result.data.jobs[0].id}/prompts`);assert.equal(details.status,200);
+  const {positive}=details.data.stages.find(stage=>stage.id==='base');
+  assert.ok(positive.includes(`Pose: ${action}`));
+  assertSinglePositive(positive);
+});
+
+test('顧客隨機使用舊設定檔仍保留單人、畫質與版面負面限制',async t=>{
+  const f=await fixture(t);
+  const config=await f.request('/api/customer-configs',{name:'原有人數限制',draft:{...DRAFT,mode:'random',randomPoolMode:'selected',cameraEnabled:false,
+    negative:'blurry, multiple people, more than one person, two people, three people, group shot, crowd, extra person, duplicate person, cloned person, multiple bodies, multiple faces, repeated subject, multiple poses, repeated body, side by side figures, multiple views, collage, watermark',
+  }});
+  assert.equal(config.status,201);const customer=await f.customer('multi-person-random',config.data.id);
+  const result=await customer.request('/shoots',{characterId:'character',count:1,requestId:randomUUID()});assert.equal(result.status,202);
+  const details=await customer.request(`/jobs/${result.data.jobs[0].id}/prompts`);assert.equal(details.status,200);
+  const {negative}=details.data.stages.find(stage=>stage.id==='base');
+  assertSingleNegative(negative);
+  for(const term of ['blurry','watermark','multiple views','collage']) assert.ok(negative.split(',').map(value=>value.trim()).includes(term),term);
+});
+
+test('舊設定檔保留服裝單人限制及手寫動作',async t=>{
+  const f=await fixture(t),action='Two adult friends stand side by side and wave.';
+  const extra=`Show only the character from <image1> wearing the referenced outfit.\n\n${action}`;
+  const config=await f.request('/api/customer-configs',{name:'舊服裝參考',draft:{...DRAFT,mode:'random',randomPoolMode:'selected',cameraEnabled:false,extra}});
+  assert.equal(config.status,201);const customer=await f.customer('multi-person-legacy',config.data.id);
+  const result=await customer.request('/shoots',{characterId:'character',count:1,requestId:randomUUID()});assert.equal(result.status,202);await f.finish();
+  const details=await customer.request(`/jobs/${result.data.jobs[0].id}/prompts`);assert.equal(details.status,200);
+  const base=details.data.stages.find(stage=>stage.id==='base');assert.equal(base.source,'snapshot');
+  assert.ok(base.positive.includes(action));
+  assert.match(base.positive,/Show only the character from <image1>/);assertSinglePositive(base.positive);
+});
+
+test('不同角度拍攝與細節修復恢復單人正負提詞且保留原紀錄',async t=>{
+  const f=await fixture(t),customer=await f.customer(),action='Two adult friends sit together on a park bench, talking.';
+  const source=await customer.request('/shoots',{characterId:'character',mode:'custom',count:1,aspectRatio:'16:9',requestId:randomUUID(),selections:{pose:[{source:'temporary',name:'兩人聊天',prompt:action}]}});
+  assert.equal(source.status,202);const original=source.data.jobs[0];await f.finish();
+  const before=(await customer.request(`/jobs/${original.id}/prompts`)).data;
+  const result=await customer.request(`/jobs/${original.id}/angle`,{requestId:randomUUID(),imageIndex:0,angle:{horizontalAngle:45,verticalAngle:0,zoom:5}});
+  assert.equal(result.status,202);await f.finish();await f.finish();
+  const details=await customer.request(`/jobs/${result.data.job.id}/prompts`);assert.equal(details.status,200);
+  for(const stage of details.data.stages) {
+    assert.equal(stage.source,'snapshot');
+    assertSinglePositive(stage.positive);
+    assertSingleNegative(stage.negative);
+  }
+  assert.ok(details.data.stages.find(stage=>stage.id==='base').positive.includes(action));
+  assert.deepEqual((await customer.request(`/jobs/${original.id}/prompts`)).data,before);
+});
+
+test('照片重製保留動作與原紀錄，恢復單人提詞',async t=>{
+  const f=await fixture(t),customer=await f.customer(),action='Two adult friends stand side by side and wave.';
+  const source=await customer.request('/shoots',{characterId:'character',mode:'custom',count:1,aspectRatio:'1:1',requestId:randomUUID(),selections:{pose:[{source:'temporary',name:'兩人揮手',prompt:action}]}});
+  assert.equal(source.status,202);const original=source.data.jobs[0];await f.finish();
+  const before=(await customer.request(`/jobs/${original.id}/prompts`)).data;
+  const result=await customer.request(`/jobs/${original.id}/remake`,{requestId:randomUUID()});assert.equal(result.status,202);await f.finish();
+  const job=result.data.jobs[0];assert.equal(job.rootId,original.id);assert.equal(job.aspectRatio,'1:1');
+  const details=await customer.request(`/jobs/${job.id}/prompts`);assert.equal(details.status,200);
+  const base=details.data.stages.find(stage=>stage.id==='base');assert.equal(base.source,'snapshot');
+  assert.ok(base.positive.includes(action));
+  assertSinglePositive(base.positive);
+  assertSingleNegative(base.negative);
+  assert.deepEqual((await customer.request(`/jobs/${original.id}/prompts`)).data,before);
+});
 
 test('顧客自定義拍攝只使用勾選分類，未指定分類不隨機補上且保留張數與比例',async t=>{
   const f=await fixture(t),customer=await f.customer();
